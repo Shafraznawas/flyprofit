@@ -609,6 +609,9 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
 .sub{font-size:.62rem;color:var(--tx3);font-family:var(--mono);display:block;margin-top:3px;line-height:1.4;}
 .bk-sub-row .bk-lbl{color:var(--tx3);}
 .section-head{font-size:.56rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;padding:12px 0 6px;border-bottom:1px solid var(--b0);margin-bottom:4px;}
+.cat-btn{padding:10px 8px;border-radius:10px;border:1.5px solid var(--b1);background:rgba(255,255,255,.03);color:var(--tx2);font-size:.78rem;font-family:var(--sans);font-weight:600;cursor:pointer;transition:all .18s;text-align:center;}
+.cat-btn:hover{border-color:var(--purple3);color:var(--tx1);}
+.cat-btn.active{background:rgba(124,58,237,.18);border-color:var(--purple3);color:var(--purple3);box-shadow:0 0 0 1px rgba(124,58,237,.25);}
 .net-box{background:linear-gradient(135deg,rgba(124,58,237,.14),rgba(168,85,247,.08));border:1px solid rgba(124,58,237,.3);border-radius:14px;padding:20px 16px;text-align:center;margin-top:16px;}
 .net-box .lbl{font-size:.55rem;font-family:var(--mono);color:var(--purple3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;display:block;font-weight:600;text-align:center;}
 .net-box .amt{font-size:1.8rem;font-weight:700;font-family:var(--mono);color:var(--tx1);letter-spacing:-.02em;}
@@ -728,6 +731,18 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
 
   <!-- PAGE 3: INPUTS -->
   <div class="page" id="page-inputs">
+    <div class="card">
+      <div class="card-head"><span class="card-ico">👤</span><div><div class="card-title">Crew Category</div><div class="card-sub">Your position — sets all pay rates</div></div></div>
+      <div class="card-body" style="padding-bottom:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="catBtnWrap">
+          <button class="cat-btn" data-cat="CS">CS</button>
+          <button class="cat-btn" data-cat="CM">CM</button>
+          <button class="cat-btn" data-cat="FA_SENIOR">FA Senior</button>
+          <button class="cat-btn" data-cat="FA_JUNIOR">FA Junior</button>
+        </div>
+        <div id="catRateInfo" style="margin-top:10px;font-size:.69rem;font-family:var(--mono);color:var(--tx3);line-height:1.8;"></div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-head"><span class="card-ico">📋</span><div><div class="card-title">Monthly Variables</div><div class="card-sub">Change each month</div></div></div>
       <div class="card-body">
@@ -927,6 +942,16 @@ const RATE_TIER2 = 32.00;   // USD per hour, hours above 75
 const RATE_ACTING_CM = 20.00; // USD per hour, CS position with CM market
 const OVERNIGHT_ALLOWANCE_RATE = 20.00; // USD per qualifying duty, fixed for CS — does not change
 const TIER_THRESHOLD_MIN = 75 * 60; // minutes
+
+// ---------- Category pay rates ----------
+function getRates() {
+  switch(state && state.category || 'CS') {
+    case 'CM':        return { tier1: 20.00, tier2: 38.00, overnight: 30.00, actingLabel: null,  actingRate: 0 };
+    case 'FA_SENIOR': return { tier1:  8.50, tier2: 26.00, overnight: 18.00, actingLabel: 'CS',  actingRate: 13.50 };
+    case 'FA_JUNIOR': return { tier1:  6.50, tier2: 26.00, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50 };
+    default:          return { tier1: 13.50, tier2: 32.00, overnight: 20.00, actingLabel: 'CM',  actingRate: 20.00 };
+  }
+}
 
 const TURNAROUND_PAY_SHORT = 21; // USD, round-trip block < 4hrs
 const TURNAROUND_PAY_LONG = 28;  // USD, round-trip block >= 4hrs
@@ -1484,9 +1509,10 @@ function calculateFlyingPay(sectors, hasLeave) {
     guaranteeApplied = true;
   }
 
-  const tier1USD = minutesToDecimalHours(tier1Min) * RATE_TIER1;
-  const tier2USD = minutesToDecimalHours(tier2Min) * RATE_TIER2;
-  const actingCMUSD = minutesToDecimalHours(actingCMMin) * RATE_ACTING_CM;
+  const rates = getRates();
+  const tier1USD = minutesToDecimalHours(tier1Min) * rates.tier1;
+  const tier2USD = minutesToDecimalHours(tier2Min) * rates.tier2;
+  const actingCMUSD = minutesToDecimalHours(actingCMMin) * rates.actingRate;
   const totalUSD = tier1USD + tier2USD + actingCMUSD;
 
   return {
@@ -1845,7 +1871,8 @@ let state = {
   nonFlightMarkers: [],
   warnings: [],
   manualFlights: [],
-  lastCalculation: null
+  lastCalculation: null,
+  category: localStorage.getItem('sla_category') || 'CS'
 };
 
 function $(id) { return document.getElementById(id); }
@@ -1889,7 +1916,7 @@ function renderFlightTable() {
 
     const badgeClass = f.dutyType === 'Layover' ? 'layover' : f.dutyType === 'Combined' ? 'combined' : 'turn';
     const passBadge = f.isPassengering ? ' <span class="badge pass">P</span>' : '';
-    const cmBadge = f.actingCM ? ' <span class="badge verified">CM</span>' : '';
+    const cmBadge = f.actingCM ? ` <span class="badge verified">${getRates().actingLabel||'CM'}</span>` : '';
 
     tr.innerHTML = `
       <td>${f.date || '-'}</td>
@@ -1947,7 +1974,8 @@ function openEditFlight(idx) {
   if (ata === null) return;
   const dutyType = prompt('Duty type (Turn / Layover):', f.dutyType || 'Turn');
   const isPassengering = confirm('Is this a Passengering (P) flight?');
-  const actingCM = confirm('Was this flight Acting CM (CS position with CM market)?');
+  const _al = getRates().actingLabel;
+  const actingCM = _al ? confirm(`Was this flight Acting ${_al}?`) : false;
 
   f.orig = orig.toUpperCase().trim();
   f.atd = atd.trim();
@@ -1979,7 +2007,8 @@ $('btnAddManualFlight').addEventListener('click', () => {
   if (ata === null) return;
   const dutyType = prompt('Duty type (Turn / Layover):', 'Turn');
   const isPassengering = confirm('Is this a Passengering (P) flight?');
-  const actingCM = confirm('Was this flight Acting CM?');
+  const _al2 = getRates().actingLabel;
+  const actingCM = _al2 ? confirm(`Was this flight Acting ${_al2}?`) : false;
 
   const r = calcBlockMinutes(orig.toUpperCase().trim(), atd.trim(), dest.toUpperCase().trim(), ata.trim(), false);
   state.manualFlights.push({
@@ -2037,7 +2066,8 @@ function calculateSalary() {
     }
   }
 
-  const overnightAllowance = calculateOvernightAllowance(flights, OVERNIGHT_ALLOWANCE_RATE);
+  const _rates = getRates();
+  const overnightAllowance = calculateOvernightAllowance(flights, _rates.overnight);
 
   // Flying pay — use override block total if provided, otherwise parse from sectors
   let flyingPay;
@@ -2047,9 +2077,9 @@ function calculateSalary() {
     const standardMin = Math.max(0, blockOverrideMin - actingCMMin);
     const tier1Min = Math.min(standardMin, 75 * 60);
     const tier2Min = Math.max(0, standardMin - 75 * 60);
-    const tier1USD = (tier1Min / 60) * RATE_TIER1;
-    const tier2USD = (tier2Min / 60) * RATE_TIER2;
-    const actingCMUSD = (actingCMMin / 60) * RATE_ACTING_CM;
+    const tier1USD = (tier1Min / 60) * _rates.tier1;
+    const tier2USD = (tier2Min / 60) * _rates.tier2;
+    const actingCMUSD = (actingCMMin / 60) * _rates.actingRate;
     flyingPay = {
       tier1Min, tier2Min, actingCMMin,
       tier1USD, tier2USD, actingCMUSD,
@@ -2199,9 +2229,9 @@ function renderTierGauge(fp) {
       </div>
     </div>
     <div class="gauge-stats">
-      <div class="gs"><div class="gs-l">Tier 1</div><div class="gs-v t1">${minutesToHHMM(fp.tier1Min)}</div><div class="gs-r">$13.50</div></div>
-      <div class="gs"><div class="gs-l">Tier 2</div><div class="gs-v t2">${minutesToHHMM(fp.tier2Min)}</div><div class="gs-r">$32.00</div></div>
-      <div class="gs"><div class="gs-l">Act. CM</div><div class="gs-v cm">${minutesToHHMM(fp.actingCMMin)}</div><div class="gs-r">$20.00</div></div>
+      <div class="gs"><div class="gs-l">Tier 1</div><div class="gs-v t1">${minutesToHHMM(fp.tier1Min)}</div><div class="gs-r">$${getRates().tier1.toFixed(2)}</div></div>
+      <div class="gs"><div class="gs-l">Tier 2</div><div class="gs-v t2">${minutesToHHMM(fp.tier2Min)}</div><div class="gs-r">$${getRates().tier2.toFixed(2)}</div></div>
+      ${getRates().actingLabel ? `<div class="gs"><div class="gs-l">Act. ${getRates().actingLabel}</div><div class="gs-v cm">${minutesToHHMM(fp.actingCMMin)}</div><div class="gs-r">$${getRates().actingRate.toFixed(2)}</div></div>` : ''}
     </div>
   `;
 }
@@ -2226,7 +2256,7 @@ function renderResults(c) {
   let stub = '';
   stub += trow('Block Hours', `<span style="color:var(--cyan2);font-weight:700;">${blockDisplay}</span>`, `${t1hrs} T1 + ${t2hrs} T2`);
   stub += trow('Productive Pay', fmtLKR(productivePay), 'Flying - Meal deductions');
-  if (c.flyingPay.actingCMMin > 0) stub += trow('Acting CM Pay', fmtLKR(c.flyingPay.actingCMUSD * c.dollarRate));
+  if (c.flyingPay.actingCMMin > 0) stub += trow(`Acting ${getRates().actingLabel||'CM'} Pay`, fmtLKR(c.flyingPay.actingCMUSD * c.dollarRate));
   stub += trow('Turnaround Pay', fmtLKR(c.turnaroundPayLKR), `${c.turnaroundPay.turnaroundCount} duties`);
   stub += trow('Fixed Earnings', fmtLKR(c.basicSalary + c.premiumAllowance + c.crge));
   if (c.salesCommissionLKR > 0) stub += trow('Sales Commission', fmtLKR(c.salesCommissionLKR));
@@ -2251,7 +2281,7 @@ function renderResults(c) {
   html += row('Premium Allowance', fmtLKR(c.premiumAllowance));
   html += row('CRGE', fmtLKR(c.crge));
   html += row('Productive Pay', fmtLKR(productivePay), `Flying ${fmtUSD(c.flyingPay.tier1USD+c.flyingPay.tier2USD)} (${t1hrs}+${t2hrs}) — meal deductions listed below`);
-  if (c.flyingPay.actingCMMin > 0) html += row('Acting CM Pay', fmtLKR(c.flyingPay.actingCMUSD*c.dollarRate), fmtUSD(c.flyingPay.actingCMUSD));
+  if (c.flyingPay.actingCMMin > 0) html += row(`Acting ${getRates().actingLabel||'CM'} Pay`, fmtLKR(c.flyingPay.actingCMUSD*c.dollarRate), fmtUSD(c.flyingPay.actingCMUSD));
   html += row('Turnaround Pay', fmtLKR(c.turnaroundPayLKR), `${c.turnaroundPay.turnaroundCount} duties`);
   if (c.turnaroundPay && c.turnaroundPay.details && c.turnaroundPay.details.length > 0) {
     c.turnaroundPay.details.forEach((d) => {
@@ -2614,6 +2644,26 @@ document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('cl
 renderHistoryPanel();
 renderChecklist([]);
 renderTierGauge({tier1Min:0,tier2Min:0,actingCMMin:0,overrideUsed:false,totalBlockMin:0});
+
+// ---------- Category selector wiring ----------
+function updateCatUI() {
+  const cat = state.category;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+  const r = getRates();
+  const actingLine = r.actingLabel ? `Act. ${r.actingLabel} &nbsp;$${r.actingRate.toFixed(2)}/hr` : 'No Acting column';
+  const el = document.getElementById('catRateInfo');
+  if (el) el.innerHTML = `Tier 1 &nbsp;$${r.tier1.toFixed(2)}/hr &nbsp;·&nbsp; Above 75hrs &nbsp;$${r.tier2.toFixed(2)}/hr<br>Overnight &nbsp;$${r.overnight.toFixed(2)}/duty &nbsp;·&nbsp; ${actingLine}`;
+}
+
+document.querySelectorAll('.cat-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    state.category = b.dataset.cat;
+    localStorage.setItem('sla_category', state.category);
+    updateCatUI();
+  });
+});
+
+updateCatUI();
 
 
 
