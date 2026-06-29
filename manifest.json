@@ -1,0 +1,38 @@
+{
+  "name": "SLA Crew Salary Calculator",
+  "short_name": "SLA Salary",
+  "description": "SriLankan Airlines Cabin Crew Salary Calculator by SR Creation",
+  "start_url": "/SL-salary-app/",
+  "scope": "/SL-salary-app/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b0e1a",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["finance", "productivity"]
+}
