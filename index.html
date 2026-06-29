@@ -2287,7 +2287,7 @@ function renderResults(c) {
   html += row('Premium Allowance', fmtLKR(c.premiumAllowance));
   html += row('CRGE', fmtLKR(c.crge));
   const _r = getRates();
-  const _payBreakdown = `$${_r.tier1.toFixed(2)} × ${t1hrs}${fp.tier2Min>0?` + $${_r.tier2.toFixed(2)} × ${t2hrs}`:''}  = ${fmtUSD(c.flyingPay.tier1USD+c.flyingPay.tier2USD)} — meal deductions below`;
+  const _payBreakdown = `$${_r.tier1.toFixed(2)} × ${t1hrs}${c.flyingPay.tier2Min>0?` + $${_r.tier2.toFixed(2)} × ${t2hrs}`:''}  = ${fmtUSD(c.flyingPay.tier1USD+c.flyingPay.tier2USD)} — meal deductions below`;
   html += row('Productive Pay', fmtLKR(productivePay), _payBreakdown);
   if (c.flyingPay.actingCMMin > 0) html += row(`Acting ${getRates().actingLabel||'CM'} Pay`, fmtLKR(c.flyingPay.actingCMUSD*c.dollarRate), fmtUSD(c.flyingPay.actingCMUSD));
   html += row('Turnaround Pay', fmtLKR(c.turnaroundPayLKR), `${c.turnaroundPay.turnaroundCount} duties`);
