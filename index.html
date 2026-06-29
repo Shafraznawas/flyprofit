@@ -2199,10 +2199,10 @@ function calculateSalary() {
       ovArea.innerHTML = ov.details.map((d,i) => `
         <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
           <span style="color:var(--tx2);">Duty ${i+1} &nbsp;·&nbsp; ${d.flightNo}</span>
-          <span style="color:var(--green);font-weight:600;">+ $20.00</span>
+          <span style="color:var(--green);font-weight:600;">+ $${getRates().overnight.toFixed(2)}</span>
         </div>`).join('') +
         `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;">
-          <span>Total</span><span style="color:var(--green);">+ ${fmtUSD(ov.count * 20)}</span>
+          <span>Total</span><span style="color:var(--green);">+ ${fmtUSD(ov.count * getRates().overnight)}</span>
         </div>`;
     } else {
       ovArea.innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">No overnight duties this month</div>';
