@@ -451,7 +451,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   --tx1:#e2e8ff;--tx2:#7d8ab0;--tx3:#3e4a68;
   --mono:'Roboto Mono','Courier New',monospace;
   --sans:-apple-system,'Segoe UI','Roboto',Arial,sans-serif;
-  --nav-h:64px;--top-h:56px;
+  --nav-h:64px;--top-h:56px;--cyan2:#00e5ff;--border:rgba(255,255,255,.07);
 }
 [data-theme="light"]{--bg:#f0f4f8;--card:#ffffff;--card2:#f8fafc;--inp:#e2e8f0;--b0:rgba(0,0,0,.08);--b1:rgba(0,0,0,.12);--b2:rgba(124,58,237,.2);--tx1:#1a1f35;--tx2:#4a5568;--tx3:#94a3b8;--purple:#6d28d9;--purple2:#7c3aed;--purple3:#8b5cf6;--cyan:#0891b2;--red:#dc2626;--amber:#d97706;--green:#16a34a;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -598,6 +598,20 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
 .month-tag .del{color:var(--red);font-weight:700;}
 .collapsible-body.hidden{display:none;}
 .sec-lbl{font-size:.56rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;}
+
+/* RESULTS BREAKDOWN */
+.summary-row{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--b0);gap:14px;}
+.summary-row:last-of-type{border-bottom:none;}
+.summary-row.total{padding:13px 0;border-top:2px solid var(--b1);border-bottom:2px solid var(--b1);margin:6px 0;}
+.summary-row.total .lbl,.summary-row.total .val{font-weight:700;font-size:.88rem;color:var(--tx1);}
+.lbl{font-size:.78rem;color:var(--tx2);font-family:var(--sans);flex:1;line-height:1.4;}
+.val{font-size:.8rem;font-family:var(--mono);font-weight:600;color:var(--tx1);white-space:nowrap;text-align:right;}
+.sub{font-size:.62rem;color:var(--tx3);font-family:var(--mono);display:block;margin-top:3px;line-height:1.4;}
+.bk-sub-row .bk-lbl{color:var(--tx3);}
+.section-head{font-size:.56rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;padding:12px 0 6px;border-bottom:1px solid var(--b0);margin-bottom:4px;}
+.net-box{background:linear-gradient(135deg,rgba(124,58,237,.14),rgba(168,85,247,.08));border:1px solid rgba(124,58,237,.3);border-radius:14px;padding:20px 16px;text-align:center;margin-top:16px;}
+.net-box .lbl{font-size:.55rem;font-family:var(--mono);color:var(--purple3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;display:block;font-weight:600;text-align:center;}
+.net-box .amt{font-size:1.8rem;font-weight:700;font-family:var(--mono);color:var(--tx1);letter-spacing:-.02em;}
 </style>
 </head>
 <body>
@@ -804,7 +818,26 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   <button class="nav-btn" data-page="page-gauge"><span class="nav-icon">📊</span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
 </div>
 <!-- DISCLAIMER OVERLAY -->
-<div id="disclaimer-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;"><div style="background:var(--card);border:1px solid var(--b1);border-radius:20px;max-width:400px;width:100%;padding:30px 24px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);"><div style="font-size:2.4rem;margin-bottom:14px;">&#9888;&#65039;</div><div style="font-size:1rem;font-weight:700;color:var(--tx1);margin-bottom:10px;">Unofficial Calculator</div><div style="font-size:.78rem;color:var(--tx2);line-height:1.65;margin-bottom:22px;">This is an <strong style="color:var(--tx1);">unofficial tool</strong> for SriLankan Airlines cabin crew to estimate monthly salary.<br><br>It is <strong style="color:var(--amber);">not affiliated with or endorsed by SriLankan Airlines</strong>. Results are <strong style="color:var(--tx1);">estimates only</strong>.<br><br>The developer accepts <strong style="color:var(--red);">no responsibility</strong> for any discrepancy with your official payslip. Always verify with HR.</div><button id="btnDisclaimerOk" style="width:100%;background:var(--purple);color:#fff;border:none;border-radius:12px;padding:16px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:var(--sans);">&#9989; I Understand &#8212; Continue</button><div style="margin-top:12px;font-size:.65rem;color:var(--tx3);">Shown once per device</div></div></div>
+<div id="disclaimer-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--card);border:1px solid var(--b1);border-radius:20px;max-width:400px;width:100%;padding:28px 24px;box-shadow:0 12px 48px rgba(0,0,0,.5);">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <div style="width:42px;height:42px;border-radius:12px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">&#128203;</div>
+      <div>
+        <div style="font-size:.92rem;font-weight:700;color:var(--tx1);line-height:1.2;">Salary Estimator</div>
+        <div style="font-size:.65rem;color:var(--purple3);font-family:var(--mono);margin-top:2px;">SriLankan Airlines · Cabin Crew</div>
+      </div>
+    </div>
+    <div style="background:rgba(255,255,255,.03);border:1px solid var(--b0);border-radius:12px;padding:14px 16px;margin-bottom:18px;">
+      <div style="font-size:.76rem;color:var(--tx2);line-height:1.7;">This tool gives you a <strong style="color:var(--tx1);">close estimate</strong> of your monthly take-home pay based on your uploaded roster.<br><br>Figures may vary slightly from your official payslip due to rounding, allowance adjustments, or payroll corrections. <strong style="color:var(--tx1);">Always verify your final salary with the official company payslip.</strong></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:10px 12px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:10px;">
+      <span style="font-size:.9rem;">&#128161;</span>
+      <span style="font-size:.7rem;color:var(--amber);line-height:1.5;">Not affiliated with SriLankan Airlines. Use as a planning guide only.</span>
+    </div>
+    <button id="btnDisclaimerOk" style="width:100%;background:var(--purple);color:#fff;border:none;border-radius:12px;padding:15px;font-size:.86rem;font-weight:700;cursor:pointer;font-family:var(--sans);letter-spacing:.01em;" onmousedown="this.style.opacity='.8'" onmouseup="this.style.opacity='1'" ontouchend="this.style.opacity='1'">Got it &#8212; Open Calculator</button>
+    <div style="margin-top:10px;font-size:.62rem;color:var(--tx3);text-align:center;">Shown once. Results are estimates &#183; check with HR for final figures.</div>
+  </div>
+</div>
 <!-- PWA INSTALL BANNER -->
 <div id="pwa-install-banner" style="display:none;position:fixed;bottom:calc(var(--nav-h) + 12px);left:12px;right:12px;z-index:998;background:var(--card2);border:1px solid var(--b2);border-radius:14px;padding:13px 16px;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,.5);"><span style="font-size:1.4rem;">&#128268;</span><div style="flex:1;min-width:0;"><div style="font-size:.8rem;font-weight:700;color:var(--tx1);">Add to Home Screen</div><div style="font-size:.66rem;color:var(--tx2);margin-top:2px;">Works offline</div></div><button id="pwa-install-btn" style="background:var(--purple);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:var(--sans);white-space:nowrap;flex-shrink:0;">Install</button><button id="pwa-install-dismiss" style="background:none;border:none;color:var(--tx3);font-size:1.1rem;cursor:pointer;padding:6px;line-height:1;flex-shrink:0;">&#10005;</button></div>
 
@@ -2607,7 +2640,7 @@ if ('serviceWorker' in navigator) {
 <script>
 // ── DISCLAIMER: show once per device ──────────────────────
 (function(){
-  if(!localStorage.getItem('sla_disclaimer_seen')){
+  if(!localStorage.getItem('sla_disclaimer_v2')){
     document.getElementById('disclaimer-overlay').style.display='flex';
   }
 })();
@@ -2645,7 +2678,7 @@ window.addEventListener('appinstalled', function(){
 
 
 <script>
-(function(){var o=document.getElementById('btnDisclaimerOk');if(o)o.addEventListener('click',function(){localStorage.setItem('sla_disclaimer_seen','1');document.getElementById('disclaimer-overlay').style.display='none';});var d=document.getElementById('pwa-install-dismiss');if(d)d.addEventListener('click',function(){document.getElementById('pwa-install-banner').style.display='none';});})();
+(function(){var o=document.getElementById('btnDisclaimerOk');if(o)o.addEventListener('click',function(){localStorage.setItem('sla_disclaimer_v2','1');document.getElementById('disclaimer-overlay').style.display='none';});var d=document.getElementById('pwa-install-dismiss');if(d)d.addEventListener('click',function(){document.getElementById('pwa-install-banner').style.display='none';});})();
 </script>
 </body>
 </html>
