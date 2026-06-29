@@ -1,5 +1,5 @@
-﻿// SLA Salary Portal — Service Worker v57
-const CACHE = 'sla-salary-v81';
+﻿// SLA Salary Portal — Service Worker v58
+const CACHE = 'sla-salary-v82';
 
 const ASSETS = [
   '/SL-salary-app/',
@@ -30,7 +30,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-cache' })
       .then(res => {
         if (res && res.status === 200) {
           const clone = res.clone();
