@@ -2250,15 +2250,7 @@ function renderResults(c) {
   html += row('Basic Salary', fmtLKR(c.basicSalary));
   html += row('Premium Allowance', fmtLKR(c.premiumAllowance));
   html += row('CRGE', fmtLKR(c.crge));
-  html += row('Productive Pay', fmtLKR(productivePay), `Flying ${fmtUSD(c.flyingPay.tier1USD+c.flyingPay.tier2USD)} (${t1hrs}+${t2hrs}) − Meal ${fmtLKR(c.mealDeductionsLKR)}`);
-  if (c.mealDeductions && c.mealDeductions.details && c.mealDeductions.details.length > 0) {
-    c.mealDeductions.details.forEach(d => {
-      html += `<div class="bk-row bk-sub-row" style="padding-left:20px;opacity:.85;">
-        <span class="bk-lbl" style="font-size:.72rem;">↳ ${d.flightNo}</span>
-        <span class="bk-val" style="font-size:.72rem;color:var(--red);">− ${fmtUSD(d.amount)}</span>
-      </div>`;
-    });
-  }
+  html += row('Productive Pay', fmtLKR(productivePay), `Flying ${fmtUSD(c.flyingPay.tier1USD+c.flyingPay.tier2USD)} (${t1hrs}+${t2hrs}) — meal deductions listed below`);
   if (c.flyingPay.actingCMMin > 0) html += row('Acting CM Pay', fmtLKR(c.flyingPay.actingCMUSD*c.dollarRate), fmtUSD(c.flyingPay.actingCMUSD));
   html += row('Turnaround Pay', fmtLKR(c.turnaroundPayLKR), `${c.turnaroundPay.turnaroundCount} duties`);
   if (c.turnaroundPay && c.turnaroundPay.details && c.turnaroundPay.details.length > 0) {
@@ -2268,6 +2260,17 @@ function renderResults(c) {
         <span class="bk-val" style="font-size:.72rem;color:var(--green);">+ ${fmtUSD(d.rate)}</span>
       </div>`;
     });
+  }
+  if (c.overnightAllowanceLKR > 0) {
+    html += row('Overnight Allowance', '+ ' + fmtLKR(c.overnightAllowanceLKR), `${c.overnightAllowance.count} duty · $20 each · Non-taxable`);
+    if (c.overnightAllowance.details && c.overnightAllowance.details.length > 0) {
+      c.overnightAllowance.details.forEach((d, idx) => {
+        html += `<div class="bk-row bk-sub-row" style="padding-left:20px;opacity:.85;">
+          <span class="bk-lbl" style="font-size:.72rem;">↳ Duty ${idx+1}</span>
+          <span class="bk-val" style="font-size:.72rem;color:var(--green);">+ $20.00</span>
+        </div>`;
+      });
+    }
   }
   if (c.salesCommissionLKR > 0) html += row('Sales Commission', fmtLKR(c.salesCommissionLKR));
   html += `<div class="summary-row total"><span class="lbl">Total For Tax</span><span class="val">${fmtLKR(c.totalForTax)}</span></div>`;
@@ -2280,16 +2283,14 @@ function renderResults(c) {
   html += row('Stamp Duty', fmtLKR(c.stampDuty));
   if (c.additionalDeductions > 0) html += row('Additional Deductions', '− ' + fmtLKR(c.additionalDeductions));
   html += `<div class="summary-row total"><span class="lbl">Total Deductions</span><span class="val">${fmtLKR(c.totalDeductions)}</span></div>`;
-  if (c.overnightAllowanceLKR > 0) {
-    html += row('Overnight Allowance', '+ ' + fmtLKR(c.overnightAllowanceLKR), `${c.overnightAllowance.count} duty · USD 20 · Non-taxable`);
-    if (c.overnightAllowance.details && c.overnightAllowance.details.length > 0) {
-      c.overnightAllowance.details.forEach((d, idx) => {
-        html += `<div class="bk-row bk-sub-row" style="padding-left:20px;opacity:.85;">
-          <span class="bk-lbl" style="font-size:.72rem;">↳ Duty ${idx+1}</span>
-          <span class="bk-val" style="font-size:.72rem;color:var(--green);">+ $20.00</span>
-        </div>`;
-      });
-    }
+  if (c.mealDeductions && c.mealDeductions.details && c.mealDeductions.details.length > 0) {
+    const _mealUSD = c.mealDeductions.details.reduce((s,d) => s + d.amount, 0);
+    const _mealLKR = _mealUSD * c.dollarRate;
+    html += `<div class="section-head" style="color:var(--red);border-color:rgba(248,113,113,.2);">Meal Overlap Deductions</div>`;
+    c.mealDeductions.details.forEach(d => {
+      html += `<div class="summary-row"><span class="lbl" style="padding-left:12px;">↳ ${d.flightNo}</span><span class="val" style="color:var(--red);">− ${fmtUSD(d.amount)}</span></div>`;
+    });
+    html += `<div class="summary-row total" style="border-color:rgba(248,113,113,.3);"><span class="lbl" style="color:var(--red);">Total Meal Deductions</span><span class="val" style="color:var(--red);">${fmtUSD(_mealUSD)} &nbsp;/&nbsp; ${fmtLKR(_mealLKR)}</span></div>`;
   }
   html += `<div class="net-box"><div class="lbl">Net Salary</div><div class="amt">${fmtLKR(c.finalNet)}</div></div>`;
   $('resultsArea').innerHTML = html;
