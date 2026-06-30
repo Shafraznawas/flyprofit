@@ -892,6 +892,11 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <button class="eact-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes</button>
       </div>
     </div>
+    <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;margin-top:2px;">OVERNIGHT ALLOWANCE</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">
+      <button class="eovn-btn" data-val="false" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
+      <button class="eovn-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes 🌙</button>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <button id="ef-cancel" style="padding:12px;border-radius:12px;border:1.5px solid var(--b2);background:transparent;color:var(--tx2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Cancel</button>
       <button id="ef-save" style="padding:12px;border-radius:12px;border:none;background:var(--purple);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Save</button>
@@ -1889,7 +1894,7 @@ function calculateOvernightAllowance(sectors, rateUSD) {
     const crossesMidnight = (firstAtdMin + elapsed) >= 1440;
     if (crossesMidnight) {
       count++;
-      details.push({ date: first.date, flightNo: first.flightNo, elapsed });
+      details.push({ date: first.date, flightNo: first.flightNo, elapsed, dutyId: first.dutyId });
     }
   });
 
@@ -2027,6 +2032,7 @@ async function openEditFlight(idx) {
   f._manualDutyType = result.dutyType;
   f.isPassengering = result.isPassengering;
   f.actingCM = result.actingCM;
+  f._manualOvernight = result.manualOvernight;
 
   const r = calcBlockMinutes(f.orig, f.atd, f.dest, f.ata, false);
   f.blockMinutes = r.minutes;
@@ -2118,6 +2124,17 @@ function calculateSalary() {
 
   const _rates = getRates();
   const overnightAllowance = calculateOvernightAllowance(flights, _rates.overnight);
+
+  // Inject manually-flagged overnight duties not already counted by the algorithm
+  const _countedOvnDuties = new Set(overnightAllowance.details.map(d => d.dutyId).filter(Boolean));
+  flights.forEach(f => {
+    if (f._manualOvernight && !_countedOvnDuties.has(f.dutyId)) {
+      _countedOvnDuties.add(f.dutyId);
+      overnightAllowance.count++;
+      overnightAllowance.totalUSD += _rates.overnight;
+      overnightAllowance.details.push({ date: f.date, flightNo: f.flightNo, dutyId: f.dutyId, manual: true });
+    }
+  });
 
   // Flying pay — use override block total if provided, otherwise parse from sectors
   let flyingPay;
@@ -2348,7 +2365,7 @@ function renderResults(c) {
     if (c.overnightAllowance.details && c.overnightAllowance.details.length > 0) {
       c.overnightAllowance.details.forEach((d, idx) => {
         html += `<div class="bk-row bk-sub-row" style="padding-left:20px;opacity:.85;">
-          <span class="bk-lbl" style="font-size:.72rem;">↳ ${d.flightNo || ('Duty '+(idx+1))} · ${d.date||''}</span>
+          <span class="bk-lbl" style="font-size:.72rem;">↳ ${d.flightNo || ('Duty '+(idx+1))} · ${d.date||''}${d.manual?' · manual':''}</span>
           <span class="bk-val" style="font-size:.72rem;color:var(--green);">+ $${getRates().overnight.toFixed(2)}</span>
         </div>`;
       });
@@ -2775,6 +2792,13 @@ function showEditModal(f, title) {
       btn.onclick = () => { selectedActing = btn.dataset.val === 'true'; styleToggle('.eact-btn', selectedActing); };
     });
 
+    // Overnight manual override
+    let selectedOvn = f._manualOvernight || false;
+    styleToggle('.eovn-btn', selectedOvn);
+    modal.querySelectorAll('.eovn-btn').forEach(btn => {
+      btn.onclick = () => { selectedOvn = btn.dataset.val === 'true'; styleToggle('.eovn-btn', selectedOvn); };
+    });
+
     modal.style.display = 'flex';
     $('ef-orig').focus();
 
@@ -2788,7 +2812,8 @@ function showEditModal(f, title) {
         ata: $('ef-ata').value.trim(),
         dutyType: selectedType,
         isPassengering: selectedPass,
-        actingCM: selectedActing
+        actingCM: selectedActing,
+        manualOvernight: selectedOvn
       });
     };
   });
