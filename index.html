@@ -470,18 +470,17 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .tb-calc{background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:#f0e0ff;border-radius:22px;padding:9px 16px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--sans);box-shadow:0 0 18px rgba(124,58,237,.4);display:flex;align-items:center;gap:5px;white-space:nowrap;}
 
 /* PAGES */
-.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px calc(var(--nav-h) + 16px);display:flex;flex-direction:column;gap:12px;}
+.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px 24px;display:flex;flex-direction:column;gap:12px;}
 .page{display:none;flex-direction:column;gap:12px;}
 .page.active{display:flex;}
 
-/* BOTTOM NAV */
-.bottomnav{height:var(--nav-h);flex-shrink:0;background:rgba(11,14,26,.97);border-top:1px solid var(--b0);display:flex;align-items:stretch;z-index:100;padding-bottom:env(safe-area-inset-bottom,0px);}
-.nav-btn{flex:1;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:8px 4px 6px;color:var(--tx3);font-family:var(--sans);}
-.nav-btn.active{color:var(--purple3);}
-.nav-icon{font-size:20px;line-height:1;}
-.nav-lbl{font-size:.58rem;font-weight:600;letter-spacing:.02em;}
-.nav-dot{width:4px;height:4px;border-radius:50%;background:var(--purple2);margin-top:1px;opacity:0;}
-.nav-btn.active .nav-dot{opacity:1;}
+/* TOP NAV TABS */
+.bottomnav{height:var(--nav-h);flex-shrink:0;background:rgba(11,14,26,.98);border-bottom:1px solid var(--b0);display:flex;align-items:stretch;z-index:100;}
+.nav-btn{flex:1;border:none;border-bottom:3px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:6px 4px 5px;color:var(--tx3);font-family:var(--sans);transition:color .15s,border-color .15s;}
+.nav-btn.active{color:var(--purple3);border-bottom-color:var(--purple3);background:rgba(124,58,237,.08);}
+.nav-icon{font-size:17px;line-height:1;}
+.nav-lbl{font-size:.58rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+.nav-dot{display:none;}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -631,6 +630,13 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   </div>
 </div>
 
+<div class="bottomnav">
+  <button class="nav-btn active" data-page="page-roster"><span class="nav-icon">📋</span><span class="nav-lbl">Roster</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-home"><span class="nav-icon">💰</span><span class="nav-lbl">Result</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-inputs"><span class="nav-icon">✏️</span><span class="nav-lbl">Inputs</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-gauge"><span class="nav-icon">📊</span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
+</div>
+
 <div class="scroll-area" id="scrollArea">
 
   <!-- PAGE 1: ROSTER (first = most used) -->
@@ -650,6 +656,10 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
             <label>💵 USD Rate (LKR)</label>
             <input type="number" id="dollarRate" step="0.01" placeholder="e.g. 318.56">
             <div class="hint">Changes monthly</div>
+          </div>
+          <div class="field">
+            <label>💰 Sales Commission (LKR)</label>
+            <input type="number" id="salesCommission" step="0.01" placeholder="Optional">
           </div>
         </div>
       </div>
@@ -731,11 +741,6 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   <div class="page" id="page-inputs">
     <div class="card">
       <div class="card-head"><span class="card-ico">📋</span><div><div class="card-title">Monthly Variables</div><div class="card-sub">Change each month</div></div></div>
-      <div class="card-body">
-        <div class="g2">
-          <div class="field"><label>💰 Sales Commission (LKR)</label><input type="number" id="salesCommission" step="0.01" placeholder="Optional"></div>
-        </div>
-      </div>
     </div>
     <div class="card">
       <div class="card-head"><span class="card-ico">💰</span><div><div class="card-title">Fixed Earnings (LKR)</div><div class="card-sub">Auto-saved · rarely changes</div></div></div>
@@ -812,12 +817,6 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
 
 </div>
 
-<div class="bottomnav">
-  <button class="nav-btn active" data-page="page-roster"><span class="nav-icon">📋</span><span class="nav-lbl">Roster</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-home"><span class="nav-icon">💰</span><span class="nav-lbl">Result</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-inputs"><span class="nav-icon">✏️</span><span class="nav-lbl">Inputs</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-gauge"><span class="nav-icon">📊</span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
-</div>
 <!-- DISCLAIMER OVERLAY -->
 <div id="disclaimer-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px;">
   <div style="background:var(--card);border:1px solid var(--b1);border-radius:20px;max-width:400px;width:100%;padding:28px 24px;box-shadow:0 12px 48px rgba(0,0,0,.5);">
