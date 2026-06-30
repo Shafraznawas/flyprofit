@@ -740,9 +740,6 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   <!-- PAGE 3: INPUTS -->
   <div class="page" id="page-inputs">
     <div class="card">
-      <div class="card-head"><span class="card-ico">📋</span><div><div class="card-title">Monthly Variables</div><div class="card-sub">Change each month</div></div></div>
-    </div>
-    <div class="card">
       <div class="card-head"><span class="card-ico">💰</span><div><div class="card-title">Fixed Earnings (LKR)</div><div class="card-sub">Auto-saved · rarely changes</div></div></div>
       <div class="card-body">
         <div class="field"><label>Basic Salary</label><input type="number" id="basicSalary" value="0"></div>
@@ -878,10 +875,22 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
     <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;">DUTY TYPE</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:18px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:14px;">
       <button class="etype-btn" data-val="Turn" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Turn</button>
       <button class="etype-btn" data-val="Combined" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Combined</button>
       <button class="etype-btn" data-val="Layover" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Layover</button>
+    </div>
+    <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;">PASSENGERING</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">
+      <button class="epass-btn" data-val="false" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
+      <button class="epass-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes (P)</button>
+    </div>
+    <div id="ef-acting-wrap" style="display:none;">
+      <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;" id="ef-acting-lbl">ACTING</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">
+        <button class="eact-btn" data-val="false" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
+        <button class="eact-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes</button>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <button id="ef-cancel" style="padding:12px;border-radius:12px;border:1.5px solid var(--b2);background:transparent;color:var(--tx2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Cancel</button>
@@ -2017,9 +2026,6 @@ async function openEditFlight(idx) {
   const f = flights[idx];
   const result = await showEditModal(f, 'Edit Flight');
   if (!result) return;
-  const isPassengering = await showConfirm('Is this a Passengering (P) flight?');
-  const _al = getRates().actingLabel;
-  const actingCM = _al ? await showConfirm(`Was this flight Acting ${_al}?`) : false;
 
   f.orig = result.orig;
   f.atd = result.atd;
@@ -2027,8 +2033,8 @@ async function openEditFlight(idx) {
   f.ata = result.ata;
   f.dutyType = result.dutyType;
   f._manualDutyType = result.dutyType;
-  f.isPassengering = isPassengering;
-  f.actingCM = actingCM;
+  f.isPassengering = result.isPassengering;
+  f.actingCM = result.actingCM;
 
   const r = calcBlockMinutes(f.orig, f.atd, f.dest, f.ata, false);
   f.blockMinutes = r.minutes;
@@ -2737,23 +2743,44 @@ function showEditModal(f, title) {
     $('ef-atd').value = f.atd || '';
     $('ef-ata').value = f.ata || '';
 
-    // Wire time auto-colon
     ['ef-atd','ef-ata'].forEach(id => wireTimeInput($(id)));
 
-    // Duty type selector
+    function styleToggle(selector, val) {
+      modal.querySelectorAll(selector).forEach(b => {
+        const active = b.dataset.val === String(val);
+        b.style.background = active ? 'var(--purple)' : 'transparent';
+        b.style.color = active ? '#fff' : 'var(--tx2)';
+        b.style.borderColor = active ? 'var(--purple)' : 'var(--b1)';
+      });
+    }
+
+    // Duty type
     let selectedType = f.dutyType || 'Turn';
+    styleToggle('.etype-btn', selectedType);
     modal.querySelectorAll('.etype-btn').forEach(btn => {
-      btn.style.background = btn.dataset.val === selectedType ? 'var(--purple)' : 'transparent';
-      btn.style.color = btn.dataset.val === selectedType ? '#fff' : 'var(--tx2)';
-      btn.style.borderColor = btn.dataset.val === selectedType ? 'var(--purple)' : 'var(--b1)';
-      btn.onclick = () => {
-        selectedType = btn.dataset.val;
-        modal.querySelectorAll('.etype-btn').forEach(b => {
-          b.style.background = b.dataset.val === selectedType ? 'var(--purple)' : 'transparent';
-          b.style.color = b.dataset.val === selectedType ? '#fff' : 'var(--tx2)';
-          b.style.borderColor = b.dataset.val === selectedType ? 'var(--purple)' : 'var(--b1)';
-        });
-      };
+      btn.onclick = () => { selectedType = btn.dataset.val; styleToggle('.etype-btn', selectedType); };
+    });
+
+    // Passengering
+    let selectedPass = f.isPassengering || false;
+    styleToggle('.epass-btn', selectedPass);
+    modal.querySelectorAll('.epass-btn').forEach(btn => {
+      btn.onclick = () => { selectedPass = btn.dataset.val === 'true'; styleToggle('.epass-btn', selectedPass); };
+    });
+
+    // Acting (show only if category has acting label)
+    const _al = getRates().actingLabel;
+    const actingWrap = $('ef-acting-wrap');
+    if (_al) {
+      $('ef-acting-lbl').textContent = `ACTING ${_al}`;
+      actingWrap.style.display = 'block';
+    } else {
+      actingWrap.style.display = 'none';
+    }
+    let selectedActing = f.actingCM || false;
+    styleToggle('.eact-btn', selectedActing);
+    modal.querySelectorAll('.eact-btn').forEach(btn => {
+      btn.onclick = () => { selectedActing = btn.dataset.val === 'true'; styleToggle('.eact-btn', selectedActing); };
     });
 
     modal.style.display = 'flex';
@@ -2767,7 +2794,9 @@ function showEditModal(f, title) {
         dest: $('ef-dest').value.toUpperCase().trim(),
         atd: $('ef-atd').value.trim(),
         ata: $('ef-ata').value.trim(),
-        dutyType: selectedType
+        dutyType: selectedType,
+        isPassengering: selectedPass,
+        actingCM: selectedActing
       });
     };
   });
