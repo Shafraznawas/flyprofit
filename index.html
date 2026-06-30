@@ -723,10 +723,8 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     </div>
 
     <div class="action-row">
-      <button class="act-btn" id="btnSaveMonth">💾 Save Month</button>
       <button class="act-btn pur" id="btnExportPDF">🖨 Print PDF</button>
     </div>
-    <div id="historyPanel" style="display:none;"></div>
   </div>
 
   <!-- PAGE 3: INPUTS -->
@@ -856,6 +854,40 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       <button class="cat-pick-btn" data-cat="FA_JUNIOR" style="padding:18px 10px;border-radius:14px;border:1.5px solid var(--b1);background:rgba(255,255,255,.03);color:var(--tx2);font-size:.75rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .18s;line-height:1.4;text-align:center;"><span style="font-size:.95rem;display:block;">FA</span>Flight Attendant C1 / C2</button>
     </div>
     <button id="btnCategoryConfirm" disabled style="width:100%;background:var(--purple);color:#fff;border:none;border-radius:12px;padding:15px;font-size:.86rem;font-weight:700;cursor:pointer;font-family:var(--sans);opacity:.4;transition:opacity .2s;">Confirm &amp; Open Calculator</button>
+  </div>
+</div>
+<!-- FLIGHT EDIT MODAL -->
+<div id="edit-flight-modal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--card);border:1px solid var(--b1);border-radius:20px;max-width:340px;width:100%;padding:22px 18px;box-shadow:0 12px 48px rgba(0,0,0,.7);">
+    <div style="font-size:.95rem;font-weight:700;color:var(--tx1);margin-bottom:18px;text-align:center;" id="ef-title">Edit Flight</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div>
+        <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">FROM</div>
+        <input id="ef-orig" type="text" maxlength="3" placeholder="CMB" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.9rem;font-family:var(--mono);text-transform:uppercase;box-sizing:border-box;">
+      </div>
+      <div>
+        <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">TO</div>
+        <input id="ef-dest" type="text" maxlength="3" placeholder="DXB" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.9rem;font-family:var(--mono);text-transform:uppercase;box-sizing:border-box;">
+      </div>
+      <div>
+        <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">DEPARTURE (HH:MM)</div>
+        <input id="ef-atd" type="text" maxlength="5" placeholder="07:30" inputmode="numeric" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.9rem;font-family:var(--mono);box-sizing:border-box;">
+      </div>
+      <div>
+        <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">ARRIVAL (HH:MM)</div>
+        <input id="ef-ata" type="text" maxlength="5" placeholder="10:15" inputmode="numeric" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.9rem;font-family:var(--mono);box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;">DUTY TYPE</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:18px;">
+      <button class="etype-btn" data-val="Turn" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Turn</button>
+      <button class="etype-btn" data-val="Combined" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Combined</button>
+      <button class="etype-btn" data-val="Layover" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Layover</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <button id="ef-cancel" style="padding:12px;border-radius:12px;border:1.5px solid var(--b2);background:transparent;color:var(--tx2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Cancel</button>
+      <button id="ef-save" style="padding:12px;border-radius:12px;border:none;background:var(--purple);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Save</button>
+    </div>
   </div>
 </div>
 <!-- STYLED CONFIRM MODAL -->
@@ -1150,6 +1182,11 @@ function parseRosterText(lines) {
     const tokens = t.body.split(/\s+/).filter(Boolean);
     if (!tokens.length) continue;
 
+    if (/^(CSC|SEP|DGR|CSE|ISF)$/.test(tokens[0])) {
+      // Training/ground duty codes — ignore for pay calculation
+      seqCounter++;
+      continue;
+    }
     if (/^(OFF|ROF|ALP|OTR|S\/L|CLV|ALV|CDE|CFD|TOF)$/.test(tokens[0])) {
       dutyLines.push({ date: t.date, kind: 'DayOff', raw: t.raw, seqIndex: seqCounter++ });
       continue;
@@ -1167,7 +1204,7 @@ function parseRosterText(lines) {
     let idx = 0;
     if (tokens[0] === 'P') { isPassengering = true; idx = 1; }
 
-    if (!tokens[idx] || !/^[A-Z]{2}\d{2,4}$/.test(tokens[idx])) {
+    if (!tokens[idx] || !/^[A-Z]{2}\d{2,4}[A-Z]?$/.test(tokens[idx])) {
       warnings.push({ line: t.raw, reason: 'Unrecognized line — could not identify activity/flight code.' });
       seqCounter++;
       continue;
@@ -1979,25 +2016,18 @@ function deleteFlight(idx) {
 async function openEditFlight(idx) {
   const flights = getAllFlights();
   const f = flights[idx];
-  const orig = prompt('Departure station (3-letter code):', f.orig || '');
-  if (orig === null) return;
-  const atd = prompt('Departure time (HH:MM, local to departure station):', f.atd || '');
-  if (atd === null) return;
-  const dest = prompt('Arrival station (3-letter code):', f.dest || '');
-  if (dest === null) return;
-  const ata = prompt('Arrival time (HH:MM, local to arrival station):', f.ata || '');
-  if (ata === null) return;
-  const dutyType = prompt('Duty type (Turn / Layover):', f.dutyType || 'Turn');
+  const result = await showEditModal(f, 'Edit Flight');
+  if (!result) return;
   const isPassengering = await showConfirm('Is this a Passengering (P) flight?');
   const _al = getRates().actingLabel;
   const actingCM = _al ? await showConfirm(`Was this flight Acting ${_al}?`) : false;
 
-  f.orig = orig.toUpperCase().trim();
-  f.atd = atd.trim();
-  f.dest = dest.toUpperCase().trim();
-  f.ata = ata.trim();
-  f.dutyType = dutyType ? dutyType.trim() : f.dutyType;
-  f._manualDutyType = f.dutyType; // sticky — survives groupIntoDuties re-classification
+  f.orig = result.orig;
+  f.atd = result.atd;
+  f.dest = result.dest;
+  f.ata = result.ata;
+  f.dutyType = result.dutyType;
+  f._manualDutyType = result.dutyType;
   f.isPassengering = isPassengering;
   f.actingCM = actingCM;
 
@@ -2400,15 +2430,6 @@ function getMonthKey() {
   return $('monthYear').value || 'unsaved-month';
 }
 
-$('btnSaveMonth').addEventListener('click', () => {
-  if (!state.lastCalculation) { alert('Please calculate the salary first.'); return; }
-  const key = getMonthKey();
-  const allHistory = JSON.parse(localStorage.getItem('sla_salary_history') || '{}');
-  allHistory[key] = { calculation: state.lastCalculation, inputs: collectInputs(), savedAt: new Date().toISOString() };
-  localStorage.setItem('sla_salary_history', JSON.stringify(allHistory));
-  alert(`Saved salary data for ${key}.`);
-  renderHistoryPanel();
-});
 
 function collectInputs() {
   const ids = [...MONTHLY_VALUE_IDS, ...FIXED_VALUE_IDS];
@@ -2696,6 +2717,62 @@ document.querySelectorAll('.cat-btn').forEach(b => {
 });
 
 updateCatUI();
+
+// ---------- Time auto-colon helper ----------
+function wireTimeInput(el) {
+  el.addEventListener('input', () => {
+    let v = el.value.replace(/\D/g, '');
+    if (v.length > 4) v = v.slice(0, 4);
+    if (v.length >= 3) v = v.slice(0, 2) + ':' + v.slice(2);
+    el.value = v;
+  });
+}
+
+// ---------- Flight edit modal ----------
+function showEditModal(f, title) {
+  return new Promise(resolve => {
+    const modal = $('edit-flight-modal');
+    $('ef-title').textContent = title || 'Edit Flight';
+    $('ef-orig').value = f.orig || '';
+    $('ef-dest').value = f.dest || '';
+    $('ef-atd').value = f.atd || '';
+    $('ef-ata').value = f.ata || '';
+
+    // Wire time auto-colon
+    ['ef-atd','ef-ata'].forEach(id => wireTimeInput($(id)));
+
+    // Duty type selector
+    let selectedType = f.dutyType || 'Turn';
+    modal.querySelectorAll('.etype-btn').forEach(btn => {
+      btn.style.background = btn.dataset.val === selectedType ? 'var(--purple)' : 'transparent';
+      btn.style.color = btn.dataset.val === selectedType ? '#fff' : 'var(--tx2)';
+      btn.style.borderColor = btn.dataset.val === selectedType ? 'var(--purple)' : 'var(--b1)';
+      btn.onclick = () => {
+        selectedType = btn.dataset.val;
+        modal.querySelectorAll('.etype-btn').forEach(b => {
+          b.style.background = b.dataset.val === selectedType ? 'var(--purple)' : 'transparent';
+          b.style.color = b.dataset.val === selectedType ? '#fff' : 'var(--tx2)';
+          b.style.borderColor = b.dataset.val === selectedType ? 'var(--purple)' : 'var(--b1)';
+        });
+      };
+    });
+
+    modal.style.display = 'flex';
+    $('ef-orig').focus();
+
+    $('ef-cancel').onclick = () => { modal.style.display = 'none'; resolve(null); };
+    $('ef-save').onclick = () => {
+      modal.style.display = 'none';
+      resolve({
+        orig: $('ef-orig').value.toUpperCase().trim(),
+        dest: $('ef-dest').value.toUpperCase().trim(),
+        atd: $('ef-atd').value.trim(),
+        ata: $('ef-ata').value.trim(),
+        dutyType: selectedType
+      });
+    };
+  });
+}
 
 // ---------- Styled confirm modal helper ----------
 function showConfirm(message) {
