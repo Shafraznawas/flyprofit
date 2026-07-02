@@ -2904,20 +2904,52 @@ function showConfirm(message) {
 
 
 
-// ── SERVICE WORKER ─────────────────────────────────────────
+// ── SERVICE WORKER — auto-update, no manual cache-clearing needed ──
 if ('serviceWorker' in navigator) {
+  function _showUpdateToast(msg) {
+    let t = document.getElementById('sla-update-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'sla-update-toast';
+      t.style.cssText = 'position:fixed;bottom:calc(var(--nav-h,0px) + 16px);left:50%;transform:translateX(-50%);z-index:99998;background:var(--card2,#151a2e);color:var(--tx1,#e2e8f0);border:1px solid var(--b2,rgba(124,58,237,.3));border-radius:12px;padding:10px 18px;font-size:.75rem;font-weight:600;font-family:var(--sans,sans-serif);box-shadow:0 4px 24px rgba(0,0,0,.5);white-space:nowrap;';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.display = 'block';
+  }
+
+  // As soon as a new SW takes control of this tab, reload to load the latest app —
+  // this is what makes updates apply automatically instead of needing a manual cache clear.
+  let _swRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_swRefreshing) return;
+    _swRefreshing = true;
+    _showUpdateToast('🔄 Updating to the latest version…');
+    setTimeout(() => window.location.reload(), 600);
+  });
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
       .then(reg => {
         console.log('[PWA] Service worker registered, scope:', reg.scope);
+
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[PWA] New version available — refresh to update');
+              console.log('[PWA] New version found — activating automatically');
             }
           });
         });
+
+        // Browsers only re-check sw.js for changes at most once every ~24h on their own.
+        // Force an explicit check whenever the app is opened or brought back to the
+        // foreground, so crew get updates within seconds instead of waiting up to a day.
+        reg.update().catch(() => {});
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+        });
+        setInterval(() => reg.update().catch(() => {}), 5 * 60 * 1000);
       })
       .catch(err => console.warn('[PWA] SW registration failed:', err));
   });
@@ -3028,7 +3060,7 @@ const TRIAL_ENABLED = false;
 
 if (TRIAL_ENABLED) (function(){
   const TRIAL_DAYS = 20;
-  const OWNER_SECRET = 'REPLACE_WITH_YOUR_OWNER_SECRET';       // TODO: set before launch
+  const OWNER_SECRET = 'Rifniya01';
   const OWNER_WHATSAPP = '94700000000';                        // TODO: your WhatsApp number, country code first, no + no spaces
   const _LIC_SALT = 'SLA-FLYPROFIT-2026';                      // TODO: change once, then keep identical in key_generator.html
 
