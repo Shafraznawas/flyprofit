@@ -468,6 +468,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .tb-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .tb-clock{font-size:.62rem;font-family:var(--mono);color:var(--cyan);background:rgba(0,200,240,.08);border:1px solid rgba(0,200,240,.15);border-radius:20px;padding:4px 10px;white-space:nowrap;}
 .tb-calc{background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:#f0e0ff;border-radius:22px;padding:9px 16px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--sans);box-shadow:0 0 18px rgba(124,58,237,.4);display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.tb-calc:disabled{background:var(--inp);color:var(--tx3);box-shadow:none;cursor:not-allowed;opacity:.6;}
 .tb-install{background:rgba(124,58,237,.12);border:1.5px solid var(--purple2);color:var(--purple3);border-radius:22px;padding:9px 14px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:5px;white-space:nowrap;}
 
 /* PAGES */
@@ -529,6 +530,9 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .sdot .dot{width:6px;height:6px;border-radius:50%;background:var(--tx3);flex-shrink:0;}
 .sdot.ok{color:var(--green);} .sdot.ok .dot{background:var(--green);box-shadow:0 0 5px var(--green);}
 .sdot.err{color:var(--red);} .sdot.err .dot{background:var(--red);}
+.upload-zone.uploaded{border-color:var(--green);background:rgba(34,197,94,.08);}
+.upload-zone.uploaded .uz-icon{background:rgba(34,197,94,.15);border-color:var(--green);}
+.upload-zone.uploaded .uz-title{color:var(--green);}
 .btn-outline{background:rgba(255,255,255,.04);border:1.5px solid var(--b0);color:var(--tx2);border-radius:10px;padding:13px;font-size:.78rem;font-weight:600;cursor:pointer;font-family:var(--sans);width:100%;margin-top:12px;min-height:50px;}
 
 /* TABLE */
@@ -683,10 +687,10 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <div class="badge-p">AUTOSYNC</div>
       </div>
       <div class="card-body">
-        <label class="upload-zone" for="rosterFile">
-          <div class="uz-icon">📥</div>
-          <div class="uz-title">Tap to upload Roster PDF</div>
-          <div class="uz-sub">Auto-computes block hours · turnarounds<br>meal deductions · overnight duties</div>
+        <label class="upload-zone" for="rosterFile" id="uploadZone">
+          <div class="uz-icon" id="uzIcon">📥</div>
+          <div class="uz-title" id="uzTitle">Tap to upload Roster PDF</div>
+          <div class="uz-sub" id="uzSub">Auto-computes block hours · turnarounds<br>meal deductions · overnight duties</div>
           <input type="file" id="rosterFile" accept="application/pdf">
         </label>
         <div class="sdot" id="uploadStatus"><span class="dot"></span>No roster loaded</div>
@@ -1972,6 +1976,7 @@ function getAllFlights() {
 
 function renderFlightTable() {
   const flights = getAllFlights();
+  updateCalcButtonState();
   $('flightTableWrap').style.display = flights.length ? 'block' : 'none';
   const tbody = $('flightTableBody');
   tbody.innerHTML = '';
@@ -2638,12 +2643,37 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   });
 });
 
+// Gate Calculate until a valid dollar rate is entered AND flights exist (roster or manual)
+function updateCalcButtonState(){
+  const btn=$('btnCalculate');
+  if(!btn) return;
+  const dollarRate=parseFloat($('dollarRate').value)||0;
+  const hasFlights=getAllFlights().length>0;
+  const ready=dollarRate>0 && hasFlights;
+  btn.disabled=!ready;
+  btn.title=ready?'':(dollarRate<=0?'Enter a Dollar Rate first':'Upload a roster or add a flight first');
+}
+
 // Upload status pill
-function setUploadStatus(text,cls){
+function setUploadStatus(text,cls,fileName){
   const el=$('uploadStatus');
-  if(!el) return;
-  el.innerHTML='<span class="dot"></span>'+text;
-  el.className='sdot'+(cls?' '+cls:'');
+  if(el){
+    el.innerHTML='<span class="dot"></span>'+text;
+    el.className='sdot'+(cls?' '+cls:'');
+  }
+  const zone=$('uploadZone'), icon=$('uzIcon'), title=$('uzTitle'), sub=$('uzSub');
+  if(!zone) return;
+  if(fileName && (cls==='ok'||cls==='err')){
+    zone.classList.add('uploaded');
+    if(icon) icon.textContent=cls==='ok'?'✅':'⚠️';
+    if(title) title.textContent='Roster Uploaded';
+    if(sub) sub.innerHTML=fileName+'<br>'+text+' · tap to replace';
+  } else {
+    zone.classList.remove('uploaded');
+    if(icon) icon.textContent='📥';
+    if(title) title.textContent='Tap to upload Roster PDF';
+    if(sub) sub.innerHTML='Auto-computes block hours · turnarounds<br>meal deductions · overnight duties';
+  }
 }
 
 // Stat cards
@@ -2675,9 +2705,9 @@ $('rosterFile').addEventListener('change',async(e)=>{
     const result=await parseRosterPDF(file);
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
     const n=result.sectors.length,err=result.warnings.length;
-    if(err===0) setUploadStatus(n+' sectors loaded','ok');
-    else setUploadStatus(n+' sectors &middot; '+err+' need review','err');
-    updateStatCards(); renderFlightTable(); renderWarnings();
+    if(err===0) setUploadStatus(n+' sectors loaded','ok',file.name);
+    else setUploadStatus(n+' sectors &middot; '+err+' need review','err',file.name);
+    updateStatCards(); renderFlightTable(); renderWarnings(); updateCalcButtonState();
   }catch(err){
     setUploadStatus('Failed: '+err.message,'err'); console.error(err);
   }
@@ -2703,9 +2733,13 @@ $('btnReset').addEventListener('click',()=>{
   if($('fullBreakdownCard')) $('fullBreakdownCard').style.display='none';
   renderTierGauge({tier1Min:0,tier2Min:0,actingCMMin:0,overrideUsed:false,totalBlockMin:0});
   renderChecklist([]);
+  updateCalcButtonState();
 });
 
 // Calculate
+$('dollarRate').addEventListener('input', updateCalcButtonState);
+updateCalcButtonState();
+
 $('btnCalculate').addEventListener('click',()=>{
   try {
     calculateSalary();
