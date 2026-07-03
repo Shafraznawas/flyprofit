@@ -916,9 +916,10 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       <button class="eovn-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes 🌙</button>
     </div>
     <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;margin-top:2px;">MEAL DEDUCTION</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">
-      <button class="emeal-btn" data-val="false" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
-      <button class="emeal-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes 🍽</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:14px;">
+      <button class="emeal-btn" data-val="auto" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Auto</button>
+      <button class="emeal-btn" data-val="no" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
+      <button class="emeal-btn" data-val="yes" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes 🍽</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <button id="ef-cancel" style="padding:12px;border-radius:12px;border:1.5px solid var(--b2);background:transparent;color:var(--tx2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Cancel</button>
@@ -2063,7 +2064,7 @@ async function openEditFlight(idx) {
   f.isPassengering = result.isPassengering;
   f.actingCM = result.actingCM;
   f._manualOvernight = result.manualOvernight;
-  f._manualMealDeduction = result.manualMealDeduction;
+  f._manualMealDeduction = result.manualMealDeduction === 'auto' ? undefined : result.manualMealDeduction;
 
   const r = calcBlockMinutes(f.orig, f.atd, f.dest, f.ata, false);
   f.blockMinutes = r.minutes;
@@ -2193,9 +2194,24 @@ function calculateSalary() {
   const turnaroundPay = calculateTurnaroundPay(flights);
   const mealDeductions = calculateMealDeductions(flights);
 
-  // Inject manually-flagged meal deductions not already counted by the algorithm
+  // Manual meal deduction overrides: 'no' force-removes any automatic
+  // deduction touching that flight; 'yes' force-adds one if not already
+  // counted. 'auto'/unset flights are left exactly as the algorithm computed.
+  const _suppressFlightNos = new Set(
+    flights.filter(f => f._manualMealDeduction === 'no').map(f => f.flightNo)
+  );
+  if (_suppressFlightNos.size) {
+    let removedTotal = 0;
+    mealDeductions.details = mealDeductions.details.filter(d => {
+      const touchesSuppressed = d.flightNo.split('+').some(fn => _suppressFlightNos.has(fn));
+      if (touchesSuppressed) { removedTotal += d.amount; return false; }
+      return true;
+    });
+    mealDeductions.totalUSD -= removedTotal;
+  }
+
   flights.forEach(f => {
-    if (!f._manualMealDeduction) return;
+    if (f._manualMealDeduction !== 'yes') return;
     const alreadyCounted = mealDeductions.details.some(d =>
       d.date === f.date && d.flightNo.split('+').includes(f.flightNo)
     );
@@ -2895,11 +2911,11 @@ function showEditModal(f, title) {
       btn.onclick = () => { selectedOvn = btn.dataset.val === 'true'; styleToggle('.eovn-btn', selectedOvn); };
     });
 
-    // Meal deduction manual override
-    let selectedMeal = f._manualMealDeduction || false;
+    // Meal deduction manual override (3-state: 'auto' / 'no' / 'yes')
+    let selectedMeal = f._manualMealDeduction || 'auto';
     styleToggle('.emeal-btn', selectedMeal);
     modal.querySelectorAll('.emeal-btn').forEach(btn => {
-      btn.onclick = () => { selectedMeal = btn.dataset.val === 'true'; styleToggle('.emeal-btn', selectedMeal); };
+      btn.onclick = () => { selectedMeal = btn.dataset.val; styleToggle('.emeal-btn', selectedMeal); };
     });
 
     modal.style.display = 'flex';
