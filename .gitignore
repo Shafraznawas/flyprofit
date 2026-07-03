@@ -1,3 +1,6 @@
 # Private tool — must never be pushed to the public repo.
 # Generates activation keys; keep this file local only.
 key_generator.html
+
+# Reference copy of the Apps Script device-log source — not part of the shipped app.
+apps_script_device_log.gs

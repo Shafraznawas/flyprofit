@@ -3129,6 +3129,7 @@ if (TRIAL_ENABLED) (function(){
   const OWNER_SECRET = 'Rifniya01';
   const OWNER_WHATSAPP = '94700000000';                        // TODO: your WhatsApp number, country code first, no + no spaces
   const _LIC_SALT = 'SLA-FLYPROFIT-2026';                      // TODO: change once, then keep identical in key_generator.html
+  const PING_URL = 'https://script.google.com/macros/s/AKfycbzSF4_Vt0MI43ZUIhIJtKHhykS0HlNYLUv0b5WKR1Kdxiq_I5_um91MNIbozkTI_lW9/exec';
 
   function _hashStr(s) {
     let h = 5381;
@@ -3166,11 +3167,26 @@ if (TRIAL_ENABLED) (function(){
   // Already activated on this device
   if (localStorage.getItem('sla_licensed') === '1') return;
 
+  // Device code — computed on every visit now (not just at expiry) so it can be logged
+  const code = _deviceCode();
+
   // Trial start timestamp (set once, real users only — simulate_day never touches this)
   let start = localStorage.getItem('sla_trial_start');
   if (!start) {
     start = Date.now().toString();
     localStorage.setItem('sla_trial_start', start);
+  }
+
+  // Real elapsed days — always the true value, deliberately independent of ?simulate_day
+  // below, so test runs never pollute the monitoring sheet with fake data.
+  const realElapsedDays = Math.floor((Date.now() - parseInt(start, 10)) / 86400000);
+
+  // Proactive monitoring ping — once per calendar day per device, fire-and-forget.
+  // Fails silently offline/ad-blocked; never affects the app itself.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (localStorage.getItem('sla_last_ping_date') !== todayStr) {
+    localStorage.setItem('sla_last_ping_date', todayStr);
+    fetch(PING_URL + '?code=' + encodeURIComponent(code), { mode: 'no-cors' }).catch(() => {});
   }
 
   // Testing backdoor — in-memory only, never persisted, never affects real users
@@ -3179,13 +3195,12 @@ if (TRIAL_ENABLED) (function(){
   if (simDay !== null && !isNaN(parseInt(simDay, 10))) {
     elapsedDays = parseInt(simDay, 10);
   } else {
-    elapsedDays = Math.floor((Date.now() - parseInt(start, 10)) / 86400000);
+    elapsedDays = realElapsedDays;
   }
 
   if (elapsedDays < TRIAL_DAYS) return; // still inside trial window — do nothing
 
-  // ---- Trial expired: build and show the lock screen ----
-  const code = _deviceCode();
+  // ---- Trial expired: show the lock screen (code already computed above) ----
 
   function showLock() {
     if (document.getElementById('sla-lock-overlay')) return;
