@@ -3127,7 +3127,7 @@ const TRIAL_ENABLED = false;
 if (TRIAL_ENABLED) (function(){
   const TRIAL_DAYS = 20;
   const OWNER_SECRET = 'Rifniya01';
-  const OWNER_WHATSAPP = '94700000000';                        // TODO: your WhatsApp number, country code first, no + no spaces
+  const OWNER_WHATSAPP = '94770077902';
   const _LIC_SALT = 'SLA-FLYPROFIT-2026';                      // TODO: change once, then keep identical in key_generator.html
   const PING_URL = 'https://script.google.com/macros/s/AKfycbzSF4_Vt0MI43ZUIhIJtKHhykS0HlNYLUv0b5WKR1Kdxiq_I5_um91MNIbozkTI_lW9/exec';
 
@@ -3223,7 +3223,18 @@ if (TRIAL_ENABLED) (function(){
     document.body.appendChild(ov);
     document.body.style.overflow = 'hidden';
 
-    const waMsg = encodeURIComponent('Hi, my SLA Salary Calculator trial has ended. My device code is: ' + code);
+    const waMsg = encodeURIComponent(
+      'Hi, my FlyProfit trial has ended.\n\n' +
+      'Device Code: ' + code + '\n\n' +
+      'I\'d like to activate FlyProfit:\n' +
+      '• Activation Fee: LKR 3,500\n\n' +
+      'Bank Transfer Details:\n' +
+      'Amana Bank PLC — Dehiwala Branch\n' +
+      'Account Name: SHAFRAZ FAROOK\n' +
+      'Account No: 0100156342010\n' +
+      'Reference: [Your Staff No]\n\n' +
+      'I\'ve made the payment and will attach my payment slip/screenshot in this chat.'
+    );
     document.getElementById('sla-wa-btn').href = 'https://wa.me/' + OWNER_WHATSAPP + '?text=' + waMsg;
 
     document.getElementById('sla-activate-btn').addEventListener('click', function() {
