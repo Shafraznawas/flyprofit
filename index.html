@@ -3216,9 +3216,32 @@ if (TRIAL_ENABLED) (function(){
 
   // Trial start timestamp (set once, real users only — simulate_day never touches this)
   let start = localStorage.getItem('sla_trial_start');
+  let isFirstOpen = false;
   if (!start) {
     start = Date.now().toString();
     localStorage.setItem('sla_trial_start', start);
+    isFirstOpen = true;
+  }
+
+  // First-ever open: show a one-time "trial started" welcome screen
+  if (isFirstOpen) {
+    function showTrialStartedOverlay() {
+      if (document.getElementById('sla-trial-start-overlay')) return;
+      const ov = document.createElement('div');
+      ov.id = 'sla-trial-start-overlay';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px;';
+      ov.innerHTML = `
+        <div style="max-width:380px;width:100%;background:#151a2e;border:1px solid rgba(124,58,237,.3);border-radius:16px;padding:28px 22px;text-align:center;font-family:sans-serif;color:#e2e8f0;">
+          <div style="font-size:2rem;margin-bottom:10px;">🎉</div>
+          <div style="font-size:1.05rem;font-weight:700;margin-bottom:6px;">Your Free Trial Has Started!</div>
+          <div style="font-size:.78rem;color:#94a3b8;margin-bottom:20px;">You now have full access to FlyProfit for the next ${TRIAL_DAYS} days, starting today. Enjoy!</div>
+          <button id="sla-trial-start-ok" style="width:100%;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">Got it!</button>
+        </div>`;
+      document.body.appendChild(ov);
+      document.getElementById('sla-trial-start-ok').addEventListener('click', () => ov.remove());
+    }
+    if (document.body) showTrialStartedOverlay();
+    else document.addEventListener('DOMContentLoaded', showTrialStartedOverlay);
   }
 
   // Real elapsed days — always the true value, deliberately independent of ?simulate_day
