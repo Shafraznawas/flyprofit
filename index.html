@@ -1866,8 +1866,9 @@ function calculateMealDeductions(sectors) {
  */
 function calculateOvernightAllowance(sectors, rateUSD) {
   // Overnight allowance is paid when a TURNAROUND duty crosses midnight UTC.
-  // Rule: duty start = check-in time (or ATD if no check-in). If the duty
-  // is still running past 00:00 UTC, it qualifies.
+  // Rule: duty start = check-in time (80 min before first ATD). If the duty
+  // is still running past 00:00 UTC, it qualifies — crew are on duty from
+  // check-in onward, so that gap counts toward crossing midnight too.
   //
   // We calculate this by tracking elapsed minutes from check-in.
   // Block minutes are already in UTC so no conversion needed.
@@ -1887,12 +1888,13 @@ function calculateOvernightAllowance(sectors, rateUSD) {
     if (group[0].dutyType !== 'Turn') return;
 
     const first = group[0];
-    // Start elapsed from first ATD — check-in padding excluded per rule:
-    // midnight must be crossed inside the actual flight/turnaround duration.
+    // Anchor from check-in, not ATD — 80 min before first departure, wrapped
+    // to the previous day if that pushes before 00:00.
     const firstAtdMin = timeToMinutes(first.atd);
     if (firstAtdMin === null || firstAtdMin === undefined) return;
+    const checkInMin = ((firstAtdMin - CMB_CHECKIN_BUFFER_MIN) % 1440 + 1440) % 1440;
 
-    let elapsed = 0;
+    let elapsed = CMB_CHECKIN_BUFFER_MIN; // check-in-to-departure gap counts too
 
     for (let i = 0; i < group.length; i++) {
       const sec = group[i];
@@ -1917,8 +1919,8 @@ function calculateOvernightAllowance(sectors, rateUSD) {
       }
     }
 
-    // Duty crosses midnight if ATD + elapsed >= 1440 min (24 hrs)
-    const crossesMidnight = (firstAtdMin + elapsed) >= 1440;
+    // Duty crosses midnight if check-in + elapsed >= 1440 min (24 hrs / 00:00)
+    const crossesMidnight = (checkInMin + elapsed) >= 1440;
     if (crossesMidnight) {
       count++;
       details.push({ date: first.date, flightNo: first.flightNo, elapsed, dutyId: first.dutyId });
