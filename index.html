@@ -2374,7 +2374,7 @@ function trow(label, value, sub, cls) {
 
 function renderResults(c) {
   const netEl = $('netSalaryDisplay');
-  if (netEl) { netEl.textContent = fmtLKR(c.netBeforeOvernight); netEl.className = 'sh-amt live'; }
+  if (netEl) { netEl.textContent = fmtLKR(c.netBeforeOvernight); netEl.className = 'nh-amt live'; }
   if ($('netOvernightDisplay')) $('netOvernightDisplay').textContent = fmtLKR(c.overnightAllowanceLKR);
   if ($('netSalarySplit')) $('netSalarySplit').innerHTML = `Total: <b>${fmtLKR(c.finalNet)}</b> &nbsp;·&nbsp; paid as 2 separate deposits`;
   if ($('netSalaryTag')) $('netSalaryTag').textContent = `Rate: ${c.dollarRate} | ${c.apit.slabUsed}`;
@@ -2774,7 +2774,7 @@ $('btnReset').addEventListener('click',()=>{
   $('parseWarnings').innerHTML='';
   $('resultsArea').innerHTML='<div style="text-align:center;color:var(--tx3);font-size:.74rem;padding:12px 0;">Calculate to see breakdown</div>';
   if($('resultsStub')) $('resultsStub').innerHTML='<div style="text-align:center;color:var(--tx3);font-size:.68rem;font-family:var(--mono);padding:14px 0;">&middot; &middot; &middot; &middot; &middot; &middot; &middot; &middot; &middot;</div>';
-  const n=$('netSalaryDisplay'); if(n){n.textContent='LKR —';n.className='sh-a';}
+  const n=$('netSalaryDisplay'); if(n){n.textContent='LKR —';n.className='nh-amt';}
   if($('netOvernightDisplay')) $('netOvernightDisplay').textContent='LKR —';
   if($('netSalaryTag')) $('netSalaryTag').innerHTML='&#8594; Awaiting cabin crew roster Sync...<br>Fill in exchange rate and upload PDF roster.';
   if($('netSalarySplit')) $('netSalarySplit').innerHTML='';
