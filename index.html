@@ -915,6 +915,11 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       <button class="eovn-btn" data-val="false" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
       <button class="eovn-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes 🌙</button>
     </div>
+    <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;margin-top:2px;">MEAL DEDUCTION</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">
+      <button class="emeal-btn" data-val="false" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
+      <button class="emeal-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes 🍽</button>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <button id="ef-cancel" style="padding:12px;border-radius:12px;border:1.5px solid var(--b2);background:transparent;color:var(--tx2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Cancel</button>
       <button id="ef-save" style="padding:12px;border-radius:12px;border:none;background:var(--purple);color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Save</button>
@@ -2056,6 +2061,7 @@ async function openEditFlight(idx) {
   f.isPassengering = result.isPassengering;
   f.actingCM = result.actingCM;
   f._manualOvernight = result.manualOvernight;
+  f._manualMealDeduction = result.manualMealDeduction;
 
   const r = calcBlockMinutes(f.orig, f.atd, f.dest, f.ata, false);
   f.blockMinutes = r.minutes;
@@ -2184,6 +2190,18 @@ function calculateSalary() {
 
   const turnaroundPay = calculateTurnaroundPay(flights);
   const mealDeductions = calculateMealDeductions(flights);
+
+  // Inject manually-flagged meal deductions not already counted by the algorithm
+  flights.forEach(f => {
+    if (!f._manualMealDeduction) return;
+    const alreadyCounted = mealDeductions.details.some(d =>
+      d.date === f.date && d.flightNo.split('+').includes(f.flightNo)
+    );
+    if (alreadyCounted) return;
+    mealDeductions.totalUSD += MEAL_RATE;
+    mealDeductions.details.push({ date: f.date, flightNo: f.flightNo, meals: ['Manual'], amount: MEAL_RATE });
+  });
+
   const connectedSeqIndices = mealDeductions.connectedSeqIndices;
   // Mark connected turn sectors as 'Combined' on state.sectors directly
   // Then re-render table so badge shows immediately after Calculate
@@ -2875,6 +2893,13 @@ function showEditModal(f, title) {
       btn.onclick = () => { selectedOvn = btn.dataset.val === 'true'; styleToggle('.eovn-btn', selectedOvn); };
     });
 
+    // Meal deduction manual override
+    let selectedMeal = f._manualMealDeduction || false;
+    styleToggle('.emeal-btn', selectedMeal);
+    modal.querySelectorAll('.emeal-btn').forEach(btn => {
+      btn.onclick = () => { selectedMeal = btn.dataset.val === 'true'; styleToggle('.emeal-btn', selectedMeal); };
+    });
+
     modal.style.display = 'flex';
     $('ef-orig').focus();
 
@@ -2889,7 +2914,8 @@ function showEditModal(f, title) {
         dutyType: selectedType,
         isPassengering: selectedPass,
         actingCM: selectedActing,
-        manualOvernight: selectedOvn
+        manualOvernight: selectedOvn,
+        manualMealDeduction: selectedMeal
       });
     };
   });
