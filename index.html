@@ -1439,13 +1439,16 @@ function finalizeSectors(sectors) {
 }
 
 // Extracts Staff No / Name / roster month from the roster PDF header.
-// Header line looks like: "ShaFar17401Farook Shafraz 20304032NMUS;C4;..."
+// Header line, as actually reconstructed by pdf.js's Y/X-position grouping
+// (confirmed against a real roster), looks like:
+// "Farook Shafraz 17401 ShaFar MUS;C4;G36;HT5'8>;INJAS2;INJAS1; 20304032N"
+// i.e. Name, then Staff No, then a short name-code, then quals.
 // Period line looks like: "01MAY26 - 31MAY26"
 function extractRosterIdentity(lines) {
   const joined = lines.join('\n');
-  const headerMatch = joined.match(/[A-Za-z]{4,8}(\d{4,6})([A-Za-z][A-Za-z ]+?)\s+\d{6,}/);
-  const staffNo = headerMatch ? headerMatch[1] : null;
-  const staffName = headerMatch ? headerMatch[2].trim() : null;
+  const headerMatch = joined.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)\s+(\d{4,6})\s+[A-Za-z]{3,8}\b/);
+  const staffName = headerMatch ? headerMatch[1].trim() : null;
+  const staffNo = headerMatch ? headerMatch[2] : null;
   const periodMatch = joined.match(/(\d{2}[A-Z]{3}\d{2})\s*-\s*(\d{2}[A-Z]{3}\d{2})/);
   const rosterMonth = periodMatch ? periodMatch[2].slice(2) : null; // e.g. "MAY26"
   return { staffNo, staffName, rosterMonth };
