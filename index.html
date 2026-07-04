@@ -1435,14 +1435,28 @@ function finalizeSectors(sectors) {
   return sectors;
 }
 
+// Extracts Staff No / Name / roster month from the roster PDF header.
+// Header line looks like: "ShaFar17401Farook Shafraz 20304032NMUS;C4;..."
+// Period line looks like: "01MAY26 - 31MAY26"
+function extractRosterIdentity(lines) {
+  const joined = lines.join('\n');
+  const headerMatch = joined.match(/[A-Za-z]{4,8}(\d{4,6})([A-Za-z][A-Za-z ]+?)\s+\d{6,}/);
+  const staffNo = headerMatch ? headerMatch[1] : null;
+  const staffName = headerMatch ? headerMatch[2].trim() : null;
+  const periodMatch = joined.match(/(\d{2}[A-Z]{3}\d{2})\s*-\s*(\d{2}[A-Z]{3}\d{2})/);
+  const rosterMonth = periodMatch ? periodMatch[2].slice(2) : null; // e.g. "MAY26"
+  return { staffNo, staffName, rosterMonth };
+}
+
 async function parseRosterPDF(file) {
   const lines = await extractRosterLines(file);
+  const identity = extractRosterIdentity(lines);
   const { dutyLines, warnings } = parseRosterText(lines);
   const { sectors: rawSectors, nonFlightMarkers } = buildSectorsFromDutyLines(dutyLines, warnings);
   const sectors = finalizeSectors(rawSectors);
   groupIntoDuties(sectors, nonFlightMarkers);
 
-  return { sectors, warnings, nonFlightMarkers };
+  return { sectors, warnings, nonFlightMarkers, identity };
 }
 
 // ============================================================
@@ -2805,6 +2819,16 @@ $('rosterFile').addEventListener('change',async(e)=>{
   setUploadStatus('Reading roster PDF...','');
   try{
     const result=await parseRosterPDF(file);
+
+    if (typeof registerAndCheckRosterIdentity === 'function') {
+      const check = registerAndCheckRosterIdentity(result.identity);
+      if (!check.allowed) {
+        setUploadStatus('Blocked: ' + check.message, 'err');
+        e.target.value = '';
+        return;
+      }
+    }
+
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
     const n=result.sectors.length,err=result.warnings.length;
     if(err===0) setUploadStatus(n+' sectors loaded','ok',file.name);
@@ -3242,6 +3266,79 @@ window.addEventListener('appinstalled', function(){
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════
+     ROSTER IDENTITY MONITORING — always on, independent of trial/
+     license status (unlike the dormant trial system below, this must
+     work for already-licensed devices too, since that's exactly the
+     population this guards against sharing). Auto-extracts staff
+     no/name/month from every uploaded roster, logs it to the owner's
+     device-monitoring sheet, and enforces an owner-triggered per-device
+     restriction (a device can only ever process its own registered
+     staff no once flagged "Restrict" in that sheet).
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+const PING_URL = 'https://script.google.com/macros/s/AKfycbzSF4_Vt0MI43ZUIhIJtKHhykS0HlNYLUv0b5WKR1Kdxiq_I5_um91MNIbozkTI_lW9/exec';
+
+function _hashStr(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) { h = ((h << 5) + h) + s.charCodeAt(i); h = h | 0; }
+  return h >>> 0;
+}
+
+function _deviceCode() {
+  const raw = [
+    navigator.userAgent,
+    screen.width + 'x' + screen.height,
+    screen.colorDepth,
+    navigator.hardwareConcurrency || 0,
+    navigator.language,
+    (Intl.DateTimeFormat().resolvedOptions().timeZone || ''),
+    navigator.platform || ''
+  ].join('|');
+  return _hashStr(raw).toString(36).toUpperCase().padStart(7, '0').slice(0, 7);
+}
+
+// Daily restriction-status check (two-way, readable) — cached locally so
+// enforcement never depends on network access at the exact moment of upload.
+function _refreshRestrictionStatus() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (localStorage.getItem('sla_restriction_check_date') === todayStr) return;
+  localStorage.setItem('sla_restriction_check_date', todayStr);
+  fetch(PING_URL + '?checkRestriction=1&code=' + encodeURIComponent(_deviceCode()))
+    .then(r => r.json())
+    .then(data => { localStorage.setItem('sla_restriction_status', JSON.stringify(data)); })
+    .catch(() => {}); // offline/ad-blocked/CORS issue — keep last known cached status
+}
+_refreshRestrictionStatus();
+
+// Called on every roster upload. Registers the device's staff no on the
+// first-ever upload (never overwritten after), logs identity to the sheet,
+// and enforces restriction if the sheet has flagged this device.
+function registerAndCheckRosterIdentity(identity) {
+  if (!identity || !identity.staffNo) return { allowed: true }; // couldn't detect one — never block on uncertainty
+
+  if (!localStorage.getItem('sla_registered_staff_no')) {
+    localStorage.setItem('sla_registered_staff_no', identity.staffNo);
+    localStorage.setItem('sla_registered_name', identity.staffName || '');
+  }
+
+  // Log this upload — always, regardless of restriction status, fire-and-forget
+  fetch(PING_URL + '?code=' + encodeURIComponent(_deviceCode()) +
+    '&staffNo=' + encodeURIComponent(identity.staffNo) +
+    '&name=' + encodeURIComponent(identity.staffName || '') +
+    '&month=' + encodeURIComponent(identity.rosterMonth || ''),
+    { mode: 'no-cors' }).catch(() => {});
+
+  let restriction = null;
+  try { restriction = JSON.parse(localStorage.getItem('sla_restriction_status') || 'null'); } catch (e) {}
+  const lockedStaffNo = localStorage.getItem('sla_registered_staff_no');
+  if (restriction && restriction.restricted && identity.staffNo !== lockedStaffNo) {
+    return { allowed: false, message: `This device is registered to Staff No ${lockedStaffNo}. Please use your own device to calculate your salary.` };
+  }
+  return { allowed: true };
+}
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
      TRIAL / LICENSE SYSTEM — fully additive, isolated block.
      Set TRIAL_ENABLED = true to activate. While false this whole
      block is a guaranteed no-op (single early-return, nothing else
@@ -3258,26 +3355,9 @@ if (TRIAL_ENABLED) (function(){
   const OWNER_SECRET = 'Rifniya01';
   const OWNER_WHATSAPP = '94770077902';
   const _LIC_SALT = 'SLA-FLYPROFIT-2026';                      // TODO: change once, then keep identical in key_generator.html
-  const PING_URL = 'https://script.google.com/macros/s/AKfycbzSF4_Vt0MI43ZUIhIJtKHhykS0HlNYLUv0b5WKR1Kdxiq_I5_um91MNIbozkTI_lW9/exec';
-
-  function _hashStr(s) {
-    let h = 5381;
-    for (let i = 0; i < s.length; i++) { h = ((h << 5) + h) + s.charCodeAt(i); h = h | 0; }
-    return h >>> 0;
-  }
-
-  function _deviceCode() {
-    const raw = [
-      navigator.userAgent,
-      screen.width + 'x' + screen.height,
-      screen.colorDepth,
-      navigator.hardwareConcurrency || 0,
-      navigator.language,
-      (Intl.DateTimeFormat().resolvedOptions().timeZone || ''),
-      navigator.platform || ''
-    ].join('|');
-    return _hashStr(raw).toString(36).toUpperCase().padStart(7, '0').slice(0, 7);
-  }
+  // PING_URL, _hashStr, _deviceCode are now defined in the always-on
+  // "ROSTER IDENTITY MONITORING" block above (shared with the roster
+  // upload monitoring, which must run for licensed devices too).
 
   function _codeToKey(code) {
     const combined = code.split('').reverse().join('') + _LIC_SALT;
