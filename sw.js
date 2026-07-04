@@ -1,4 +1,4 @@
-﻿// SLA Salary Portal — Service Worker v99
+﻿// SLA Salary Portal — Service Worker v99 [staging test]
 const CACHE = 'sla-salary-v123';
 
 const ASSETS = [
