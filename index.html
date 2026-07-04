@@ -1446,8 +1446,10 @@ function finalizeSectors(sectors) {
 // Period line looks like: "01MAY26 - 31MAY26"
 function extractRosterIdentity(lines) {
   const joined = lines.join('\n');
-  const headerMatch = joined.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)+)\s+(\d{4,6})\s+[A-Za-z]{3,8}\b/);
-  const staffName = headerMatch ? headerMatch[1].trim() : null;
+  // Trailing "#" after a name word is a company-side marker (male crew, C1-C3
+  // category), not part of the person's actual name — matched but stripped out.
+  const headerMatch = joined.match(/([A-Z][a-z]+#?(?:\s[A-Z][a-z]+#?)+)\s+(\d{4,6})\s+[A-Za-z]{3,8}\b/);
+  const staffName = headerMatch ? headerMatch[1].replace(/#/g, '').trim() : null;
   const staffNo = headerMatch ? headerMatch[2] : null;
   const periodMatch = joined.match(/(\d{2}[A-Z]{3}\d{2})\s*-\s*(\d{2}[A-Z]{3}\d{2})/);
   const rosterMonth = periodMatch ? periodMatch[2].slice(2) : null; // e.g. "MAY26"
