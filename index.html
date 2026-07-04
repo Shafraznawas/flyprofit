@@ -479,6 +479,10 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .tb-calc:disabled{background:var(--inp);color:var(--tx3);box-shadow:none;cursor:not-allowed;opacity:.6;}
 .tb-install{background:rgba(124,58,237,.12);border:1.5px solid var(--purple2);color:var(--purple3);border-radius:22px;padding:9px 14px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:5px;white-space:nowrap;}
 .tb-help{background:rgba(124,58,237,.12);border:1.5px solid var(--purple2);color:var(--purple3);border-radius:50%;width:34px;height:34px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ef-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.ef-row-lbl{font-size:.6rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.04em;flex-shrink:0;white-space:nowrap;}
+.ef-chip-group{display:flex;gap:5px;flex-shrink:0;}
+.ef-chip{padding:7px 10px;border-radius:8px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.68rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;white-space:nowrap;}
 
 /* PAGES */
 .scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px 24px;display:flex;flex-direction:column;gap:12px;}
@@ -899,34 +903,50 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <input id="ef-ata" type="text" maxlength="5" placeholder="10:15" inputmode="numeric" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.9rem;font-family:var(--mono);box-sizing:border-box;">
       </div>
     </div>
-    <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;">DUTY TYPE</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:14px;">
-      <button class="etype-btn" data-val="Turn" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Turn</button>
-      <button class="etype-btn" data-val="Combined" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Combined</button>
-      <button class="etype-btn" data-val="Layover" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Layover</button>
-    </div>
-    <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;">PASSENGERING</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">
-      <button class="epass-btn" data-val="false" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
-      <button class="epass-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes (P)</button>
-    </div>
-    <div id="ef-acting-wrap" style="display:none;">
-      <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;" id="ef-acting-lbl">ACTING</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">
-        <button class="eact-btn" data-val="false" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
-        <button class="eact-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes</button>
+    <div class="ef-row">
+      <span class="ef-row-lbl">DUTY TYPE</span>
+      <div class="ef-chip-group">
+        <button class="etype-btn ef-chip" data-val="Turn">Turn</button>
+        <button class="etype-btn ef-chip" data-val="Combined">Comb.</button>
+        <button class="etype-btn ef-chip" data-val="Layover">Layover</button>
       </div>
     </div>
-    <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;margin-top:2px;">OVERNIGHT ALLOWANCE</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">
-      <button class="eovn-btn" data-val="false" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
-      <button class="eovn-btn" data-val="true" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes 🌙</button>
+    <div class="ef-row">
+      <span class="ef-row-lbl">PASSENGER</span>
+      <div class="ef-chip-group">
+        <button class="epass-btn ef-chip" data-val="false">No</button>
+        <button class="epass-btn ef-chip" data-val="true">Yes (P)</button>
+      </div>
     </div>
-    <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;margin-top:2px;">MEAL DEDUCTION</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:14px;">
-      <button class="emeal-btn" data-val="auto" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Auto</button>
-      <button class="emeal-btn" data-val="no" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">No</button>
-      <button class="emeal-btn" data-val="yes" style="padding:10px 4px;border-radius:10px;border:1.5px solid var(--b1);background:transparent;color:var(--tx2);font-size:.78rem;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .15s;">Yes 🍽</button>
+    <div class="ef-row" id="ef-acting-wrap" style="display:none;">
+      <span class="ef-row-lbl" id="ef-acting-lbl">ACTING</span>
+      <div class="ef-chip-group">
+        <button class="eact-btn ef-chip" data-val="false">No</button>
+        <button class="eact-btn ef-chip" data-val="true">Yes</button>
+      </div>
+    </div>
+    <div class="ef-row">
+      <span class="ef-row-lbl">OVERNIGHT</span>
+      <div class="ef-chip-group">
+        <button class="eovn-btn ef-chip" data-val="false">No</button>
+        <button class="eovn-btn ef-chip" data-val="true">Yes 🌙</button>
+      </div>
+    </div>
+    <div class="ef-row">
+      <span class="ef-row-lbl">MEAL DEDUCT.</span>
+      <div class="ef-chip-group">
+        <button class="emeal-btn ef-chip" data-val="auto">Auto</button>
+        <button class="emeal-btn ef-chip" data-val="no">No</button>
+        <button class="emeal-btn ef-chip" data-val="yes">Yes</button>
+      </div>
+    </div>
+    <div class="ef-row" style="margin-bottom:16px;">
+      <span class="ef-row-lbl">TURNAROUND PAY</span>
+      <div class="ef-chip-group">
+        <button class="eturn-btn ef-chip" data-val="auto">Auto</button>
+        <button class="eturn-btn ef-chip" data-val="no">No</button>
+        <button class="eturn-btn ef-chip" data-val="yes">Yes</button>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <button id="ef-cancel" style="padding:12px;border-radius:12px;border:1.5px solid var(--b2);background:transparent;color:var(--tx2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Cancel</button>
@@ -1650,7 +1670,7 @@ function calculateTurnaroundPay(sectors) {
     totalUSD += rate;
     const firstFlight = group[0].flightNo || '';
     const dest = group[group.length-1].dest || '';
-    details.push({ date: group[0].date, totalMin, rate, flightNo: firstFlight, dest });
+    details.push({ date: group[0].date, totalMin, rate, flightNo: firstFlight, dest, dutyId: group[0].dutyId });
   });
 
   return { turnaroundCount, totalUSD, details };
@@ -2073,6 +2093,7 @@ async function openEditFlight(idx) {
   f.actingCM = result.actingCM;
   f._manualOvernight = result.manualOvernight;
   f._manualMealDeduction = result.manualMealDeduction === 'auto' ? undefined : result.manualMealDeduction;
+  f._manualTurnaroundPay = result.manualTurnaroundPay === 'auto' ? undefined : result.manualTurnaroundPay;
 
   const r = calcBlockMinutes(f.orig, f.atd, f.dest, f.ata, false);
   f.blockMinutes = r.minutes;
@@ -2200,6 +2221,33 @@ function calculateSalary() {
   }
 
   const turnaroundPay = calculateTurnaroundPay(flights);
+
+  // Manual turnaround pay overrides: 'no' force-removes the turnaround pay for
+  // that whole duty; 'yes' force-adds it (using the same short/long threshold
+  // rule) if not already counted. 'auto'/unset flights are left as computed.
+  const _suppressTurnDutyIds = new Set(
+    flights.filter(f => f._manualTurnaroundPay === 'no').map(f => f.dutyId)
+  );
+  if (_suppressTurnDutyIds.size) {
+    let removedTotal = 0;
+    turnaroundPay.details = turnaroundPay.details.filter(d => {
+      if (_suppressTurnDutyIds.has(d.dutyId)) { removedTotal += d.rate; turnaroundPay.turnaroundCount--; return false; }
+      return true;
+    });
+    turnaroundPay.totalUSD -= removedTotal;
+  }
+
+  const _countedTurnDutyIds = new Set(turnaroundPay.details.map(d => d.dutyId).filter(Boolean));
+  flights.forEach(f => {
+    if (f._manualTurnaroundPay !== 'yes' || _countedTurnDutyIds.has(f.dutyId)) return;
+    _countedTurnDutyIds.add(f.dutyId);
+    const dutyMin = flights.filter(x => x.dutyId === f.dutyId).reduce((s, x) => s + (x.blockMinutes || 0), 0);
+    const rate = dutyMin < TURNAROUND_THRESHOLD_MIN ? TURNAROUND_PAY_SHORT : TURNAROUND_PAY_LONG;
+    turnaroundPay.turnaroundCount++;
+    turnaroundPay.totalUSD += rate;
+    turnaroundPay.details.push({ date: f.date, totalMin: dutyMin, rate, flightNo: f.flightNo, dest: f.dest, dutyId: f.dutyId });
+  });
+
   const mealDeductions = calculateMealDeductions(flights);
 
   // Manual meal deduction overrides: 'no' force-removes any automatic
@@ -2923,7 +2971,7 @@ function showEditModal(f, title) {
     const actingWrap = $('ef-acting-wrap');
     if (_al) {
       $('ef-acting-lbl').textContent = `ACTING ${_al}`;
-      actingWrap.style.display = 'block';
+      actingWrap.style.display = 'flex';
     } else {
       actingWrap.style.display = 'none';
     }
@@ -2947,6 +2995,13 @@ function showEditModal(f, title) {
       btn.onclick = () => { selectedMeal = btn.dataset.val; styleToggle('.emeal-btn', selectedMeal); };
     });
 
+    // Turnaround pay manual override (3-state: 'auto' / 'no' / 'yes')
+    let selectedTurn = f._manualTurnaroundPay || 'auto';
+    styleToggle('.eturn-btn', selectedTurn);
+    modal.querySelectorAll('.eturn-btn').forEach(btn => {
+      btn.onclick = () => { selectedTurn = btn.dataset.val; styleToggle('.eturn-btn', selectedTurn); };
+    });
+
     modal.style.display = 'flex';
     $('ef-orig').focus();
 
@@ -2962,7 +3017,8 @@ function showEditModal(f, title) {
         isPassengering: selectedPass,
         actingCM: selectedActing,
         manualOvernight: selectedOvn,
-        manualMealDeduction: selectedMeal
+        manualMealDeduction: selectedMeal,
+        manualTurnaroundPay: selectedTurn
       });
     };
   });
