@@ -478,6 +478,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .tb-calc{background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:#f0e0ff;border-radius:22px;padding:9px 16px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--sans);box-shadow:0 0 18px rgba(124,58,237,.4);display:flex;align-items:center;gap:5px;white-space:nowrap;}
 .tb-calc:disabled{background:var(--inp);color:var(--tx3);box-shadow:none;cursor:not-allowed;opacity:.6;}
 .tb-install{background:rgba(124,58,237,.12);border:1.5px solid var(--purple2);color:var(--purple3);border-radius:22px;padding:9px 14px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.tb-help{background:rgba(124,58,237,.12);border:1.5px solid var(--purple2);color:var(--purple3);border-radius:50%;width:34px;height:34px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 
 /* PAGES */
 .scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px 24px;display:flex;flex-direction:column;gap:12px;}
@@ -640,6 +641,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     <div id="topDesig" style="font-size:.88rem;font-weight:700;color:var(--purple3);letter-spacing:.02em;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
   </div>
   <div class="tb-right">
+    <button class="tb-help" id="btnHelp" title="Get Help">❓</button>
     <button class="tb-install" id="btnInstallApp" style="display:none;">⬇ Install</button>
     <button class="tb-calc" id="btnCalculate">⚡ Calculate</button>
   </div>
@@ -1049,6 +1051,7 @@ const TURNAROUND_PAY_LONG = 28;  // USD, round-trip block >= 4hrs
 const TURNAROUND_THRESHOLD_MIN = 4 * 60;
 
 const MEAL_RATE = 25; // USD per meal
+const HELP_WHATSAPP = '94770077902'; // support contact, independent of the trial system
 const MEAL_WINDOWS = [
   { name: 'Breakfast', start: '07:30', end: '08:30' },
   { name: 'Lunch',     start: '12:30', end: '13:30' },
@@ -2787,6 +2790,15 @@ $('btnReset').addEventListener('click',()=>{
   renderTierGauge({tier1Min:0,tier2Min:0,actingCMMin:0,overrideUsed:false,totalBlockMin:0});
   renderChecklist([]);
   updateCalcButtonState();
+});
+
+// Help / Support
+$('btnHelp').addEventListener('click', () => {
+  const msg = encodeURIComponent(
+    "Hi, I'm facing an issue with the FlyProfit app.\n\n" +
+    "📸 Please attach a screenshot of the issue in this chat before sending."
+  );
+  window.open(`https://wa.me/${HELP_WHATSAPP}?text=${msg}`, '_blank');
 });
 
 // Calculate
