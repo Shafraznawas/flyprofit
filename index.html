@@ -656,6 +656,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   <button class="nav-btn" data-page="page-home"><span class="nav-icon">💰</span><span class="nav-lbl">Result</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-inputs"><span class="nav-icon">✏️</span><span class="nav-lbl">Inputs</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-gauge"><span class="nav-icon">📊</span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-logbook"><span class="nav-icon">📖</span><span class="nav-lbl">Logbook</span><span class="nav-dot"></span></button>
 </div>
 
 <div class="scroll-area" id="scrollArea">
@@ -836,6 +837,35 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- PAGE 5: LOGBOOK -->
+  <div class="page" id="page-logbook">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-ico">📖</span>
+        <div><div class="card-title">Flying Logbook</div><div class="card-sub">Auto-saved each time you calculate</div></div>
+        <select id="logbookYear" style="margin-left:auto;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:6px 8px;color:var(--tx1);font-size:.8rem;font-family:var(--mono);"></select>
+      </div>
+      <div class="card-body" id="logbookSummary"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">🧳</span><div><div class="card-title">Long Layovers</div><div class="card-sub">2+ nights away · yearly quota</div></div></div>
+      <div class="card-body" id="logbookLayovers"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">📍</span><div><div class="card-title">Top Destinations</div><div class="card-sub">Most-visited this year</div></div></div>
+      <div class="card-body" id="logbookDestinations"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">🗓️</span><div><div class="card-title">Month by Month</div><div class="card-sub">Your saved flying record</div></div></div>
+      <div class="card-body" id="logbookMonths"></div>
+    </div>
+    <div class="action-row">
+      <button class="act-btn" id="btnLogbookExport">⬇ Export History</button>
+      <button class="act-btn" id="btnLogbookImport">⬆ Import History</button>
+    </div>
+    <input type="file" id="logbookImportFile" accept="application/json" style="display:none;">
   </div>
 
 </div>
@@ -2432,6 +2462,7 @@ function calculateSalary() {
   try { renderResults(state.lastCalculation); } catch(e) { console.error('[renderResults ERROR]', e.message, e.stack); }
   try { renderTierGauge(state.lastCalculation.flyingPay); } catch(e) { console.error('[renderTierGauge ERROR]', e.message); }
   try { renderChecklist(flights); } catch(e) { console.error('[renderChecklist ERROR]', e.message); }
+  try { captureMonthToLogbook(flights); } catch(e) { console.error('[logbook capture ERROR]', e.message); }
 
   // Turnaround summary on Stats page
   const turnArea = $('turnSummaryArea');
@@ -2740,6 +2771,176 @@ $('btnSaveMonth').addEventListener('click', () => {
   alert(`Saved ${key}.`);
 });
 
+// ══════════════════════════════════════════════════════════════
+// FLYING LOGBOOK — local, per-device, per-calendar-year flight record.
+// Auto-captured on every Calculate (keyed by roster month, so re-calcs
+// overwrite rather than duplicate). Purely local; export/import lets it
+// move to a new phone since the license is device-locked.
+// ══════════════════════════════════════════════════════════════
+const LOGBOOK_KEY = 'sla_logbook';
+const LAYOVER_QUOTA_NIGHTS = 1; // "long" = MORE THAN 1 night (i.e. 2+)
+
+// "07THU" -> 7  (day-of-month only; reliable even when full date is fuzzy)
+function _dayNum(dateStr) {
+  const m = /^(\d{1,2})/.exec(String(dateStr || '').trim());
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// The outstation a duty reached = the point it turned around at.
+// CMB-BOM-CMB -> BOM ; CMB-DXB-LHR-CMB -> LHR ; CMB-NRT (stay) NRT-CMB -> NRT.
+function _dutyOutstation(group) {
+  const last = group[group.length - 1];
+  if (!last) return null;
+  const st = last.dest === 'CMB' ? last.orig : last.dest;
+  return st && st !== 'CMB' ? st : null;
+}
+
+// True only when a duty is fully contained in this roster (leaves CMB and
+// returns to CMB). Cross-month halves (outbound this month, return next, or
+// vice-versa) can't have their nights counted from one roster, so they're
+// excluded from the layover/quota tally.
+function _isCompleteDuty(group) {
+  return group.length > 0 && group[0].orig === 'CMB' && group[group.length - 1].dest === 'CMB';
+}
+
+// Nights at the layover station = (return departure day) - (arrival day).
+// Arrival day bumps +1 when the outbound leg landed the next morning —
+// detected from the times (arrival earlier than departure) since the roster's
+// ataNextDay flag isn't reliable for these. Approximate by design (roster
+// day-numbers); shown per-layover so the user can eyeball it. Returns >= 1.
+function _layoverNights(group, station) {
+  const last = group[group.length - 1];
+  const arrivalSec = group.find(s => s.dest === station) || group[0];
+  let arr = _dayNum(arrivalSec.date);
+  const adep = timeToMinutes(arrivalSec.atd), aata = timeToMinutes(arrivalSec.ata);
+  const landedNextDay = arrivalSec.ataNextDay || (adep != null && aata != null && aata < adep);
+  if (arr != null && landedNextDay) arr += 1;
+  const dep = _dayNum(last.date);
+  if (arr == null || dep == null) return 1;
+  let n = dep - arr;
+  if (n < 0) n += 30; // crude month-wrap guard
+  if (n > 60) return 1; // nonsense (bad dates) — don't inflate the quota
+  return Math.max(1, n);
+}
+
+// Build a compact record for the calculated month and store it under its year.
+function captureMonthToLogbook(flights) {
+  const monthKey = ($('monthYear').value || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) return; // need a real YYYY-MM to file it
+  if (!flights || !flights.length) return;
+  const year = monthKey.slice(0, 4);
+
+  const groups = {};
+  flights.forEach(f => { (groups[f.dutyId] = groups[f.dutyId] || []).push(f); });
+
+  let blockMin = 0;
+  const destinations = {};
+  const layovers = [];
+  const sectors = [];
+
+  Object.values(groups).forEach(group => {
+    group.sort((a, b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0));
+    const outstation = _dutyOutstation(group);
+    if (outstation) destinations[outstation] = (destinations[outstation] || 0) + 1;
+    // Only count nights for complete (CMB→…→CMB) layovers — cross-month halves
+    // can't be measured from a single roster, so they're left out of the tally.
+    if (group[0].dutyType === 'Layover' && outstation && _isCompleteDuty(group)) {
+      layovers.push({ station: outstation, nights: _layoverNights(group, outstation), flightNo: group[0].flightNo, date: group[0].date });
+    }
+  });
+
+  flights.forEach(f => {
+    blockMin += f.blockMinutes || 0;
+    sectors.push({ date: f.date, flightNo: f.flightNo, route: (f.orig || '?') + '-' + (f.dest || '?'), blockMin: f.blockMinutes || 0, type: f.dutyType });
+  });
+
+  const store = JSON.parse(localStorage.getItem(LOGBOOK_KEY) || '{}');
+  store[year] = store[year] || {};
+  store[year][monthKey] = { monthKey, blockMin, sectorCount: flights.length, destinations, layovers, sectors, savedAt: Date.now() };
+  localStorage.setItem(LOGBOOK_KEY, JSON.stringify(store));
+}
+
+function _logbookStore() { return JSON.parse(localStorage.getItem(LOGBOOK_KEY) || '{}'); }
+
+function renderLogbook() {
+  const store = _logbookStore();
+  const years = Object.keys(store).sort().reverse();
+  const sel = $('logbookYear');
+
+  if (!years.length) {
+    sel.innerHTML = '';
+    $('logbookSummary').innerHTML = '<div style="color:var(--tx3);font-size:.85rem;">No flights logged yet. Calculate a month with a roster month set and it appears here automatically.</div>';
+    $('logbookLayovers').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
+    $('logbookDestinations').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
+    $('logbookMonths').innerHTML = '';
+    return;
+  }
+
+  if (!sel.value || !store[sel.value]) {
+    sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  }
+  const year = sel.value && store[sel.value] ? sel.value : years[0];
+  sel.value = year;
+
+  const months = store[year];
+  const monthKeys = Object.keys(months).sort();
+
+  let totalBlock = 0, totalSectors = 0;
+  const destAgg = {};
+  const allLayovers = [];
+  monthKeys.forEach(mk => {
+    const r = months[mk];
+    totalBlock += r.blockMin || 0;
+    totalSectors += r.sectorCount || 0;
+    Object.keys(r.destinations || {}).forEach(d => destAgg[d] = (destAgg[d] || 0) + r.destinations[d]);
+    (r.layovers || []).forEach(l => allLayovers.push(l));
+  });
+  const uniqueDest = Object.keys(destAgg).length;
+  const longLayovers = allLayovers.filter(l => l.nights > LAYOVER_QUOTA_NIGHTS);
+
+  const card = (lbl, val) => `<div style="background:var(--card2);border-radius:12px;padding:12px;">
+    <div style="font-size:.6rem;color:var(--tx3);letter-spacing:.05em;margin-bottom:4px;text-transform:uppercase;">${lbl}</div>
+    <div style="font-family:var(--mono);font-size:1.15rem;color:var(--tx1);">${val}</div></div>`;
+  $('logbookSummary').innerHTML =
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      ${card('Block Hours', minutesToHHMM(totalBlock))}
+      ${card('Sectors Flown', totalSectors)}
+      ${card('Airports Visited', uniqueDest)}
+      ${card('Months Logged', monthKeys.length)}
+    </div>`;
+
+  $('logbookLayovers').innerHTML =
+    `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
+      <span style="font-family:var(--mono);font-size:1.7rem;color:var(--purple3);">${longLayovers.length}</span>
+      <span style="font-size:.75rem;color:var(--tx2);">long layover${longLayovers.length===1?'':'s'} of <span style="color:var(--tx3);">— (annual quota, TBC)</span></span>
+    </div>` +
+    (longLayovers.length
+      ? longLayovers.map(l => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
+          <span style="color:var(--tx2);">${l.station} <span style="color:var(--tx3);">· ${l.flightNo||''}</span></span>
+          <span style="color:var(--purple3);font-family:var(--mono);">${l.nights} nights</span></div>`).join('')
+      : '<div style="color:var(--tx3);font-size:.8rem;">No 2+ night layovers logged this year.</div>');
+
+  const destSorted = Object.keys(destAgg).sort((a, b) => destAgg[b] - destAgg[a]).slice(0, 6);
+  const maxDest = destSorted.length ? destAgg[destSorted[0]] : 1;
+  $('logbookDestinations').innerHTML = destSorted.length
+    ? destSorted.map(d => `<div style="margin-bottom:9px;">
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;color:var(--tx1);margin-bottom:3px;"><span>${d}</span><span style="font-family:var(--mono);color:var(--tx3);">${destAgg[d]}×</span></div>
+        <div style="height:6px;background:var(--card2);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.round(destAgg[d]/maxDest*100)}%;background:var(--purple);"></div></div></div>`).join('')
+    : '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
+
+  $('logbookMonths').innerHTML = monthKeys.slice().reverse().map(mk => {
+    const r = months[mk];
+    const longN = (r.layovers || []).filter(l => l.nights > LAYOVER_QUOTA_NIGHTS).length;
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--b0);">
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;">
+        <span style="color:var(--tx1);font-weight:600;">${mk}</span>
+        <span style="font-family:var(--mono);color:var(--cyan2);">${minutesToHHMM(r.blockMin)}</span>
+      </div>
+      <div style="font-size:.68rem;color:var(--tx3);margin-top:2px;">${r.sectorCount} sectors · ${longN} long layover${longN===1?'':'s'}</div>
+    </div>`;
+  }).join('');
+}
+
 // ---------- PDF Export ----------
 $('btnExportPDF').addEventListener('click', () => {
   if (!state.lastCalculation) { alert('Please calculate the salary first.'); return; }
@@ -3012,7 +3213,47 @@ $('blockHoursOverride').addEventListener('input',function(){
 });
 
 // Nav buttons
-document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('click',function(){goTo(b.dataset.page);});});
+document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('click',function(){
+  goTo(b.dataset.page);
+  if(b.dataset.page==='page-logbook') renderLogbook();
+});});
+
+// ---------- Logbook wiring ----------
+$('logbookYear').addEventListener('change', renderLogbook);
+
+$('btnLogbookExport').addEventListener('click', () => {
+  const data = localStorage.getItem(LOGBOOK_KEY) || '{}';
+  if (data === '{}') { alert('Nothing logged yet to export.'); return; }
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'flyprofit-logbook-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+$('btnLogbookImport').addEventListener('click', () => $('logbookImportFile').click());
+$('logbookImportFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const incoming = JSON.parse(await file.text());
+    if (typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('bad format');
+    const store = _logbookStore();
+    // Merge by year then month — imported months overwrite same-key local ones.
+    Object.keys(incoming).forEach(y => {
+      store[y] = store[y] || {};
+      Object.keys(incoming[y]).forEach(mk => { store[y][mk] = incoming[y][mk]; });
+    });
+    localStorage.setItem(LOGBOOK_KEY, JSON.stringify(store));
+    $('logbookYear').value = '';
+    renderLogbook();
+    alert('History imported.');
+  } catch (err) {
+    alert('Could not read that file — make sure it\'s a FlyProfit logbook export.');
+  }
+  e.target.value = '';
+});
 
 // init
 renderHistoryPanel();
