@@ -2911,8 +2911,21 @@ $('rosterFile').addEventListener('change',async(e)=>{
   try{
     const result=await parseRosterPDF(file);
 
+    // Route-duration learning rides along on the single identity ping below
+    // as one batched parameter — NEVER as separate per-sector requests. A
+    // burst of ~18 simultaneous hits raced each other on the Apps Script
+    // side and could drown out the identity ping entirely (uploads silently
+    // stopped appearing on the monitoring sheet).
+    const _durSeen = {};
+    result.sectors.forEach(s => {
+      if (s.flightNo && s.orig && s.dest && s.blockMinutes) {
+        _durSeen[s.flightNo + ':' + s.orig + '-' + s.dest] = Math.round(s.blockMinutes);
+      }
+    });
+    const durationsPayload = Object.keys(_durSeen).map(k => k + ':' + _durSeen[k]).join('|');
+
     if (typeof registerAndCheckRosterIdentity === 'function') {
-      const check = registerAndCheckRosterIdentity(result.identity);
+      const check = registerAndCheckRosterIdentity(result.identity, durationsPayload);
       if (!check.allowed) {
         setUploadStatus('Blocked: ' + check.message, 'err');
         e.target.value = '';
@@ -2921,16 +2934,6 @@ $('rosterFile').addEventListener('change',async(e)=>{
     }
 
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
-
-    // Passively teach the shared route-duration table from every successful
-    // parse (not just mutual-flagged ones) — fire-and-forget, never blocks the UI.
-    if (typeof reportRouteDuration === 'function') {
-      result.sectors.forEach(s => {
-        if (s.flightNo && s.orig && s.dest && s.blockMinutes) {
-          reportRouteDuration(s.flightNo, s.orig + '-' + s.dest, s.blockMinutes);
-        }
-      });
-    }
 
     const n=result.sectors.length,err=result.warnings.length;
     if(err===0) setUploadStatus(n+' sectors loaded','ok',file.name);
@@ -3472,20 +3475,30 @@ _refreshRestrictionStatus();
 // Called on every roster upload. Registers the device's staff no on the
 // first-ever upload (never overwritten after), logs identity to the sheet,
 // and enforces restriction if the sheet has flagged this device.
-function registerAndCheckRosterIdentity(identity) {
-  if (!identity || !identity.staffNo) return { allowed: true }; // couldn't detect one — never block on uncertainty
+// durationsPayload ("UL504:LHR-CMB:635|UL143:CMB-BOM:179|...") rides along
+// on this SAME request so each upload produces exactly one network call —
+// per-sector fire-and-forget bursts raced each other server-side and could
+// silently drop the identity ping.
+function registerAndCheckRosterIdentity(identity, durationsPayload) {
+  const hasStaffNo = !!(identity && identity.staffNo);
 
-  if (!localStorage.getItem('sla_registered_staff_no')) {
+  if (hasStaffNo && !localStorage.getItem('sla_registered_staff_no')) {
     localStorage.setItem('sla_registered_staff_no', identity.staffNo);
     localStorage.setItem('sla_registered_name', identity.staffName || '');
   }
 
-  // Log this upload — always, regardless of restriction status, fire-and-forget
-  fetch(PING_URL + '?code=' + encodeURIComponent(_deviceCode()) +
-    '&staffNo=' + encodeURIComponent(identity.staffNo) +
-    '&name=' + encodeURIComponent(identity.staffName || '') +
-    '&month=' + encodeURIComponent(identity.rosterMonth || ''),
-    { mode: 'no-cors' }).catch(() => {});
+  // Log this upload — always, even when identity couldn't be extracted
+  // (the bare code still bumps Last Seen), fire-and-forget
+  const qs = ['code=' + encodeURIComponent(_deviceCode())];
+  if (hasStaffNo) {
+    qs.push('staffNo=' + encodeURIComponent(identity.staffNo));
+    qs.push('name=' + encodeURIComponent(identity.staffName || ''));
+    qs.push('month=' + encodeURIComponent(identity.rosterMonth || ''));
+  }
+  if (durationsPayload) qs.push('durations=' + encodeURIComponent(durationsPayload));
+  fetch(PING_URL + '?' + qs.join('&'), { mode: 'no-cors' }).catch(() => {});
+
+  if (!hasStaffNo) return { allowed: true }; // couldn't detect one — never block on uncertainty
 
   let restriction = null;
   try { restriction = JSON.parse(localStorage.getItem('sla_restriction_status') || 'null'); } catch (e) {}
@@ -3494,20 +3507,6 @@ function registerAndCheckRosterIdentity(identity) {
     return { allowed: false, message: `This device is registered to Staff No ${lockedStaffNo}. Please use your own device to calculate your salary.` };
   }
   return { allowed: true };
-}
-
-// ── ROUTE-DURATION LEARNING (for mutual-swap given-away-leg estimates) ──
-// Every successfully-parsed roster (any user, any device) quietly teaches
-// the shared sheet what a route/flight number's scheduled block time is.
-// This is what lets a crew member later estimate a swapped-away flight's
-// hours from just its route/flight no, without anyone recalling exact times.
-function reportRouteDuration(flightNo, route, mins) {
-  if (!mins || mins <= 0 || (!flightNo && !route)) return;
-  fetch(PING_URL + '?reportDuration=1' +
-    '&flightNo=' + encodeURIComponent(flightNo || '') +
-    '&route=' + encodeURIComponent(route || '') +
-    '&mins=' + encodeURIComponent(Math.round(mins)),
-    { mode: 'no-cors' }).catch(() => {});
 }
 
 // Looks up one leg by flight no or route, and — since a mutual is always a
