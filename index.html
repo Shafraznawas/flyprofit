@@ -1640,10 +1640,11 @@ function groupIntoDuties(sectors, nonFlightMarkers) {
  * so Acting CM hours must be entered manually by the user via the flight edit UI
  * (each sector has an `actingCM` boolean flag, default false, user-editable).
  *
- * Passengering (P) sectors are EXCLUDED from the tiered hourly pay entirely
- * (confirmed 2026-07-06 — correcting an earlier wrong assumption that they were
- * paid at the same tiered rate). This matches the airline's own printed BLH,
- * which already excludes P legs.
+ * Passengering (P) sectors are only excluded from tiered hourly pay when the
+ * duty is a LAYOVER (confirmed 2026-07-06 — correcting an earlier wrong
+ * assumption that P was always paid at the tiered rate). A P leg on a TURN
+ * duty is still paid normally. This matches the airline's own printed BLH,
+ * which excludes P on layovers.
  */
 function calculateFlyingPay(sectors, hasLeave) {
   // Process in chronological order
@@ -1657,7 +1658,7 @@ function calculateFlyingPay(sectors, hasLeave) {
 
   ordered.forEach(s => {
     const mins = s.blockMinutes || 0;
-    if (s.isPassengering) return; // no hourly pay for passengering legs
+    if (s.isPassengering && s.dutyType === 'Layover') return; // no hourly pay for P on a layover; P on a Turn is still paid
     if (s.actingCM) {
       actingCMMin += mins;
       return;
