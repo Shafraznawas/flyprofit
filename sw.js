@@ -1,5 +1,5 @@
-﻿// SLA Salary Portal — Service Worker v112
-const CACHE = 'sla-salary-v136';
+﻿// SLA Salary Portal — Service Worker v113
+const CACHE = 'sla-salary-v137';
 
 const ASSETS = [
   './',
