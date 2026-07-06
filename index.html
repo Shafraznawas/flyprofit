@@ -1631,6 +1631,72 @@ function groupIntoDuties(sectors, nonFlightMarkers) {
 }
 
 // ============================================================
+// MONTH-BOUNDARY HANDLING
+// SriLankan roster PDFs print a few days of context beyond the nominal
+// month (e.g. a May roster showing late-April lead-in and early-June
+// lead-out) so any duty in progress at the edges is fully visible. Those
+// extra days must NOT be double-counted in this month's pay — the same
+// physical flight already was (or will be) paid when the adjacent month's
+// own roster is calculated.
+// ============================================================
+
+// Numeric day-of-month from a roster date label like "29WED".
+function _dutyDayNum(dateStr) {
+  const m = /^(\d{1,2})/.exec(String(dateStr || '').trim());
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// Detects lead-in/lead-out sectors structurally: in seqIndex (chronological)
+// order the day-of-month only ever climbs across the target month — it can
+// only DROP where the roster crosses into a different calendar month
+// (e.g. 30 -> 01). A drop near the very start of the roster means everything
+// before it belongs to last month; a drop near the very end means everything
+// after it belongs to next month. Returns the set of seqIndex values that
+// fall outside the target month and must be excluded from this month's pay.
+function findMonthBoundarySeqIndices(sectors) {
+  const ordered = [...sectors].sort((a, b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0));
+  const n = ordered.length;
+  if (n < 2) return new Set();
+
+  const days = ordered.map(s => _dutyDayNum(s.date));
+  const resets = [];
+  for (let i = 1; i < n; i++) {
+    if (days[i] == null || days[i - 1] == null) continue;
+    if (days[i] < days[i - 1]) resets.push(i);
+  }
+  if (!resets.length) return new Set(); // single contiguous month — nothing to exclude
+
+  let startIdx, endIdx; // [startIdx, endIdx) is the target month
+  if (resets.length === 1) {
+    const r = resets[0];
+    if (r <= n - r) { startIdx = r; endIdx = n; }   // reset near the start -> lead-in overflow only
+    else { startIdx = 0; endIdx = r; }              // reset near the end -> lead-out overflow only
+  } else {
+    startIdx = resets[0];
+    endIdx = resets[resets.length - 1];
+  }
+
+  const boundary = new Set();
+  for (let i = 0; i < n; i++) {
+    if (i < startIdx || i >= endIdx) boundary.add(ordered[i].seqIndex);
+  }
+  return boundary;
+}
+
+// A duty at the very end of the (already month-filtered) roster whose last
+// known sector hasn't returned to CMB means its return leg lies beyond this
+// roster's printed window — in next month's roster. We still know this leg's
+// own ATD/ATA/block time, so its HOURLY PAY still counts normally, but a meal
+// deduction can't be safely auto-calculated for an incomplete duty; that's
+// left for the crew to add manually via the per-flight Meal Deduction override.
+function findIncompleteTrailingDutyId(sectors) {
+  if (!sectors.length) return null;
+  const ordered = [...sectors].sort((a, b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0));
+  const last = ordered[ordered.length - 1];
+  return (last.dutyType === 'Layover' && last.dest !== 'CMB') ? last.dutyId : null;
+}
+
+// ============================================================
 // FLYING PAY ENGINE (75hr tiered rate + Acting CM + Passengering)
 // ============================================================
 
@@ -2132,14 +2198,27 @@ function renderFlightTable() {
   const tbody = $('flightTableBody');
   tbody.innerHTML = '';
 
+  // Month-boundary + incomplete-trailing-duty indicators — purely visual here
+  // (the actual exclusion happens in calculateSalary()) so the crew can see
+  // up front why a flight isn't counted in this month's totals.
+  const _boundarySeqIndices = findMonthBoundarySeqIndices(flights);
+  const _targetFlightsPreview = flights.filter(f => !_boundarySeqIndices.has(f.seqIndex));
+  const _incompleteDutyId = findIncompleteTrailingDutyId(_targetFlightsPreview);
+
   flights.forEach((f, idx) => {
     const tr = document.createElement('tr');
     const hasIssue = !f.orig || !f.dest || !f.atd || !f.ata || f.blockMinutes === null;
     if (hasIssue) tr.classList.add('warn-row');
 
+    const isBoundary = _boundarySeqIndices.has(f.seqIndex);
+    const isIncomplete = _incompleteDutyId != null && f.dutyId === _incompleteDutyId;
+    if (isBoundary) tr.style.opacity = '0.55';
+
     const badgeClass = f.dutyType === 'Layover' ? 'layover' : f.dutyType === 'Combined' ? 'combined' : 'turn';
     const passBadge = f.isPassengering ? ' <span class="badge pass">P</span>' : '';
     const cmBadge = f.actingCM ? ` <span class="badge verified">${getRates().actingLabel||'CM'}</span>` : '';
+    const boundaryBadge = isBoundary ? ' <span class="badge" title="Belongs to the adjacent month\'s roster — excluded from this month\'s pay">OTHER MONTH</span>' : '';
+    const incompleteBadge = (!isBoundary && isIncomplete) ? ' <span class="badge" title="Return leg not shown in this roster — meal deduction not auto-applied, add manually if needed">RETURN PENDING</span>' : '';
 
     tr.innerHTML = `
       <td>${f.date || '-'}</td>
@@ -2148,7 +2227,7 @@ function renderFlightTable() {
       <td>${f.atd || '??:??'}</td>
       <td>${f.ata || '??:??'}</td>
       <td>${minutesToHHMM(f.blockMinutes)}</td>
-      <td><span class="badge ${badgeClass}">${f.dutyType || '-'}</span></td>
+      <td><span class="badge ${badgeClass}">${f.dutyType || '-'}</span>${boundaryBadge}${incompleteBadge}</td>
       <td>${hasIssue ? '<span style="color:#c0392b;">&#9888;</span>' : '<span style="color:#0a6640;">&#10003;</span>'}</td>
       <td>
         <button class="detail-edit-btn" data-idx="${idx}">Edit</button>
@@ -2278,6 +2357,21 @@ function calculateSalary() {
     }
   });
 
+  // Month-boundary handling (see MONTH-BOUNDARY HANDLING block above).
+  // Lead-in/lead-out sectors from the adjacent calendar month are excluded
+  // from every auto-calculated pay figure — they belong to that other
+  // month's own calculation, not this one. The manual per-flight overrides
+  // further below still operate on the FULL `flights` array, so the crew can
+  // always manually re-include a specific flight if they know better.
+  const _boundarySeqIndices = findMonthBoundarySeqIndices(flights);
+  const targetFlights = flights.filter(f => !_boundarySeqIndices.has(f.seqIndex));
+  // A duty still open at the trailing edge (return leg not yet visible in
+  // this roster) can't have its meal deduction safely auto-calculated.
+  const _incompleteTrailingDutyId = findIncompleteTrailingDutyId(targetFlights);
+  const mealCalcFlights = _incompleteTrailingDutyId != null
+    ? targetFlights.filter(f => f.dutyId !== _incompleteTrailingDutyId)
+    : targetFlights;
+
   const basicSalary = parseFloat($('basicSalary').value) || 0;
   const premiumAllowance = parseFloat($('premiumAllowance').value) || 0;
   const crge = parseFloat($('crge').value) || 0;
@@ -2300,7 +2394,7 @@ function calculateSalary() {
   }
 
   const _rates = getRates();
-  const overnightAllowance = calculateOvernightAllowance(flights, _rates.overnight);
+  const overnightAllowance = calculateOvernightAllowance(targetFlights, _rates.overnight);
 
   // Manual overnight override 'no' — force-REMOVE an auto-detected overnight for
   // that duty (e.g. a cross-month layover return the algorithm mistook for a
@@ -2349,11 +2443,11 @@ function calculateSalary() {
       overrideUsed: true
     };
   } else {
-    flyingPay = calculateFlyingPay(flights, state.hasLeave || false);
+    flyingPay = calculateFlyingPay(targetFlights, state.hasLeave || false);
     flyingPay.overrideUsed = false;
   }
 
-  const turnaroundPay = calculateTurnaroundPay(flights);
+  const turnaroundPay = calculateTurnaroundPay(targetFlights);
 
   // Manual turnaround pay overrides: 'no' force-removes the turnaround pay for
   // that whole duty; 'yes' force-adds it (using the same short/long threshold
@@ -2381,7 +2475,7 @@ function calculateSalary() {
     turnaroundPay.details.push({ date: f.date, totalMin: dutyMin, rate, flightNo: f.flightNo, dest: f.dest, dutyId: f.dutyId });
   });
 
-  const mealDeductions = calculateMealDeductions(flights);
+  const mealDeductions = calculateMealDeductions(mealCalcFlights);
 
   // Manual meal deduction overrides: 'no' force-removes any automatic
   // deduction touching that flight; 'yes' force-adds one if not already
