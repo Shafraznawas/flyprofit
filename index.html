@@ -1640,9 +1640,10 @@ function groupIntoDuties(sectors, nonFlightMarkers) {
  * so Acting CM hours must be entered manually by the user via the flight edit UI
  * (each sector has an `actingCM` boolean flag, default false, user-editable).
  *
- * Passengering hours ARE included in the standard tiered accumulation for PAY
- * purposes (confirmed: paid at the same 13.50/32.00 tiered rate), even though they
- * are excluded from the airline's own printed monthly BLH figure.
+ * Passengering (P) sectors are EXCLUDED from the tiered hourly pay entirely
+ * (confirmed 2026-07-06 — correcting an earlier wrong assumption that they were
+ * paid at the same tiered rate). This matches the airline's own printed BLH,
+ * which already excludes P legs.
  */
 function calculateFlyingPay(sectors, hasLeave) {
   // Process in chronological order
@@ -1656,6 +1657,7 @@ function calculateFlyingPay(sectors, hasLeave) {
 
   ordered.forEach(s => {
     const mins = s.blockMinutes || 0;
+    if (s.isPassengering) return; // no hourly pay for passengering legs
     if (s.actingCM) {
       actingCMMin += mins;
       return;
