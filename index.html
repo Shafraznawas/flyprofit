@@ -2823,10 +2823,24 @@ function _layoverNights(group, station) {
   return Math.max(1, n);
 }
 
-// Build a compact record for the calculated month and store it under its year.
+// Convert a roster's own month label ("MAY26") to the YYYY-MM logbook key.
+const _MONTH_NUM = { JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12' };
+function _rosterMonthToKey(rm) {
+  const m = /^([A-Z]{3})(\d{2})$/.exec(String(rm || '').toUpperCase());
+  if (!m || !_MONTH_NUM[m[1]]) return null;
+  return '20' + m[2] + '-' + _MONTH_NUM[m[1]];
+}
+
+// Build a compact record for the month and store it under its calendar year.
+// Month key comes from the Roster Month field if set, otherwise falls back to
+// the month the roster PDF itself declares — so the logbook fills in even if
+// the user never touches the month picker.
 function captureMonthToLogbook(flights) {
-  const monthKey = ($('monthYear').value || '').trim();
-  if (!/^\d{4}-\d{2}$/.test(monthKey)) return; // need a real YYYY-MM to file it
+  let monthKey = ($('monthYear').value || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    monthKey = _rosterMonthToKey(state.rosterIdentity && state.rosterIdentity.rosterMonth) || '';
+  }
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) return; // still no month we can file it under
   if (!flights || !flights.length) return;
   const year = monthKey.slice(0, 4);
 
@@ -3136,6 +3150,12 @@ $('rosterFile').addEventListener('change',async(e)=>{
     }
 
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
+    state.rosterIdentity=result.identity;
+
+    // Log to the flying logbook straight from the upload — the PDF carries its
+    // own month, so it fills in even before the user presses Calculate. A later
+    // Calculate re-captures the same month (keyed by month, so it overwrites).
+    try { captureMonthToLogbook(result.sectors); } catch(e) { console.error('[logbook capture ERROR]', e.message); }
 
     const n=result.sectors.length,err=result.warnings.length;
     if(err===0) setUploadStatus(n+' sectors loaded','ok',file.name);
