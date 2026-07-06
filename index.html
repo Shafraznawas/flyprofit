@@ -2932,18 +2932,26 @@ function _isCompleteDuty(group) {
   return group.length > 0 && group[0].orig === 'CMB' && group[group.length - 1].dest === 'CMB';
 }
 
-// Nights at the layover station = (return departure day) - (arrival day).
-// Arrival day bumps +1 when the outbound leg landed the next morning —
-// detected from the times (arrival earlier than departure) since the roster's
-// ataNextDay flag isn't reliable for these. Approximate by design (roster
-// day-numbers); shown per-layover so the user can eyeball it. Returns >= 1.
+// Nights at the layover station = (return departure day) - (true arrival day).
+// The roster's date label on the outbound leg's row is its DEPARTURE day, not
+// necessarily its arrival day — so the true arrival day is derived from the
+// leg's own known block minutes (the same trusted duration used everywhere
+// else for pay), not by comparing raw clock digits (unreliable — e.g. "ATA
+// earlier than ATD" fails to signal an overnight arrival on plenty of real
+// flights). daysSpanned = how many midnights THIS flight's actual elapsed
+// duration crosses, computed from its departure clock-time + its own duration.
 function _layoverNights(group, station) {
   const last = group[group.length - 1];
   const arrivalSec = group.find(s => s.dest === station) || group[0];
-  let arr = _dayNum(arrivalSec.date);
-  const adep = timeToMinutes(arrivalSec.atd), aata = timeToMinutes(arrivalSec.ata);
-  const landedNextDay = arrivalSec.ataNextDay || (adep != null && aata != null && aata < adep);
-  if (arr != null && landedNextDay) arr += 1;
+  const arrDayLabel = _dayNum(arrivalSec.date);
+  const outboundAtdMin = timeToMinutes(arrivalSec.atd);
+  let arr = arrDayLabel;
+  if (arrDayLabel != null && outboundAtdMin != null && arrivalSec.blockMinutes) {
+    const daysSpanned = Math.floor((outboundAtdMin + arrivalSec.blockMinutes) / 1440);
+    arr = arrDayLabel + daysSpanned;
+  } else if (arrDayLabel != null && arrivalSec.ataNextDay) {
+    arr = arrDayLabel + 1; // fallback when block minutes aren't available
+  }
   const dep = _dayNum(last.date);
   if (arr == null || dep == null) return 1;
   let n = dep - arr;
