@@ -928,8 +928,9 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     <div class="ef-row">
       <span class="ef-row-lbl">OVERNIGHT</span>
       <div class="ef-chip-group">
-        <button class="eovn-btn ef-chip" data-val="false">No</button>
-        <button class="eovn-btn ef-chip" data-val="true">Yes 🌙</button>
+        <button class="eovn-btn ef-chip" data-val="auto">Auto</button>
+        <button class="eovn-btn ef-chip" data-val="no">No</button>
+        <button class="eovn-btn ef-chip" data-val="yes">Yes 🌙</button>
       </div>
     </div>
     <div class="ef-row">
@@ -1260,8 +1261,25 @@ function parseRosterText(lines) {
   const dutyLines = [];
   let seqCounter = 0;
   for (const t of tagged) {
-    const tokens = t.body.split(/\s+/).filter(Boolean);
+    let tokens = t.body.split(/\s+/).filter(Boolean);
     if (!tokens.length) continue;
+
+    // Strip a leading DD-column marker before classifying the row. These are
+    // short letter codes, optionally comma-joined, that annotate the duty but
+    // are NOT part of it: "P" = Passengering, "M" = mutual swap; anything else
+    // ("H", "SC", "H,P", ...) is simply ignored. Only strip when a flight code
+    // or an HTL marker follows, so real activity codes (OFF, SB2, HTL alone)
+    // are never mistaken for a marker.
+    let isPassengering = false;
+    let isMutualMarker = false;
+    if (tokens.length > 1 &&
+        /^[A-Z]{1,2}(,[A-Z]{1,2})*$/.test(tokens[0]) &&
+        (/^[A-Z]{2}\d{2,4}[A-Z]?$/.test(tokens[1]) || tokens[1] === 'HTL' || tokens[1] === 'HOT')) {
+      const parts = tokens[0].split(',');
+      isPassengering = parts.includes('P');
+      isMutualMarker = parts.includes('M');
+      tokens = tokens.slice(1);
+    }
 
     if (/^(CSC|SEP|DGR|CSE|ISF|CRM)$/.test(tokens[0])) {
       // Training/ground duty codes — ignore for pay calculation
@@ -1281,27 +1299,13 @@ function parseRosterText(lines) {
       continue;
     }
 
-    let isPassengering = false;
-    let isMutualMarker = false;
-    let idx = 0;
-    // A short letter-only marker before the flight number — "P" means Passengering,
-    // "M" means this duty was a mutual swap (not always printed — crewing doesn't
-    // consistently mark it, so this is a hint, not something to rely on alone).
-    // Any other such marker (e.g. "SC") is unrecognized and simply ignored, treating
-    // the flight as a normal one for calculation purposes.
-    if (/^[A-Z]{1,3}$/.test(tokens[0])) {
-      isPassengering = tokens[0] === 'P';
-      isMutualMarker = tokens[0] === 'M';
-      idx = 1;
-    }
-
-    if (!tokens[idx] || !/^[A-Z]{2}\d{2,4}[A-Z]?$/.test(tokens[idx])) {
+    if (!tokens[0] || !/^[A-Z]{2}\d{2,4}[A-Z]?$/.test(tokens[0])) {
       warnings.push({ line: t.raw, reason: 'Unrecognized line — could not identify activity/flight code.' });
       seqCounter++;
       continue;
     }
-    const flightNo = tokens[idx];
-    const rest = tokens.slice(idx + 1);
+    const flightNo = tokens[0];
+    const rest = tokens.slice(1);
 
     dutyLines.push({ date: t.date, kind: 'Flight', flightNo, isPassengering, isMutualMarker, rest, raw: t.raw, seqIndex: seqCounter++ });
   }
@@ -2006,8 +2010,15 @@ function calculateOvernightAllowance(sectors, rateUSD) {
   const details = [];
 
   Object.values(dutyGroups).forEach(group => {
+    group.sort((a, b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0));
     // Only turnarounds qualify — layovers have their own overnight rate
     if (group[0].dutyType !== 'Turn') return;
+    // A genuine overnight turnaround always departs from base (CMB). A duty
+    // that starts away from CMB is a cross-month layover RETURN (its outbound
+    // was the previous month) — it just happens to cross midnight on the way
+    // home and must NOT be paid an overnight. (Still overridable via the
+    // per-flight Overnight = Yes toggle if ever needed.)
+    if (group[0].orig !== 'CMB') return;
 
     const first = group[0];
     // Anchor from check-in, not ATD — 80 min before first departure, wrapped
@@ -2184,7 +2195,7 @@ async function openEditFlight(idx) {
   f._manualDutyType = result.dutyType;
   f.isPassengering = result.isPassengering;
   f.actingCM = result.actingCM;
-  f._manualOvernight = result.manualOvernight;
+  f._manualOvernight = result.manualOvernight === 'auto' ? undefined : result.manualOvernight;
   f._manualMealDeduction = result.manualMealDeduction === 'auto' ? undefined : result.manualMealDeduction;
   f._manualTurnaroundPay = result.manualTurnaroundPay === 'auto' ? undefined : result.manualTurnaroundPay;
 
@@ -2288,10 +2299,27 @@ function calculateSalary() {
   const _rates = getRates();
   const overnightAllowance = calculateOvernightAllowance(flights, _rates.overnight);
 
-  // Inject manually-flagged overnight duties not already counted by the algorithm
+  // Manual overnight override 'no' — force-REMOVE an auto-detected overnight for
+  // that duty (e.g. a cross-month layover return the algorithm mistook for a
+  // midnight-crossing turnaround). Was previously impossible to remove.
+  const _suppressOvnDutyIds = new Set(
+    flights.filter(f => f._manualOvernight === 'no').map(f => f.dutyId)
+  );
+  if (_suppressOvnDutyIds.size) {
+    overnightAllowance.details = overnightAllowance.details.filter(d => {
+      if (_suppressOvnDutyIds.has(d.dutyId)) {
+        overnightAllowance.count--;
+        overnightAllowance.totalUSD -= _rates.overnight;
+        return false;
+      }
+      return true;
+    });
+  }
+
+  // Manual overnight override 'yes' — force-ADD for a duty not already counted.
   const _countedOvnDuties = new Set(overnightAllowance.details.map(d => d.dutyId).filter(Boolean));
   flights.forEach(f => {
-    if (f._manualOvernight && !_countedOvnDuties.has(f.dutyId)) {
+    if (f._manualOvernight === 'yes' && !_countedOvnDuties.has(f.dutyId) && !_suppressOvnDutyIds.has(f.dutyId)) {
       _countedOvnDuties.add(f.dutyId);
       overnightAllowance.count++;
       overnightAllowance.totalUSD += _rates.overnight;
@@ -3111,11 +3139,14 @@ function showEditModal(f, title) {
       btn.onclick = () => { selectedActing = btn.dataset.val === 'true'; styleToggle('.eact-btn', selectedActing); };
     });
 
-    // Overnight manual override
-    let selectedOvn = f._manualOvernight || false;
+    // Overnight manual override (3-state: 'auto' / 'no' / 'yes').
+    // 'no' now actively SUPPRESSES an auto-detected overnight (e.g. a cross-
+    // month layover return mis-read as a midnight-crossing turnaround), not
+    // just "don't force-add".
+    let selectedOvn = f._manualOvernight || 'auto';
     styleToggle('.eovn-btn', selectedOvn);
     modal.querySelectorAll('.eovn-btn').forEach(btn => {
-      btn.onclick = () => { selectedOvn = btn.dataset.val === 'true'; styleToggle('.eovn-btn', selectedOvn); };
+      btn.onclick = () => { selectedOvn = btn.dataset.val; styleToggle('.eovn-btn', selectedOvn); };
     });
 
     // Meal deduction manual override (3-state: 'auto' / 'no' / 'yes')
