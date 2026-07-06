@@ -850,8 +850,12 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       <div class="card-body" id="logbookSummary"></div>
     </div>
     <div class="card">
-      <div class="card-head"><span class="card-ico">🧳</span><div><div class="card-title">Long Layovers</div><div class="card-sub">2+ nights away · yearly quota</div></div></div>
-      <div class="card-body" id="logbookLayovers"></div>
+      <div class="card-head"><span class="card-ico">🏨</span><div><div class="card-title">Long Stays</div><div class="card-sub">2+ nights · yearly quota, by station</div></div></div>
+      <div class="card-body" id="logbookLongStays"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">🧳</span><div><div class="card-title">Layovers</div><div class="card-sub">Single-night layovers</div></div></div>
+      <div class="card-body" id="logbookLayovers1"></div>
     </div>
     <div class="card">
       <div class="card-head"><span class="card-ico">📍</span><div><div class="card-title">Top Destinations</div><div class="card-sub">Most-visited this year</div></div></div>
@@ -2823,6 +2827,17 @@ function _layoverNights(group, station) {
   return Math.max(1, n);
 }
 
+// Convert a roster's own month label ("MAY26") to a YYYY-MM value for the
+// month picker. SriLankan individual rosters are always a single calendar-
+// month bid period (the "01MAY26 - 31MAY26" header), so this is unambiguous
+// even though the roster shows a few lead-in/out days from adjacent months.
+const _MONTH_NUM = { JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12' };
+function _rosterMonthToKey(rm) {
+  const m = /^([A-Z]{3})(\d{2})$/.exec(String(rm || '').toUpperCase());
+  if (!m || !_MONTH_NUM[m[1]]) return null;
+  return '20' + m[2] + '-' + _MONTH_NUM[m[1]];
+}
+
 // Build a compact record for the month and store it under its calendar year.
 // Filed under the selected Roster Month (the flying month) — deliberately
 // requires the month to be set + Calculate pressed, so only confirmed months
@@ -2899,7 +2914,6 @@ function renderLogbook() {
     (r.layovers || []).forEach(l => allLayovers.push(l));
   });
   const uniqueDest = Object.keys(destAgg).length;
-  const longLayovers = allLayovers.filter(l => l.nights > LAYOVER_QUOTA_NIGHTS);
 
   const card = (lbl, val) => `<div style="background:var(--card2);border-radius:12px;padding:12px;">
     <div style="font-size:.6rem;color:var(--tx3);letter-spacing:.05em;margin-bottom:4px;text-transform:uppercase;">${lbl}</div>
@@ -2912,16 +2926,42 @@ function renderLogbook() {
       ${card('Months Logged', monthKeys.length)}
     </div>`;
 
-  $('logbookLayovers').innerHTML =
+  // ── LONG STAYS (2+ nights) — the quota. Grouped by station + night-count,
+  // since the quota is counted per station per length (e.g. FRA-2n, FRA-3n).
+  const oneNight = allLayovers.filter(l => l.nights === 1);
+  const longStays = allLayovers.filter(l => l.nights > LAYOVER_QUOTA_NIGHTS);
+
+  const longGroups = {}; // "FRA|2" -> count
+  longStays.forEach(l => { const k = l.station + '|' + l.nights; longGroups[k] = (longGroups[k] || 0) + 1; });
+  const longGroupKeys = Object.keys(longGroups).sort((a, b) => {
+    const [sa, na] = a.split('|'), [sb, nb] = b.split('|');
+    return sa === sb ? (+na) - (+nb) : (sa < sb ? -1 : 1);
+  });
+  $('logbookLongStays').innerHTML =
     `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
-      <span style="font-family:var(--mono);font-size:1.7rem;color:var(--purple3);">${longLayovers.length}</span>
-      <span style="font-size:.75rem;color:var(--tx2);">long layover${longLayovers.length===1?'':'s'} of <span style="color:var(--tx3);">— (annual quota, TBC)</span></span>
+      <span style="font-family:var(--mono);font-size:1.7rem;color:var(--purple3);">${longStays.length}</span>
+      <span style="font-size:.75rem;color:var(--tx2);">long stay${longStays.length===1?'':'s'} of <span style="color:var(--tx3);">— (annual quota, TBC)</span></span>
     </div>` +
-    (longLayovers.length
-      ? longLayovers.map(l => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
-          <span style="color:var(--tx2);">${l.station} <span style="color:var(--tx3);">· ${l.flightNo||''}</span></span>
-          <span style="color:var(--purple3);font-family:var(--mono);">${l.nights} nights</span></div>`).join('')
-      : '<div style="color:var(--tx3);font-size:.8rem;">No 2+ night layovers logged this year.</div>');
+    (longGroupKeys.length
+      ? longGroupKeys.map(k => { const [st, n] = k.split('|'); return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
+          <span style="color:var(--tx1);">${st} <span style="color:var(--tx3);">· ${n} nights</span></span>
+          <span style="color:var(--purple3);font-family:var(--mono);">${longGroups[k]}×</span></div>`; }).join('')
+      : '<div style="color:var(--tx3);font-size:.8rem;">No 2+ night stays logged this year.</div>');
+
+  // ── SINGLE-NIGHT LAYOVERS — grouped by station.
+  const oneGroups = {};
+  oneNight.forEach(l => oneGroups[l.station] = (oneGroups[l.station] || 0) + 1);
+  const oneGroupKeys = Object.keys(oneGroups).sort((a, b) => oneGroups[b] - oneGroups[a]);
+  $('logbookLayovers1').innerHTML =
+    `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
+      <span style="font-family:var(--mono);font-size:1.4rem;color:var(--cyan2);">${oneNight.length}</span>
+      <span style="font-size:.75rem;color:var(--tx2);">single-night layover${oneNight.length===1?'':'s'}</span>
+    </div>` +
+    (oneGroupKeys.length
+      ? oneGroupKeys.map(st => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
+          <span style="color:var(--tx1);">${st}</span>
+          <span style="color:var(--cyan2);font-family:var(--mono);">${oneGroups[st]}×</span></div>`).join('')
+      : '<div style="color:var(--tx3);font-size:.8rem;">No single-night layovers logged this year.</div>');
 
   const destSorted = Object.keys(destAgg).sort((a, b) => destAgg[b] - destAgg[a]).slice(0, 6);
   const maxDest = destSorted.length ? destAgg[destSorted[0]] : 1;
@@ -2939,7 +2979,7 @@ function renderLogbook() {
         <span style="color:var(--tx1);font-weight:600;">${mk}</span>
         <span style="font-family:var(--mono);color:var(--cyan2);">${minutesToHHMM(r.blockMin)}</span>
       </div>
-      <div style="font-size:.68rem;color:var(--tx3);margin-top:2px;">${r.sectorCount} sectors · ${longN} long layover${longN===1?'':'s'}</div>
+      <div style="font-size:.68rem;color:var(--tx3);margin-top:2px;">${r.sectorCount} sectors · ${longN} long stay${longN===1?'':'s'}</div>
     </div>`;
   }).join('');
 }
@@ -3139,6 +3179,12 @@ $('rosterFile').addEventListener('change',async(e)=>{
     }
 
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
+
+    // Auto-fill the Roster Month picker from the roster's own declared period,
+    // so the user doesn't have to set it by hand (they still press Calculate to
+    // log). Only sets it when detectable; user can still change it.
+    const _detectedMonth = _rosterMonthToKey(result.identity && result.identity.rosterMonth);
+    if (_detectedMonth) { $('monthYear').value = _detectedMonth; }
 
     const n=result.sectors.length,err=result.warnings.length;
     if(err===0) setUploadStatus(n+' sectors loaded','ok',file.name);
