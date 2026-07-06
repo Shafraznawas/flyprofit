@@ -975,6 +975,11 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <button class="emeal-btn ef-chip" data-val="yes">Yes</button>
       </div>
     </div>
+    <div id="ef-meal-amount-wrap" style="display:none;margin-bottom:10px;">
+      <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">RETURN NOT SHOWN — ENTER MEAL DEDUCTION AMOUNT (USD)</div>
+      <input id="ef-meal-amount" type="number" step="0.01" min="0" placeholder="e.g. 75.00" inputmode="decimal" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.9rem;font-family:var(--mono);box-sizing:border-box;">
+      <div style="font-size:.62rem;color:var(--tx3);margin-top:4px;line-height:1.4;">This duty's return leg isn't in this roster, so the app can't work out how many meals apply — enter the known amount yourself.</div>
+    </div>
     <div class="ef-row">
       <span class="ef-row-lbl">TURNAROUND PAY</span>
       <div class="ef-chip-group">
@@ -2313,6 +2318,7 @@ async function openEditFlight(idx) {
   f.actingCM = result.actingCM;
   f._manualOvernight = result.manualOvernight === 'auto' ? undefined : result.manualOvernight;
   f._manualMealDeduction = result.manualMealDeduction === 'auto' ? undefined : result.manualMealDeduction;
+  f._manualMealDeductionAmount = result.manualMealDeductionAmount;
   f._manualTurnaroundPay = result.manualTurnaroundPay === 'auto' ? undefined : result.manualTurnaroundPay;
 
   const r = calcBlockMinutes(f.orig, f.atd, f.dest, f.ata, false);
@@ -2533,8 +2539,13 @@ function calculateSalary() {
       d.date === f.date && d.flightNo.split('+').includes(f.flightNo)
     );
     if (alreadyCounted) return;
-    mealDeductions.totalUSD += MEAL_RATE;
-    mealDeductions.details.push({ date: f.date, flightNo: f.flightNo, meals: ['Manual'], amount: MEAL_RATE });
+    // A crew-entered amount (only ever set for an incomplete/return-pending
+    // duty, where a flat single-meal add would be meaningless — see the
+    // edit modal) takes precedence over the standard flat rate.
+    const amount = (f._manualMealDeductionAmount != null && f._manualMealDeductionAmount > 0)
+      ? f._manualMealDeductionAmount : MEAL_RATE;
+    mealDeductions.totalUSD += amount;
+    mealDeductions.details.push({ date: f.date, flightNo: f.flightNo, meals: ['Manual'], amount });
   });
 
   const connectedSeqIndices = mealDeductions.connectedSeqIndices;
@@ -3544,11 +3555,29 @@ function showEditModal(f, title) {
       btn.onclick = () => { selectedOvn = btn.dataset.val; styleToggle('.eovn-btn', selectedOvn); };
     });
 
-    // Meal deduction manual override (3-state: 'auto' / 'no' / 'yes')
+    // Meal deduction manual override (3-state: 'auto' / 'no' / 'yes').
+    // For the incomplete-trailing-duty case (return leg not shown in this
+    // roster — see findIncompleteTrailingDutyId), a flat single-meal add
+    // makes no sense — we have no idea how many nights/meals the pending
+    // duty actually covers — so 'yes' instead reveals an amount field for
+    // the crew to type the real figure in.
     let selectedMeal = f._manualMealDeduction || 'auto';
     styleToggle('.emeal-btn', selectedMeal);
+    const _allFlightsForModal = getAllFlights();
+    const _boundaryForModal = findMonthBoundarySeqIndices(_allFlightsForModal);
+    const _targetForModal = _allFlightsForModal.filter(x => !_boundaryForModal.has(x.seqIndex));
+    const _incompleteDutyIdForModal = findIncompleteTrailingDutyId(_targetForModal);
+    const isIncompleteMealFlight = _incompleteDutyIdForModal != null && f.dutyId === _incompleteDutyIdForModal;
+    const mealAmountWrap = $('ef-meal-amount-wrap');
+    const mealAmountInput = $('ef-meal-amount');
+    mealAmountInput.value = (f._manualMealDeductionAmount != null) ? f._manualMealDeductionAmount : '';
+    mealAmountWrap.style.display = (isIncompleteMealFlight && selectedMeal === 'yes') ? 'block' : 'none';
     modal.querySelectorAll('.emeal-btn').forEach(btn => {
-      btn.onclick = () => { selectedMeal = btn.dataset.val; styleToggle('.emeal-btn', selectedMeal); };
+      btn.onclick = () => {
+        selectedMeal = btn.dataset.val;
+        styleToggle('.emeal-btn', selectedMeal);
+        mealAmountWrap.style.display = (isIncompleteMealFlight && selectedMeal === 'yes') ? 'block' : 'none';
+      };
     });
 
     // Turnaround pay manual override (3-state: 'auto' / 'no' / 'yes')
@@ -3616,6 +3645,7 @@ function showEditModal(f, title) {
         actingCM: selectedActing,
         manualOvernight: selectedOvn,
         manualMealDeduction: selectedMeal,
+        manualMealDeductionAmount: mealAmountWrap.style.display === 'block' ? (parseFloat(mealAmountInput.value) || null) : null,
         manualTurnaroundPay: selectedTurn,
         isMutualSwap: selectedMutual,
         mutualGivenRoute: selectedMutual ? mutualRouteInput.value.toUpperCase().trim() : '',
