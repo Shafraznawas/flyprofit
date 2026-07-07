@@ -2184,40 +2184,96 @@ function calculateOvernightAllowance(sectors, rateUSD) {
 // ============================================================
 
 /**
- * Layover Allowance = every meal from CMB check-in (start of the duty) to
- * CMB ATA (arrival back home), plus every night spent away, for each
- * complete (CMB->...->CMB) Layover duty — reported as one combined USD
- * figure. The meal component reuses `calculateMealDeductions()`'s own
- * totalUSD (identical detection logic, and respects any manual overrides
- * already applied) rather than recounting — so this always matches what's
- * shown elsewhere. The nights component reuses the same block-minutes-based
- * night count already verified for the Logbook (`_isCompleteDuty`,
- * `_layoverNights`, `_dutyOutstation`), applied at the crew member's own
- * per-category overnight rate.
+ * Layover Allowance = every meal + every night, counted across the ENTIRE
+ * duty window from CMB check-in (80 min before first departure) through to
+ * CMB ATA (arrival back home) — for each complete (CMB->...->CMB) Layover
+ * duty. This is a genuinely different, WIDER span than both (a) Meal
+ * Deductions (only checks in-flight catering per leg, never ground time at
+ * the destination) and (b) the Logbook's "nights away" quota (only counts
+ * nights actually spent at the destination hotel, i.e. arrival-at-dest to
+ * departure-from-dest). Layover Allowance's "night" is different again: the
+ * crew is "away from base" continuously from check-in to final arrival, so
+ * EVERY midnight in that whole window counts — including a travel night on
+ * an overnight outbound/return flight, before/after any hotel stay. So this
+ * is computed completely independently, not gated by noMealDeductions —
+ * applies uniformly to every category.
+ *
+ * Since presence is continuous from check-in to final arrival, every day
+ * except the very first (starts mid-day, at check-in) and the very last
+ * (ends mid-day, at final arrival) is trivially a FULL day away — no clock
+ * math needed, all 3 meals automatic. Only the first/last day need their
+ * partial-day presence tested against the MEAL_WINDOWS clock boundaries.
+ *
+ * Day-count uses each leg's own printed date label directly (a stated fact
+ * per row) plus that leg's own block minutes to find how many midnights IT
+ * crosses — never clock-time subtraction between different rows, which is
+ * ambiguous past 24 hours (the same class of bug already fixed once for the
+ * Logbook's night count).
+ *
+ * Verified against a real worked example (UL265/6, CMB-RUH-CMB, 1-3 July):
+ * Day1 Dinner, Day2 Breakfast+Lunch+Dinner, Day3 nothing (lands 06:15,
+ * before the 07:30 breakfast window), 2 nights — exact match.
  */
-function calculateLayoverAllowance(sectors, rateUSD, mealTotalUSD) {
+function calculateLayoverAllowance(sectors, rateUSD) {
   const groups = {};
   sectors.forEach(s => { (groups[s.dutyId] = groups[s.dutyId] || []).push(s); });
 
   let totalNights = 0;
+  let mealCount = 0;
   const details = [];
+
   Object.values(groups).forEach(group => {
     group.sort((a, b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0));
     if (group[0].dutyType !== 'Layover') return;
-    if (!_isCompleteDuty(group)) return; // return leg not shown — nights unknown, skip (same rule as Logbook)
-    const station = _dutyOutstation(group);
-    if (!station) return;
-    const nights = _layoverNights(group, station);
+    if (!_isCompleteDuty(group)) return; // return leg not shown in this roster — window unknown, skip
+
+    const first = group[0];
+    const last = group[group.length - 1];
+    const checkInDayLabel = _dayNum(first.date);
+    const firstAtdMin = timeToMinutes(first.atd);
+    const lastAtdMin = timeToMinutes(last.atd);
+    const lastAtaMin = timeToMinutes(last.ata);
+    const lastDayLabel = _dayNum(last.date);
+    if (checkInDayLabel == null || firstAtdMin == null || lastAtdMin == null || lastAtaMin == null || lastDayLabel == null) return;
+
+    const checkInClock = firstAtdMin - CMB_CHECKIN_BUFFER_MIN;
+    // Final arrival day = the return leg's own day label, advanced by however
+    // many midnights THAT leg's own block minutes cross (block minutes are
+    // the trusted, timezone-correct elapsed duration — never derived from
+    // subtracting raw clock digits across different stations).
+    let finalArrivalDay = lastDayLabel + Math.floor((lastAtdMin + (last.blockMinutes || 0)) / 1440);
+    let dayDiff = finalArrivalDay - checkInDayLabel;
+    if (dayDiff < 0) dayDiff += 31; // month-wrap guard, same convention used elsewhere
+    const numDays = dayDiff + 1;
+    const nights = numDays - 1;
     totalNights += nights;
-    details.push({ date: group[0].date, station, nights, flightNo: group[0].flightNo });
+
+    const dutyMeals = [];
+    for (let d = 0; d < numDays; d++) {
+      let presStart, presEnd;
+      if (d === 0 && numDays === 1) { presStart = checkInClock; presEnd = lastAtaMin; }
+      else if (d === 0) { presStart = checkInClock; presEnd = 1440; }
+      else if (d === numDays - 1) { presStart = 0; presEnd = lastAtaMin; }
+      else { presStart = 0; presEnd = 1440; }
+      const dayMeals = [];
+      MEAL_WINDOWS.forEach(w => {
+        const ws = timeToMinutes(w.start), we = timeToMinutes(w.end);
+        if (presStart < we && presEnd > ws) dayMeals.push(w.name);
+      });
+      if (dayMeals.length) dutyMeals.push({ dayOffset: d, meals: dayMeals });
+      mealCount += dayMeals.length;
+    }
+
+    const station = _dutyOutstation(group);
+    details.push({ date: first.date, flightNo: first.flightNo, station, nights, dailyMeals: dutyMeals });
   });
 
+  const mealUSD = mealCount * MEAL_RATE;
   const overnightUSD = totalNights * (rateUSD || 0);
   return {
-    mealUSD: mealTotalUSD || 0,
-    overnightUSD,
-    totalUSD: (mealTotalUSD || 0) + overnightUSD,
-    nights: totalNights,
+    mealUSD, overnightUSD,
+    totalUSD: mealUSD + overnightUSD,
+    nights: totalNights, mealCount,
     details
   };
 }
@@ -2602,8 +2658,10 @@ function calculateSalary() {
   // Layover Allowance — informational only (Stats page), does not touch
   // the pay total below. Uses the same month-filtered set as meal/turnaround/
   // overnight above, for consistency (a duty straddling the month boundary
-  // never satisfies _isCompleteDuty's CMB->...->CMB check anyway).
-  const layoverAllowance = calculateLayoverAllowance(targetFlights, _rates.overnight, mealDeductions.totalUSD);
+  // never satisfies _isCompleteDuty's CMB->...->CMB check anyway). Fully
+  // independent of the meal-deduction engine (see function doc) — computed
+  // uniformly for every category, not gated by noMealDeductions.
+  const layoverAllowance = calculateLayoverAllowance(targetFlights, _rates.overnight);
 
   const connectedSeqIndices = mealDeductions.connectedSeqIndices;
   // Mark connected turn sectors as 'Combined' on state.sectors directly
@@ -2722,16 +2780,26 @@ function calculateSalary() {
     const la = state.lastCalculation.layoverAllowance;
     if (la.details && la.details.length > 0) {
       laArea.innerHTML =
-        `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
-          <span style="color:var(--tx2);">Meals (all layovers)</span>
-          <span style="color:var(--tx1);font-family:var(--mono);">${fmtUSD(la.mealUSD)}</span>
-        </div>` +
-        la.details.map(d => `
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
-          <span style="color:var(--tx2);">${d.station} &nbsp;·&nbsp; ${d.nights} night${d.nights===1?'':'s'} &nbsp;·&nbsp; ${d.flightNo||''}</span>
-          <span style="color:var(--tx1);font-family:var(--mono);">${fmtUSD(d.nights * getRates().overnight)}</span>
-        </div>`).join('') +
-        `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;">
+        la.details.map(d => {
+          const dayLines = d.dailyMeals.map(dm =>
+            `<div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--tx3);padding:2px 0 2px 10px;">
+              <span>Day ${dm.dayOffset + 1}</span><span>${dm.meals.join(' + ')}</span>
+            </div>`).join('');
+          return `<div style="padding:6px 0;border-bottom:1px solid var(--b0);">
+            <div style="display:flex;justify-content:space-between;font-size:.8rem;">
+              <span style="color:var(--tx1);">${d.station} &nbsp;·&nbsp; ${d.nights} night${d.nights===1?'':'s'} &nbsp;·&nbsp; ${d.flightNo||''}</span>
+              <span style="color:var(--tx1);font-family:var(--mono);">${fmtUSD(d.nights * getRates().overnight + d.dailyMeals.reduce((s,dm)=>s+dm.meals.length,0) * MEAL_RATE)}</span>
+            </div>
+            ${dayLines}
+          </div>`;
+        }).join('') +
+        `<div style="display:flex;justify-content:space-between;padding:8px 0 2px;font-size:.76rem;color:var(--tx3);">
+          <span>Meals (${la.mealCount})</span><span style="font-family:var(--mono);">${fmtUSD(la.mealUSD)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0 8px;font-size:.76rem;color:var(--tx3);">
+          <span>Nights (${la.nights})</span><span style="font-family:var(--mono);">${fmtUSD(la.overnightUSD)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;border-top:1px solid var(--b0);">
           <span>Total Layover Allowance</span><span style="color:var(--green);">${fmtUSD(la.totalUSD)}</span>
         </div>
         <div style="font-size:.62rem;color:var(--tx3);margin-top:4px;">Informational only — not included in your take-home pay total.</div>`;
