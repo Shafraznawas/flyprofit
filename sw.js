@@ -1,4 +1,4 @@
-﻿// SLA Salary Portal — Service Worker v118
+// SLA Salary Portal — Service Worker v118
 const CACHE = 'sla-salary-v142';
 
 const ASSETS = [
@@ -8,6 +8,7 @@ const ASSETS = [
   './icon-192.jpg',
   './icon-512.jpg',
   './stations.json',
+  './pdf.worker.min.js',
 ];
 
 self.addEventListener('install', e => {
