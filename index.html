@@ -886,7 +886,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     <div class="card">
       <div class="card-head">
         <span class="card-ico">🔄</span>
-        <div><div class="card-title">Mutual Flight Calculator</div><div class="card-sub">CMB round trips only · standalone estimate at Tier 1 rate</div></div>
+        <div><div class="card-title">Mutual Flight Calculator</div><div class="card-sub">Just the flight numbers — everything else is looked up automatically</div></div>
       </div>
       <div class="card-body">
         <div class="field">
@@ -899,66 +899,29 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
             <option value="FA_C1">C1 Flight Attendant</option>
             <option value="FA_C">C Flight Attendant</option>
           </select>
-          <div class="hint">Used for both flights below</div>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="card-ico">📤</span><div><div class="card-title">Flight I'm Giving</div><div class="card-sub">The duty you're giving away</div></div></div>
+      <div class="card-head"><span class="card-ico">📤</span><div><div class="card-title">Flight I'm Giving</div><div class="card-sub">The trip(s) you're giving away</div></div></div>
       <div class="card-body">
-        <div class="g2">
-          <div class="field">
-            <label>Duty Type</label>
-            <select id="sg-dutyType"><option value="Turn">Turnaround</option><option value="Layover">Layover</option></select>
-          </div>
-          <div class="field">
-            <label>Destination</label>
-            <input type="text" id="sg-dest" placeholder="e.g. MLE" style="text-transform:uppercase;" maxlength="4">
-          </div>
+        <div class="field">
+          <label>Flight Number(s)</label>
+          <input type="text" id="sg-flights" placeholder="e.g. UL503" style="text-transform:uppercase;">
+          <div class="hint">Swapping more than one trip? Separate with a comma — e.g. UL503, UL777</div>
         </div>
-        <div class="hint" style="margin:10px 0 4px;">Outbound · CMB → destination</div>
-        <div class="g3">
-          <div class="field"><label>Flight No</label><input type="text" id="sg-out-fno" placeholder="UL504" style="text-transform:uppercase;"></div>
-          <div class="field"><label>ATD (CMB)</label><input type="text" id="sg-out-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
-          <div class="field"><label>ATA (dest)</label><input type="text" id="sg-out-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
-        </div>
-        <div class="hint" style="margin:10px 0 4px;">Return · destination → CMB</div>
-        <div class="g3">
-          <div class="field"><label>Flight No</label><input type="text" id="sg-ret-fno" placeholder="UL505" style="text-transform:uppercase;"></div>
-          <div class="field"><label>ATD (dest)</label><input type="text" id="sg-ret-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
-          <div class="field"><label>ATA (CMB)</label><input type="text" id="sg-ret-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
-        </div>
-        <div class="hint" style="margin-top:8px;">Flight No auto-fills times if flown before — still editable</div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="card-ico">📥</span><div><div class="card-title">Flight I'm Getting</div><div class="card-sub">The duty you're receiving in exchange</div></div></div>
+      <div class="card-head"><span class="card-ico">📥</span><div><div class="card-title">Flight I'm Getting</div><div class="card-sub">The trip(s) you're receiving in exchange</div></div></div>
       <div class="card-body">
-        <div class="g2">
-          <div class="field">
-            <label>Duty Type</label>
-            <select id="sr-dutyType"><option value="Turn">Turnaround</option><option value="Layover">Layover</option></select>
-          </div>
-          <div class="field">
-            <label>Destination</label>
-            <input type="text" id="sr-dest" placeholder="e.g. DXB" style="text-transform:uppercase;" maxlength="4">
-          </div>
+        <div class="field">
+          <label>Flight Number(s)</label>
+          <input type="text" id="sr-flights" placeholder="e.g. UL604" style="text-transform:uppercase;">
+          <div class="hint">Swapping more than one trip? Separate with a comma — e.g. UL604, UL888</div>
         </div>
-        <div class="hint" style="margin:10px 0 4px;">Outbound · CMB → destination</div>
-        <div class="g3">
-          <div class="field"><label>Flight No</label><input type="text" id="sr-out-fno" placeholder="UL304" style="text-transform:uppercase;"></div>
-          <div class="field"><label>ATD (CMB)</label><input type="text" id="sr-out-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
-          <div class="field"><label>ATA (dest)</label><input type="text" id="sr-out-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
-        </div>
-        <div class="hint" style="margin:10px 0 4px;">Return · destination → CMB</div>
-        <div class="g3">
-          <div class="field"><label>Flight No</label><input type="text" id="sr-ret-fno" placeholder="UL305" style="text-transform:uppercase;"></div>
-          <div class="field"><label>ATD (dest)</label><input type="text" id="sr-ret-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
-          <div class="field"><label>ATA (CMB)</label><input type="text" id="sr-ret-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
-        </div>
-        <div class="hint" style="margin-top:8px;">Flight No auto-fills times if flown before — still editable</div>
       </div>
     </div>
 
@@ -2422,145 +2385,66 @@ function calculateAPITTax(taxableIncomeLKR) {
 }
 
 // ============================================================
-// FLIGHT PATTERN MEMORY (local, per-device)
+// MUTUAL SWAP CALCULATOR (standalone — flight numbers only)
 // ============================================================
-// SriLankan Airlines flies most numbered flights on a fairly consistent
-// schedule, but this app has no live schedule/API to look that up. Instead
-// it remembers ATD/ATA every time it sees a flight number — from a parsed
-// roster, or from a Swap calculator entry — so the next time that flight
-// number comes up, its usual times can be suggested (still fully editable,
-// since a specific day's actual time can differ from the pattern).
-const FLIGHT_PATTERN_KEY = 'sla_flight_patterns';
-
-function recordFlightPattern(flightNo, orig, dest, atd, ata) {
-  if (!flightNo || !orig || !dest || !atd || !ata) return;
-  const fn = String(flightNo).toUpperCase().trim();
-  if (!fn) return;
-  const store = JSON.parse(localStorage.getItem(FLIGHT_PATTERN_KEY) || '{}');
-  store[fn] = { orig, dest, atd, ata, updatedAt: Date.now() };
-  localStorage.setItem(FLIGHT_PATTERN_KEY, JSON.stringify(store));
+// Crew just type the flight number(s) involved — nothing else. Each flight
+// number is looked up against the shared, crowd-sourced RouteDurations
+// sheet (fed by every crew member's roster uploads via the same durations=
+// payload the identity ping already sends — see apps_script_device_log.gs).
+// The API auto-derives the return leg's route too, so ONE flight number
+// covers a whole round-trip duty. A swap involving more than one separate
+// trip is entered as a comma/space-separated list; each is resolved
+// independently and summed.
+//
+// This only estimates Flying Pay (at the category's Tier 1 rate — mutuals
+// are one-off decisions before the month's 75hr threshold is known, so
+// Tier1/Tier2 split can't apply the way it does in the main calculator).
+// Turnaround pay, overnight allowance and meal deduction all depend on
+// exact duty structure/clock-times that a bare flight number can't supply,
+// so they're deliberately left out rather than guessed.
+function parseFlightNumbers(raw) {
+  return String(raw || '').toUpperCase().split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
 }
 
-function lookupFlightPattern(flightNo) {
-  if (!flightNo) return null;
-  const fn = String(flightNo).toUpperCase().trim();
-  if (!fn) return null;
-  const store = JSON.parse(localStorage.getItem(FLIGHT_PATTERN_KEY) || '{}');
-  return store[fn] || null;
+async function estimateFlightGroupPay(raw, rates) {
+  const flightNos = parseFlightNumbers(raw);
+  if (!flightNos.length) return { flightNos: [], perFlight: [], totalMin: 0, flyingPayUSD: 0, error: 'Enter at least one flight number' };
+
+  const perFlight = await Promise.all(flightNos.map(async fno => {
+    const res = await lookupRouteDuration(fno, '');
+    return (res && res.totalMins != null)
+      ? { fno, mins: res.totalMins, found: true }
+      : { fno, mins: null, found: false };
+  }));
+
+  const totalMin = perFlight.reduce((s, f) => s + (f.mins || 0), 0);
+  const flyingPayUSD = minutesToDecimalHours(totalMin) * rates.tier1;
+  return { flightNos, perFlight, totalMin, flyingPayUSD, error: null };
 }
 
-// ============================================================
-// MUTUAL SWAP CALCULATOR (standalone — compares two CMB round-trip duties)
-// ============================================================
-// Estimates each duty's total earning independently at the category's
-// Tier 1 hourly rate (mutuals are one-off decisions made before the month's
-// cumulative 75hr threshold is known, so Tier 1/Tier 2 split can't apply
-// here the way it does in the main monthly calculator). Turnaround pay and
-// overnight allowance apply to Turn duties; meal deduction applies per-leg
-// to Layover duties — matching the same rules the main calculator uses.
-function calcMutualDuty(dutyType, dest, outAtd, outAta, retAtd, retAta, rates) {
-  const outBlock = calcBlockMinutes('CMB', outAtd, dest, outAta);
-  const retBlock = calcBlockMinutes(dest, retAtd, 'CMB', retAta);
-  const errors = [];
-  if (outBlock.error) errors.push('Outbound: ' + outBlock.error);
-  if (retBlock.error) errors.push('Return: ' + retBlock.error);
-  if (errors.length) return { errors };
-
-  const totalBlockMin = outBlock.minutes + retBlock.minutes;
-  const flyingPayUSD = minutesToDecimalHours(totalBlockMin) * rates.tier1;
-
-  let turnaroundUSD = 0, overnightUSD = 0, overnightCount = 0, mealUSD = 0, mealDetails = [];
-
-  if (dutyType === 'Turn') {
-    if (!rates.noTurnaround) {
-      turnaroundUSD = totalBlockMin < TURNAROUND_THRESHOLD_MIN ? TURNAROUND_PAY_SHORT : TURNAROUND_PAY_LONG;
-    }
-    const sectors = [
-      { dutyId: 'swap', dutyType: 'Turn', orig: 'CMB', atd: outAtd, ata: outAta, dest, blockMinutes: outBlock.minutes, seqIndex: 1 },
-      { dutyId: 'swap', dutyType: 'Turn', orig: dest, atd: retAtd, ata: retAta, dest: 'CMB', blockMinutes: retBlock.minutes, seqIndex: 2 }
-    ];
-    const ovn = calculateOvernightAllowance(sectors, rates.overnight);
-    overnightUSD = ovn.totalUSD;
-    overnightCount = ovn.count;
-  } else if (!rates.noMealDeductions) {
-    const outMeals = getMealDeductionsForSector({ orig: 'CMB', atd: outAtd, dest, ata: outAta });
-    const retMeals = getMealDeductionsForSector({ orig: dest, atd: retAtd, dest: 'CMB', ata: retAta });
-    if (outMeals.length) mealDetails.push({ leg: 'Outbound', meals: outMeals });
-    if (retMeals.length) mealDetails.push({ leg: 'Return', meals: retMeals });
-    mealUSD = (outMeals.length + retMeals.length) * MEAL_RATE;
+function renderFlightGroupCard(label, r, dollarRate) {
+  if (r.error) {
+    return `<div class="card"><div class="card-body"><div class="error-box">${label}: ${escapeHtml(r.error)}</div></div></div>`;
   }
-
-  const netUSD = flyingPayUSD + turnaroundUSD + overnightUSD - mealUSD;
-  return {
-    errors: [], outBlockMin: outBlock.minutes, retBlockMin: retBlock.minutes, totalBlockMin,
-    flyingPayUSD, turnaroundUSD, overnightUSD, overnightCount, mealUSD, mealDetails, netUSD
-  };
-}
-
-// Fallback when exact ATD/ATA aren't known: uses the shared, crowd-sourced
-// RouteDurations sheet (learned from every crew member's roster uploads —
-// same source the Edit Flight modal's mutual-swap lookup uses) for a total
-// round-trip block-minutes figure. Flying pay + turnaround pay can still be
-// estimated from that; overnight allowance and meal deduction genuinely
-// need real clock times and are left out (flagged via estimateOnly).
-function calcMutualDutyFromDuration(dutyType, totalBlockMin, rates) {
-  const flyingPayUSD = minutesToDecimalHours(totalBlockMin) * rates.tier1;
-  let turnaroundUSD = 0;
-  if (dutyType === 'Turn' && !rates.noTurnaround) {
-    turnaroundUSD = totalBlockMin < TURNAROUND_THRESHOLD_MIN ? TURNAROUND_PAY_SHORT : TURNAROUND_PAY_LONG;
-  }
-  const netUSD = flyingPayUSD + turnaroundUSD;
-  return {
-    errors: [], totalBlockMin, flyingPayUSD, turnaroundUSD,
-    overnightUSD: 0, overnightCount: 0, mealUSD: 0, mealDetails: [],
-    netUSD, estimateOnly: true
-  };
-}
-
-// Tries exact times first (full fidelity, includes overnight/meal). If
-// ATD/ATA aren't filled in, falls back to the shared community duration
-// lookup using whichever flight number was given — the API auto-derives
-// the return leg's route too, so one flight number covers the round trip.
-async function calcMutualDutySmart(dutyType, dest, outFno, outAtd, outAta, retFno, retAtd, retAta, rates) {
-  const exact = calcMutualDuty(dutyType, dest, outAtd, outAta, retAtd, retAta, rates);
-  if (!exact.errors.length) return exact;
-
-  const fno = outFno || retFno;
-  const route = (!fno && dest) ? ('CMB-' + dest) : '';
-  if (!fno && !route) return exact;
-
-  const res = await lookupRouteDuration(fno, route);
-  if (res && res.totalMins != null) {
-    return calcMutualDutyFromDuration(dutyType, res.totalMins, rates);
-  }
-  return { errors: [...exact.errors, 'No community data found for this flight/route yet — enter times manually'] };
-}
-
-function renderSwapDutyCard(label, r, dollarRate) {
-  if (r.errors && r.errors.length) {
-    return `<div class="card"><div class="card-body"><div class="error-box">${label}: ${r.errors.map(escapeHtml).join(' · ')}</div></div></div>`;
-  }
-  const netLKR = r.netUSD * (dollarRate || 0);
-  const rows = [];
-  rows.push(`<div class="gs"><div class="gs-l">Block Hours</div><div class="gs-v">${minutesToHHMM(r.totalBlockMin)}</div></div>`);
-  rows.push(`<div class="gs"><div class="gs-l">Flying Pay</div><div class="gs-v">${fmtUSD(r.flyingPayUSD)}</div><div class="gs-r" style="color:var(--tx3);font-size:.6rem;">Tier 1 rate</div></div>`);
-  if (r.turnaroundUSD > 0) rows.push(`<div class="gs"><div class="gs-l">Turnaround Pay</div><div class="gs-v">${fmtUSD(r.turnaroundUSD)}</div></div>`);
-  if (r.overnightCount > 0) rows.push(`<div class="gs"><div class="gs-l">Overnight Allowance</div><div class="gs-v">${fmtUSD(r.overnightUSD)}</div></div>`);
-  if (r.mealUSD > 0) rows.push(`<div class="gs"><div class="gs-l">Meal Deduction</div><div class="gs-v" style="color:var(--red);">-${fmtUSD(r.mealUSD)}</div><div class="gs-r" style="color:var(--tx3);font-size:.6rem;">${r.mealDetails.map(m => m.leg + ': ' + m.meals.join('+')).join(', ')}</div></div>`);
-  const estimateNote = r.estimateOnly
-    ? `<div class="hint" style="color:var(--amber);margin-bottom:8px;">🌐 Community estimate (no exact times found) — flying + turnaround pay only, overnight allowance and meal deduction not included</div>`
+  const payLKR = r.flyingPayUSD * (dollarRate || 0);
+  const flightRows = r.perFlight.map(f =>
+    `<div class="gs"><div class="gs-l">${escapeHtml(f.fno)}</div><div class="gs-v" style="${f.found ? '' : 'color:var(--amber);'}">${f.found ? minutesToHHMM(f.mins) : 'Not found yet'}</div></div>`
+  ).join('');
+  const missing = r.perFlight.filter(f => !f.found);
+  const missingNote = missing.length
+    ? `<div class="hint" style="color:var(--amber);margin-top:8px;">No community data yet for ${missing.map(f => escapeHtml(f.fno)).join(', ')} — first time it's flown by anyone using the app, or a typo. It won't count toward the total below until someone flies and uploads it.</div>`
     : '';
   return `
     <div class="card">
       <div class="card-head"><div><div class="card-title">${label}</div></div></div>
       <div class="card-body">
-        ${estimateNote}
-        ${rows.join('')}
+        ${flightRows}
         <div class="gs" style="border-top:1px solid var(--b1);margin-top:8px;padding-top:8px;">
-          <div class="gs-l" style="font-weight:700;">Net Total</div>
-          <div class="gs-v" style="font-weight:700;">${fmtUSD(r.netUSD)}</div>
-          <div class="gs-r" style="color:var(--tx3);font-size:.68rem;">${fmtLKR(netLKR)}</div>
+          <div class="gs-l" style="font-weight:700;">Flying Pay</div>
+          <div class="gs-v" style="font-weight:700;">${fmtUSD(r.flyingPayUSD)}</div>
+          <div class="gs-r" style="color:var(--tx3);font-size:.68rem;">${fmtLKR(payLKR)} · Tier 1 rate</div>
         </div>
+        ${missingNote}
       </div>
     </div>`;
 }
@@ -2575,61 +2459,34 @@ async function calcAndRenderSwap() {
     const rates = getRates(cat);
     const dollarRate = parseFloat($('dollarRate').value) || 0;
 
-    const sgDest = $('sg-dest').value.toUpperCase().trim();
-    const srDest = $('sr-dest').value.toUpperCase().trim();
-    const sgOutFno = $('sg-out-fno').value.toUpperCase().trim();
-    const sgRetFno = $('sg-ret-fno').value.toUpperCase().trim();
-    const srOutFno = $('sr-out-fno').value.toUpperCase().trim();
-    const srRetFno = $('sr-ret-fno').value.toUpperCase().trim();
-
     const [giving, getting] = await Promise.all([
-      calcMutualDutySmart(
-        $('sg-dutyType').value, sgDest,
-        sgOutFno, $('sg-out-atd').value.trim(), $('sg-out-ata').value.trim(),
-        sgRetFno, $('sg-ret-atd').value.trim(), $('sg-ret-ata').value.trim(),
-        rates
-      ),
-      calcMutualDutySmart(
-        $('sr-dutyType').value, srDest,
-        srOutFno, $('sr-out-atd').value.trim(), $('sr-out-ata').value.trim(),
-        srRetFno, $('sr-ret-atd').value.trim(), $('sr-ret-ata').value.trim(),
-        rates
-      )
+      estimateFlightGroupPay($('sg-flights').value, rates),
+      estimateFlightGroupPay($('sr-flights').value, rates)
     ]);
 
-    // Remember whatever exact times were entered, so next time this flight
-    // number comes up (here or on a real roster) they can be suggested.
-    recordFlightPattern(sgOutFno, 'CMB', sgDest, $('sg-out-atd').value.trim(), $('sg-out-ata').value.trim());
-    recordFlightPattern(sgRetFno, sgDest, 'CMB', $('sg-ret-atd').value.trim(), $('sg-ret-ata').value.trim());
-    recordFlightPattern(srOutFno, 'CMB', srDest, $('sr-out-atd').value.trim(), $('sr-out-ata').value.trim());
-    recordFlightPattern(srRetFno, srDest, 'CMB', $('sr-ret-atd').value.trim(), $('sr-ret-ata').value.trim());
+    let html = `<div class="g2" style="grid-template-columns:1fr 1fr;">${renderFlightGroupCard('Giving', giving, dollarRate)}${renderFlightGroupCard('Getting', getting, dollarRate)}</div>`;
+    html += `<div class="hint" style="text-align:center;margin:8px 0;">Estimate covers Flying Pay only — turnaround pay, overnight allowance and meal deduction need exact roster data and aren't included</div>`;
 
-    renderSwapComparison(giving, getting, dollarRate);
+    if (!giving.error && !getting.error) {
+      const diffUSD = getting.flyingPayUSD - giving.flyingPayUSD;
+      const diffLKR = diffUSD * (dollarRate || 0);
+      const gaining = diffUSD >= 0;
+      const color = gaining ? 'var(--green)' : 'var(--red)';
+      html += `
+        <div class="card">
+          <div class="card-body" style="text-align:center;">
+            <div style="font-size:.8rem;color:var(--tx3);margin-bottom:6px;">${gaining ? 'You GAIN' : 'You LOSE'}</div>
+            <div style="font-size:1.6rem;font-weight:800;color:${color};">${fmtUSD(Math.abs(diffUSD))}</div>
+            <div style="font-size:.85rem;color:var(--tx3);margin-top:2px;">${dollarRate > 0 ? fmtLKR(Math.abs(diffLKR)) : 'Enter a Dollar Rate on the Roster tab to see LKR'}</div>
+          </div>
+        </div>`;
+    }
+
+    $('swapResultsArea').innerHTML = html;
   } finally {
     btn.disabled = false;
     btn.textContent = originalLabel;
   }
-}
-
-function renderSwapComparison(giving, getting, dollarRate) {
-  let html = `<div class="g2" style="grid-template-columns:1fr 1fr;">${renderSwapDutyCard("Giving", giving, dollarRate)}${renderSwapDutyCard('Getting', getting, dollarRate)}</div>`;
-
-  if (!giving.errors.length && !getting.errors.length) {
-    const diffUSD = getting.netUSD - giving.netUSD;
-    const diffLKR = diffUSD * (dollarRate || 0);
-    const gaining = diffUSD >= 0;
-    const color = gaining ? 'var(--green)' : 'var(--red)';
-    html += `
-      <div class="card">
-        <div class="card-body" style="text-align:center;">
-          <div style="font-size:.8rem;color:var(--tx3);margin-bottom:6px;">${gaining ? 'You GAIN' : 'You LOSE'}</div>
-          <div style="font-size:1.6rem;font-weight:800;color:${color};">${fmtUSD(Math.abs(diffUSD))}</div>
-          <div style="font-size:.85rem;color:var(--tx3);margin-top:2px;">${dollarRate > 0 ? fmtLKR(Math.abs(diffLKR)) : 'Enter a Dollar Rate on the Roster tab to see LKR'}</div>
-        </div>
-      </div>`;
-  }
-
-  $('swapResultsArea').innerHTML = html;
 }
 
 // ============================================================
@@ -3812,7 +3669,6 @@ $('rosterFile').addEventListener('change',async(e)=>{
     }
 
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
-    result.sectors.forEach(s => recordFlightPattern(s.flightNo, s.orig, s.dest, s.atd, s.ata));
 
     // Auto-fill the Roster Month picker from the roster's own declared period,
     // so the user doesn't have to set it by hand (they still press Calculate to
@@ -3904,23 +3760,6 @@ document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('cl
 // ---------- Swap (Mutual Flight Calculator) wiring ----------
 $('swapCategory').value = state.category || 'CS';
 $('btnSwapCalculate').addEventListener('click', calcAndRenderSwap);
-
-// Flight-number autofill: [flightNoInputId, destInputId or null, atdInputId, ataInputId]
-// destInputId is null for return legs (the row's single Destination field is shared/already set by the outbound leg).
-[
-  ['sg-out-fno', 'sg-dest', 'sg-out-atd', 'sg-out-ata'],
-  ['sg-ret-fno', null,      'sg-ret-atd', 'sg-ret-ata'],
-  ['sr-out-fno', 'sr-dest', 'sr-out-atd', 'sr-out-ata'],
-  ['sr-ret-fno', null,      'sr-ret-atd', 'sr-ret-ata']
-].forEach(([fnoId, destId, atdId, ataId]) => {
-  $(fnoId).addEventListener('change', () => {
-    const p = lookupFlightPattern($(fnoId).value);
-    if (!p) return;
-    $(atdId).value = p.atd;
-    $(ataId).value = p.ata;
-    if (destId && p.dest && !$(destId).value.trim()) $(destId).value = p.dest;
-  });
-});
 
 // ---------- Logbook wiring ----------
 $('logbookYear').addEventListener('change', renderLogbook);
