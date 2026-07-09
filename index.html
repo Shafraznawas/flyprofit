@@ -532,6 +532,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .field input::placeholder{color:var(--tx3);}
 .field .hint{font-size:.6rem;color:var(--tx3);font-family:var(--mono);margin-top:5px;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;}
 
 /* UPLOAD */
 .upload-zone{display:block;border:1.5px dashed rgba(124,58,237,.3);border-radius:12px;padding:30px 16px;text-align:center;background:rgba(124,58,237,.04);cursor:pointer;transition:.15s;touch-action:manipulation;}
@@ -917,17 +918,18 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           </div>
         </div>
         <div class="hint" style="margin:10px 0 4px;">Outbound · CMB → destination</div>
-        <div class="field"><label>Flight No <span style="color:var(--tx3);font-weight:400;">(auto-fills times if flown before)</span></label><input type="text" id="sg-out-fno" placeholder="e.g. UL504" style="text-transform:uppercase;"></div>
-        <div class="g2">
+        <div class="g3">
+          <div class="field"><label>Flight No</label><input type="text" id="sg-out-fno" placeholder="UL504" style="text-transform:uppercase;"></div>
           <div class="field"><label>ATD (CMB)</label><input type="text" id="sg-out-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
           <div class="field"><label>ATA (dest)</label><input type="text" id="sg-out-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
         </div>
         <div class="hint" style="margin:10px 0 4px;">Return · destination → CMB</div>
-        <div class="field"><label>Flight No <span style="color:var(--tx3);font-weight:400;">(auto-fills times if flown before)</span></label><input type="text" id="sg-ret-fno" placeholder="e.g. UL505" style="text-transform:uppercase;"></div>
-        <div class="g2">
+        <div class="g3">
+          <div class="field"><label>Flight No</label><input type="text" id="sg-ret-fno" placeholder="UL505" style="text-transform:uppercase;"></div>
           <div class="field"><label>ATD (dest)</label><input type="text" id="sg-ret-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
           <div class="field"><label>ATA (CMB)</label><input type="text" id="sg-ret-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
         </div>
+        <div class="hint" style="margin-top:8px;">Flight No auto-fills times if flown before — still editable</div>
       </div>
     </div>
 
@@ -945,17 +947,18 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           </div>
         </div>
         <div class="hint" style="margin:10px 0 4px;">Outbound · CMB → destination</div>
-        <div class="field"><label>Flight No <span style="color:var(--tx3);font-weight:400;">(auto-fills times if flown before)</span></label><input type="text" id="sr-out-fno" placeholder="e.g. UL304" style="text-transform:uppercase;"></div>
-        <div class="g2">
+        <div class="g3">
+          <div class="field"><label>Flight No</label><input type="text" id="sr-out-fno" placeholder="UL304" style="text-transform:uppercase;"></div>
           <div class="field"><label>ATD (CMB)</label><input type="text" id="sr-out-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
           <div class="field"><label>ATA (dest)</label><input type="text" id="sr-out-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
         </div>
         <div class="hint" style="margin:10px 0 4px;">Return · destination → CMB</div>
-        <div class="field"><label>Flight No <span style="color:var(--tx3);font-weight:400;">(auto-fills times if flown before)</span></label><input type="text" id="sr-ret-fno" placeholder="e.g. UL305" style="text-transform:uppercase;"></div>
-        <div class="g2">
+        <div class="g3">
+          <div class="field"><label>Flight No</label><input type="text" id="sr-ret-fno" placeholder="UL305" style="text-transform:uppercase;"></div>
           <div class="field"><label>ATD (dest)</label><input type="text" id="sr-ret-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
           <div class="field"><label>ATA (CMB)</label><input type="text" id="sr-ret-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
         </div>
+        <div class="hint" style="margin-top:8px;">Flight No auto-fills times if flown before — still editable</div>
       </div>
     </div>
 
