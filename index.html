@@ -2497,6 +2497,45 @@ function calcMutualDuty(dutyType, dest, outAtd, outAta, retAtd, retAta, rates) {
   };
 }
 
+// Fallback when exact ATD/ATA aren't known: uses the shared, crowd-sourced
+// RouteDurations sheet (learned from every crew member's roster uploads —
+// same source the Edit Flight modal's mutual-swap lookup uses) for a total
+// round-trip block-minutes figure. Flying pay + turnaround pay can still be
+// estimated from that; overnight allowance and meal deduction genuinely
+// need real clock times and are left out (flagged via estimateOnly).
+function calcMutualDutyFromDuration(dutyType, totalBlockMin, rates) {
+  const flyingPayUSD = minutesToDecimalHours(totalBlockMin) * rates.tier1;
+  let turnaroundUSD = 0;
+  if (dutyType === 'Turn' && !rates.noTurnaround) {
+    turnaroundUSD = totalBlockMin < TURNAROUND_THRESHOLD_MIN ? TURNAROUND_PAY_SHORT : TURNAROUND_PAY_LONG;
+  }
+  const netUSD = flyingPayUSD + turnaroundUSD;
+  return {
+    errors: [], totalBlockMin, flyingPayUSD, turnaroundUSD,
+    overnightUSD: 0, overnightCount: 0, mealUSD: 0, mealDetails: [],
+    netUSD, estimateOnly: true
+  };
+}
+
+// Tries exact times first (full fidelity, includes overnight/meal). If
+// ATD/ATA aren't filled in, falls back to the shared community duration
+// lookup using whichever flight number was given — the API auto-derives
+// the return leg's route too, so one flight number covers the round trip.
+async function calcMutualDutySmart(dutyType, dest, outFno, outAtd, outAta, retFno, retAtd, retAta, rates) {
+  const exact = calcMutualDuty(dutyType, dest, outAtd, outAta, retAtd, retAta, rates);
+  if (!exact.errors.length) return exact;
+
+  const fno = outFno || retFno;
+  const route = (!fno && dest) ? ('CMB-' + dest) : '';
+  if (!fno && !route) return exact;
+
+  const res = await lookupRouteDuration(fno, route);
+  if (res && res.totalMins != null) {
+    return calcMutualDutyFromDuration(dutyType, res.totalMins, rates);
+  }
+  return { errors: [...exact.errors, 'No community data found for this flight/route yet — enter times manually'] };
+}
+
 function renderSwapDutyCard(label, r, dollarRate) {
   if (r.errors && r.errors.length) {
     return `<div class="card"><div class="card-body"><div class="error-box">${label}: ${r.errors.map(escapeHtml).join(' · ')}</div></div></div>`;
@@ -2508,10 +2547,14 @@ function renderSwapDutyCard(label, r, dollarRate) {
   if (r.turnaroundUSD > 0) rows.push(`<div class="gs"><div class="gs-l">Turnaround Pay</div><div class="gs-v">${fmtUSD(r.turnaroundUSD)}</div></div>`);
   if (r.overnightCount > 0) rows.push(`<div class="gs"><div class="gs-l">Overnight Allowance</div><div class="gs-v">${fmtUSD(r.overnightUSD)}</div></div>`);
   if (r.mealUSD > 0) rows.push(`<div class="gs"><div class="gs-l">Meal Deduction</div><div class="gs-v" style="color:var(--red);">-${fmtUSD(r.mealUSD)}</div><div class="gs-r" style="color:var(--tx3);font-size:.6rem;">${r.mealDetails.map(m => m.leg + ': ' + m.meals.join('+')).join(', ')}</div></div>`);
+  const estimateNote = r.estimateOnly
+    ? `<div class="hint" style="color:var(--amber);margin-bottom:8px;">🌐 Community estimate (no exact times found) — flying + turnaround pay only, overnight allowance and meal deduction not included</div>`
+    : '';
   return `
     <div class="card">
       <div class="card-head"><div><div class="card-title">${label}</div></div></div>
       <div class="card-body">
+        ${estimateNote}
         ${rows.join('')}
         <div class="gs" style="border-top:1px solid var(--b1);margin-top:8px;padding-top:8px;">
           <div class="gs-l" style="font-weight:700;">Net Total</div>
@@ -2522,34 +2565,53 @@ function renderSwapDutyCard(label, r, dollarRate) {
     </div>`;
 }
 
-function calcAndRenderSwap() {
-  const cat = $('swapCategory').value;
-  const rates = getRates(cat);
-  const dollarRate = parseFloat($('dollarRate').value) || 0;
+async function calcAndRenderSwap() {
+  const btn = $('btnSwapCalculate');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Comparing...';
+  try {
+    const cat = $('swapCategory').value;
+    const rates = getRates(cat);
+    const dollarRate = parseFloat($('dollarRate').value) || 0;
 
-  const sgDest = $('sg-dest').value.toUpperCase().trim();
-  const srDest = $('sr-dest').value.toUpperCase().trim();
+    const sgDest = $('sg-dest').value.toUpperCase().trim();
+    const srDest = $('sr-dest').value.toUpperCase().trim();
+    const sgOutFno = $('sg-out-fno').value.toUpperCase().trim();
+    const sgRetFno = $('sg-ret-fno').value.toUpperCase().trim();
+    const srOutFno = $('sr-out-fno').value.toUpperCase().trim();
+    const srRetFno = $('sr-ret-fno').value.toUpperCase().trim();
 
-  const giving = calcMutualDuty(
-    $('sg-dutyType').value, sgDest,
-    $('sg-out-atd').value.trim(), $('sg-out-ata').value.trim(),
-    $('sg-ret-atd').value.trim(), $('sg-ret-ata').value.trim(),
-    rates
-  );
-  const getting = calcMutualDuty(
-    $('sr-dutyType').value, srDest,
-    $('sr-out-atd').value.trim(), $('sr-out-ata').value.trim(),
-    $('sr-ret-atd').value.trim(), $('sr-ret-ata').value.trim(),
-    rates
-  );
+    const [giving, getting] = await Promise.all([
+      calcMutualDutySmart(
+        $('sg-dutyType').value, sgDest,
+        sgOutFno, $('sg-out-atd').value.trim(), $('sg-out-ata').value.trim(),
+        sgRetFno, $('sg-ret-atd').value.trim(), $('sg-ret-ata').value.trim(),
+        rates
+      ),
+      calcMutualDutySmart(
+        $('sr-dutyType').value, srDest,
+        srOutFno, $('sr-out-atd').value.trim(), $('sr-out-ata').value.trim(),
+        srRetFno, $('sr-ret-atd').value.trim(), $('sr-ret-ata').value.trim(),
+        rates
+      )
+    ]);
 
-  // Remember whatever was entered, so next time this flight number comes up
-  // (here or on a real roster) its usual times can be suggested.
-  recordFlightPattern($('sg-out-fno').value, 'CMB', sgDest, $('sg-out-atd').value.trim(), $('sg-out-ata').value.trim());
-  recordFlightPattern($('sg-ret-fno').value, sgDest, 'CMB', $('sg-ret-atd').value.trim(), $('sg-ret-ata').value.trim());
-  recordFlightPattern($('sr-out-fno').value, 'CMB', srDest, $('sr-out-atd').value.trim(), $('sr-out-ata').value.trim());
-  recordFlightPattern($('sr-ret-fno').value, srDest, 'CMB', $('sr-ret-atd').value.trim(), $('sr-ret-ata').value.trim());
+    // Remember whatever exact times were entered, so next time this flight
+    // number comes up (here or on a real roster) they can be suggested.
+    recordFlightPattern(sgOutFno, 'CMB', sgDest, $('sg-out-atd').value.trim(), $('sg-out-ata').value.trim());
+    recordFlightPattern(sgRetFno, sgDest, 'CMB', $('sg-ret-atd').value.trim(), $('sg-ret-ata').value.trim());
+    recordFlightPattern(srOutFno, 'CMB', srDest, $('sr-out-atd').value.trim(), $('sr-out-ata').value.trim());
+    recordFlightPattern(srRetFno, srDest, 'CMB', $('sr-ret-atd').value.trim(), $('sr-ret-ata').value.trim());
 
+    renderSwapComparison(giving, getting, dollarRate);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+function renderSwapComparison(giving, getting, dollarRate) {
   let html = `<div class="g2" style="grid-template-columns:1fr 1fr;">${renderSwapDutyCard("Giving", giving, dollarRate)}${renderSwapDutyCard('Getting', getting, dollarRate)}</div>`;
 
   if (!giving.errors.length && !getting.errors.length) {
