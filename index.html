@@ -2402,7 +2402,7 @@ function renderFlightTable() {
     const passBadge = f.isPassengering ? ' <span class="badge pass">P</span>' : '';
     const cmBadge = f.actingCM ? ` <span class="badge verified">${getRates().actingLabel||'CM'}</span>` : '';
     const boundaryBadge = isBoundary ? ' <span class="badge" title="Belongs to the adjacent month\'s roster — excluded from this month\'s pay">OTHER MONTH</span>' : '';
-    const incompleteBadge = (!isBoundary && isIncomplete) ? ' <span class="badge" title="Return leg not shown in this roster — meal deduction not auto-applied, add manually if needed">RETURN PENDING</span>' : '';
+    const incompleteBadge = (!isBoundary && isIncomplete) ? ' <span class="badge" title="Return leg not shown in this roster — its meal deduction can\'t be calculated. This outbound leg\'s meal deduction IS included; add the return leg\'s manually via next month\'s edit">RETURN PENDING</span>' : '';
 
     tr.innerHTML = `
       <td>${f.date || '-'}</td>
@@ -2551,11 +2551,13 @@ function calculateSalary() {
   const _boundarySeqIndices = findMonthBoundarySeqIndices(flights);
   const targetFlights = flights.filter(f => !_boundarySeqIndices.has(f.seqIndex));
   // A duty still open at the trailing edge (return leg not yet visible in
-  // this roster) can't have its meal deduction safely auto-calculated.
-  const _incompleteTrailingDutyId = findIncompleteTrailingDutyId(targetFlights);
-  const mealCalcFlights = _incompleteTrailingDutyId != null
-    ? targetFlights.filter(f => f.dutyId !== _incompleteTrailingDutyId)
-    : targetFlights;
+  // this roster) still has its OUTBOUND leg's meal deduction calculated
+  // normally (calculateMealDeductions works per-sector for layovers, and we
+  // have full ATD/ATA for this leg). Only the RETURN leg's deduction is
+  // truly unknown — it lives in next month's roster and isn't in this data
+  // at all, so it's left for the crew to add manually (see RETURN PENDING
+  // badge in the flight table).
+  const mealCalcFlights = targetFlights;
 
   const basicSalary = parseFloat($('basicSalary').value) || 0;
   const premiumAllowance = parseFloat($('premiumAllowance').value) || 0;
