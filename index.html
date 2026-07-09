@@ -917,11 +917,13 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           </div>
         </div>
         <div class="hint" style="margin:10px 0 4px;">Outbound · CMB → destination</div>
+        <div class="field"><label>Flight No <span style="color:var(--tx3);font-weight:400;">(auto-fills times if flown before)</span></label><input type="text" id="sg-out-fno" placeholder="e.g. UL504" style="text-transform:uppercase;"></div>
         <div class="g2">
           <div class="field"><label>ATD (CMB)</label><input type="text" id="sg-out-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
           <div class="field"><label>ATA (dest)</label><input type="text" id="sg-out-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
         </div>
         <div class="hint" style="margin:10px 0 4px;">Return · destination → CMB</div>
+        <div class="field"><label>Flight No <span style="color:var(--tx3);font-weight:400;">(auto-fills times if flown before)</span></label><input type="text" id="sg-ret-fno" placeholder="e.g. UL505" style="text-transform:uppercase;"></div>
         <div class="g2">
           <div class="field"><label>ATD (dest)</label><input type="text" id="sg-ret-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
           <div class="field"><label>ATA (CMB)</label><input type="text" id="sg-ret-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
@@ -943,11 +945,13 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           </div>
         </div>
         <div class="hint" style="margin:10px 0 4px;">Outbound · CMB → destination</div>
+        <div class="field"><label>Flight No <span style="color:var(--tx3);font-weight:400;">(auto-fills times if flown before)</span></label><input type="text" id="sr-out-fno" placeholder="e.g. UL304" style="text-transform:uppercase;"></div>
         <div class="g2">
           <div class="field"><label>ATD (CMB)</label><input type="text" id="sr-out-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
           <div class="field"><label>ATA (dest)</label><input type="text" id="sr-out-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
         </div>
         <div class="hint" style="margin:10px 0 4px;">Return · destination → CMB</div>
+        <div class="field"><label>Flight No <span style="color:var(--tx3);font-weight:400;">(auto-fills times if flown before)</span></label><input type="text" id="sr-ret-fno" placeholder="e.g. UL305" style="text-transform:uppercase;"></div>
         <div class="g2">
           <div class="field"><label>ATD (dest)</label><input type="text" id="sr-ret-atd" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
           <div class="field"><label>ATA (CMB)</label><input type="text" id="sr-ret-ata" placeholder="HH:MM" inputmode="numeric" maxlength="5"></div>
@@ -2415,6 +2419,34 @@ function calculateAPITTax(taxableIncomeLKR) {
 }
 
 // ============================================================
+// FLIGHT PATTERN MEMORY (local, per-device)
+// ============================================================
+// SriLankan Airlines flies most numbered flights on a fairly consistent
+// schedule, but this app has no live schedule/API to look that up. Instead
+// it remembers ATD/ATA every time it sees a flight number — from a parsed
+// roster, or from a Swap calculator entry — so the next time that flight
+// number comes up, its usual times can be suggested (still fully editable,
+// since a specific day's actual time can differ from the pattern).
+const FLIGHT_PATTERN_KEY = 'sla_flight_patterns';
+
+function recordFlightPattern(flightNo, orig, dest, atd, ata) {
+  if (!flightNo || !orig || !dest || !atd || !ata) return;
+  const fn = String(flightNo).toUpperCase().trim();
+  if (!fn) return;
+  const store = JSON.parse(localStorage.getItem(FLIGHT_PATTERN_KEY) || '{}');
+  store[fn] = { orig, dest, atd, ata, updatedAt: Date.now() };
+  localStorage.setItem(FLIGHT_PATTERN_KEY, JSON.stringify(store));
+}
+
+function lookupFlightPattern(flightNo) {
+  if (!flightNo) return null;
+  const fn = String(flightNo).toUpperCase().trim();
+  if (!fn) return null;
+  const store = JSON.parse(localStorage.getItem(FLIGHT_PATTERN_KEY) || '{}');
+  return store[fn] || null;
+}
+
+// ============================================================
 // MUTUAL SWAP CALCULATOR (standalone — compares two CMB round-trip duties)
 // ============================================================
 // Estimates each duty's total earning independently at the category's
@@ -2492,18 +2524,28 @@ function calcAndRenderSwap() {
   const rates = getRates(cat);
   const dollarRate = parseFloat($('dollarRate').value) || 0;
 
+  const sgDest = $('sg-dest').value.toUpperCase().trim();
+  const srDest = $('sr-dest').value.toUpperCase().trim();
+
   const giving = calcMutualDuty(
-    $('sg-dutyType').value, $('sg-dest').value.toUpperCase().trim(),
+    $('sg-dutyType').value, sgDest,
     $('sg-out-atd').value.trim(), $('sg-out-ata').value.trim(),
     $('sg-ret-atd').value.trim(), $('sg-ret-ata').value.trim(),
     rates
   );
   const getting = calcMutualDuty(
-    $('sr-dutyType').value, $('sr-dest').value.toUpperCase().trim(),
+    $('sr-dutyType').value, srDest,
     $('sr-out-atd').value.trim(), $('sr-out-ata').value.trim(),
     $('sr-ret-atd').value.trim(), $('sr-ret-ata').value.trim(),
     rates
   );
+
+  // Remember whatever was entered, so next time this flight number comes up
+  // (here or on a real roster) its usual times can be suggested.
+  recordFlightPattern($('sg-out-fno').value, 'CMB', sgDest, $('sg-out-atd').value.trim(), $('sg-out-ata').value.trim());
+  recordFlightPattern($('sg-ret-fno').value, sgDest, 'CMB', $('sg-ret-atd').value.trim(), $('sg-ret-ata').value.trim());
+  recordFlightPattern($('sr-out-fno').value, 'CMB', srDest, $('sr-out-atd').value.trim(), $('sr-out-ata').value.trim());
+  recordFlightPattern($('sr-ret-fno').value, srDest, 'CMB', $('sr-ret-atd').value.trim(), $('sr-ret-ata').value.trim());
 
   let html = `<div class="g2" style="grid-template-columns:1fr 1fr;">${renderSwapDutyCard("Giving", giving, dollarRate)}${renderSwapDutyCard('Getting', getting, dollarRate)}</div>`;
 
@@ -3705,6 +3747,7 @@ $('rosterFile').addEventListener('change',async(e)=>{
     }
 
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
+    result.sectors.forEach(s => recordFlightPattern(s.flightNo, s.orig, s.dest, s.atd, s.ata));
 
     // Auto-fill the Roster Month picker from the roster's own declared period,
     // so the user doesn't have to set it by hand (they still press Calculate to
@@ -3796,6 +3839,23 @@ document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('cl
 // ---------- Swap (Mutual Flight Calculator) wiring ----------
 $('swapCategory').value = state.category || 'CS';
 $('btnSwapCalculate').addEventListener('click', calcAndRenderSwap);
+
+// Flight-number autofill: [flightNoInputId, destInputId or null, atdInputId, ataInputId]
+// destInputId is null for return legs (the row's single Destination field is shared/already set by the outbound leg).
+[
+  ['sg-out-fno', 'sg-dest', 'sg-out-atd', 'sg-out-ata'],
+  ['sg-ret-fno', null,      'sg-ret-atd', 'sg-ret-ata'],
+  ['sr-out-fno', 'sr-dest', 'sr-out-atd', 'sr-out-ata'],
+  ['sr-ret-fno', null,      'sr-ret-atd', 'sr-ret-ata']
+].forEach(([fnoId, destId, atdId, ataId]) => {
+  $(fnoId).addEventListener('change', () => {
+    const p = lookupFlightPattern($(fnoId).value);
+    if (!p) return;
+    $(atdId).value = p.atd;
+    $(ataId).value = p.ata;
+    if (destId && p.dest && !$(destId).value.trim()) $(destId).value = p.dest;
+  });
+});
 
 // ---------- Logbook wiring ----------
 $('logbookYear').addEventListener('change', renderLogbook);
