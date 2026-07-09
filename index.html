@@ -1382,6 +1382,11 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
     const times = classified.filter(c => c.type === 'TIME');
 
     let orig = null, atd = null, dest = null, ata = null, ataNextDay = false, checkIn = null;
+    // Sector date defaults to this line's own date, but Case 3 below (check-in
+    // shown on one line, the real ATD/DEST/ATA all on the NEXT line — e.g. an
+    // evening check-in for a just-after-midnight departure) reassigns this to
+    // the NEXT line's date, since that's the day the flight actually departs.
+    let sectorDate = d.date;
 
     if (stations.length >= 2) {
       const firstOtherIdx = classified.findIndex(c => c.type === 'OTHER');
@@ -1454,8 +1459,11 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
           effectiveSeqIdx = next.seqIndex;
         }
       } else if (timeBeforeStation) {
-        // Case 3: only a check-in time before the station, no real ATD on this line.
-        // Next line carries ATD, DEST, ATA all together.
+        // Case 3: only a check-in time before the station, no real ATD on this line
+        // — the check-in was printed the evening before an early/just-after-midnight
+        // departure, so it falls on a different calendar day than the actual flight.
+        // Next line carries ATD, DEST, ATA all together, AND is the day the flight
+        // actually departs — the sector must be dated to THAT line, not this one.
         checkIn = timeBeforeStation.tok;
         const next = dutyLines.slice(i + 1).find(x => x.kind === 'Flight' && x.flightNo === d.flightNo);
         if (next) {
@@ -1470,6 +1478,7 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
           ataNextDay = false;
           next._consumedAsDestOnly = true;
           effectiveSeqIdx = next.seqIndex;
+          if (next.date) sectorDate = next.date;
         }
       }
 
@@ -1482,7 +1491,7 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
     }
 
     const builtSector = {
-      date: d.date, flightNo: d.flightNo, orig, atd, dest, ata, ataNextDay,
+      date: sectorDate, flightNo: d.flightNo, orig, atd, dest, ata, ataNextDay,
       checkIn, isPassengering: d.isPassengering, raw: d.raw, seqIndex: d.seqIndex,
       effectiveSeqIndex: effectiveSeqIdx, _autoMutualMarker: d.isMutualMarker || false
     };
@@ -2204,15 +2213,24 @@ function calculateOvernightAllowance(sectors, rateUSD) {
  * math needed, all 3 meals automatic. Only the first/last day need their
  * partial-day presence tested against the MEAL_WINDOWS clock boundaries.
  *
- * Day-count uses each leg's own printed date label directly (a stated fact
- * per row) plus that leg's own block minutes to find how many midnights IT
- * crosses — never clock-time subtraction between different rows, which is
- * ambiguous past 24 hours (the same class of bug already fixed once for the
- * Logbook's night count).
+ * Day-count and clock positions are anchored on a single UTC-absolute-minute
+ * timeline (using STATION_OFFSETS — the same data calcBlockMinutes already
+ * uses), NOT on raw local clock-time subtraction between different-station
+ * rows. That naive approach is ambiguous past 24 hours AND breaks whenever
+ * the origin/destination UTC offset gap is large enough to flip which
+ * calendar day an arrival lands on (verified: it silently mispredicted the
+ * MEL return leg's arrival day by a full day, since MEL is +4.5h from CMB —
+ * large enough to swing the result). Each leg's own printed date label is a
+ * stated fact for THAT leg's departure; converting through UTC and back to
+ * CMB-local for check-in/final-arrival is what correctly reproduces the
+ * roster's own printed values in all cases.
  *
- * Verified against a real worked example (UL265/6, CMB-RUH-CMB, 1-3 July):
- * Day1 Dinner, Day2 Breakfast+Lunch+Dinner, Day3 nothing (lands 06:15,
- * before the 07:30 breakfast window), 2 nights — exact match.
+ * Verified against two real worked examples: UL265/6 (CMB-RUH-CMB, 1-3 July)
+ * — Day1 Dinner, Day2 Breakfast+Lunch+Dinner, Day3 nothing, 2 nights; and
+ * UL604/5 (CMB-MEL-CMB, check-in 17th 23:00 for a 00:20 18th departure) —
+ * Day1(17th) nothing (check-in too late for dinner), Day2(18th) all 3
+ * meals, Day3(19th) all 3 meals, 2 nights — both hand-verified against the
+ * app's own calcBlockMinutes using real station UTC offsets.
  */
 function calculateLayoverAllowance(sectors, rateUSD) {
   const groups = {};
@@ -2222,6 +2240,16 @@ function calculateLayoverAllowance(sectors, rateUSD) {
   let mealCount = 0;
   const details = [];
 
+  // Absolute UTC minute of an event: a calendar day-label (a stated roster
+  // fact) combined with that station's own local clock, converted via its
+  // UTC offset — the only way to safely compare two events at different
+  // stations, since local clocks alone can't be combined across timezones.
+  const utcAbs = (dayLabel, clockMin, stationCode) => {
+    const offset = STATION_OFFSETS[stationCode];
+    if (offset == null || dayLabel == null || clockMin == null) return null;
+    return dayLabel * 1440 + clockMin - offset * 60;
+  };
+
   Object.values(groups).forEach(group => {
     group.sort((a, b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0));
     if (group[0].dutyType !== 'Layover') return;
@@ -2229,31 +2257,42 @@ function calculateLayoverAllowance(sectors, rateUSD) {
 
     const first = group[0];
     const last = group[group.length - 1];
-    const checkInDayLabel = _dayNum(first.date);
+    const firstDayLabel = _dayNum(first.date);
+    const lastDayLabel = _dayNum(last.date);
     const firstAtdMin = timeToMinutes(first.atd);
     const lastAtdMin = timeToMinutes(last.atd);
     const lastAtaMin = timeToMinutes(last.ata);
-    const lastDayLabel = _dayNum(last.date);
-    if (checkInDayLabel == null || firstAtdMin == null || lastAtdMin == null || lastAtaMin == null || lastDayLabel == null) return;
+    if (firstDayLabel == null || lastDayLabel == null || firstAtdMin == null || lastAtdMin == null || lastAtaMin == null) return;
 
-    const checkInClock = firstAtdMin - CMB_CHECKIN_BUFFER_MIN;
-    // Final arrival day = the return leg's own day label, advanced by however
-    // many midnights THAT leg's own block minutes cross (block minutes are
-    // the trusted, timezone-correct elapsed duration — never derived from
-    // subtracting raw clock digits across different stations).
-    let finalArrivalDay = lastDayLabel + Math.floor((lastAtdMin + (last.blockMinutes || 0)) / 1440);
-    let dayDiff = finalArrivalDay - checkInDayLabel;
-    if (dayDiff < 0) dayDiff += 31; // month-wrap guard, same convention used elsewhere
-    const numDays = dayDiff + 1;
+    // Chain forward in UTC: check-in -> outbound departs -> (its own block
+    // minutes, timezone-correct) -> outbound arrives -> return departs (its
+    // OWN printed day label + local clock, converted via ITS station) ->
+    // (its own block minutes) -> final arrival — then convert the two edges
+    // (check-in, final arrival) back to CMB-local, since that's the only
+    // frame either of them needs to be judged in.
+    const utcCheckIn = utcAbs(firstDayLabel, firstAtdMin, first.orig) - CMB_CHECKIN_BUFFER_MIN;
+    const utcFinalArrival = utcAbs(lastDayLabel, lastAtdMin, last.orig) + (last.blockMinutes || 0);
+    if (utcCheckIn == null || utcFinalArrival == null) return;
+
+    const cmbOffsetMin = STATION_OFFSETS['CMB'] * 60;
+    const checkInCmbAbs = utcCheckIn + cmbOffsetMin;
+    const finalArrivalCmbAbs = utcFinalArrival + cmbOffsetMin;
+    const checkInDay = Math.floor(checkInCmbAbs / 1440);
+    const finalArrivalDay = Math.floor(finalArrivalCmbAbs / 1440);
+    const checkInClock = checkInCmbAbs - checkInDay * 1440;
+    const finalArrivalClock = finalArrivalCmbAbs - finalArrivalDay * 1440;
+
+    const numDays = finalArrivalDay - checkInDay + 1;
     const nights = numDays - 1;
+    if (nights < 0 || numDays > 30) return; // sanity guard — bad/incomplete data, don't inflate
     totalNights += nights;
 
     const dutyMeals = [];
     for (let d = 0; d < numDays; d++) {
       let presStart, presEnd;
-      if (d === 0 && numDays === 1) { presStart = checkInClock; presEnd = lastAtaMin; }
+      if (d === 0 && numDays === 1) { presStart = checkInClock; presEnd = finalArrivalClock; }
       else if (d === 0) { presStart = checkInClock; presEnd = 1440; }
-      else if (d === numDays - 1) { presStart = 0; presEnd = lastAtaMin; }
+      else if (d === numDays - 1) { presStart = 0; presEnd = finalArrivalClock; }
       else { presStart = 0; presEnd = 1440; }
       const dayMeals = [];
       MEAL_WINDOWS.forEach(w => {
@@ -3182,7 +3221,8 @@ function renderLogbook() {
   if (!years.length) {
     sel.innerHTML = '';
     $('logbookSummary').innerHTML = '<div style="color:var(--tx3);font-size:.85rem;">No flights logged yet. Calculate a month with a roster month set and it appears here automatically.</div>';
-    $('logbookLayovers').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
+    $('logbookLongStays').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
+    $('logbookLayovers1').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
     $('logbookDestinations').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
     $('logbookMonths').innerHTML = '';
     return;
