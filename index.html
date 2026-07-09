@@ -1215,8 +1215,7 @@ function calcBlockMinutes(orig, atd, dest, ata, ataNextDay) {
  */
 async function extractRosterLines(file) {
   const arrayBuffer = await file.arrayBuffer();
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.js';
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
   let allLines = [];
@@ -1327,7 +1326,7 @@ function parseRosterText(lines) {
       tokens = tokens.slice(1);
     }
 
-    if (/^(CSC|SEP|DGR|CSE|ISF|CRM)$/.test(tokens[0])) {
+    if (/^(CSC|SEP|DGR|CSE|ISF|CRM|GNT)$/.test(tokens[0])) {
       // Training/ground duty codes — ignore for pay calculation
       seqCounter++;
       continue;
