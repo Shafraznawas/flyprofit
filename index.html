@@ -2388,63 +2388,165 @@ function calculateAPITTax(taxableIncomeLKR) {
 // MUTUAL SWAP CALCULATOR (standalone — flight numbers only)
 // ============================================================
 // Crew just type the flight number(s) involved — nothing else. Each flight
-// number is looked up against the shared, crowd-sourced RouteDurations
-// sheet (fed by every crew member's roster uploads via the same durations=
-// payload the identity ping already sends — see apps_script_device_log.gs).
-// The API auto-derives the return leg's route too, so ONE flight number
-// covers a whole round-trip duty. A swap involving more than one separate
-// trip is entered as a comma/space-separated list; each is resolved
-// independently and summed.
-//
-// This only estimates Flying Pay (at the category's Tier 1 rate — mutuals
-// are one-off decisions before the month's 75hr threshold is known, so
-// Tier1/Tier2 split can't apply the way it does in the main calculator).
-// Turnaround pay, overnight allowance and meal deduction all depend on
-// exact duty structure/clock-times that a bare flight number can't supply,
-// so they're deliberately left out rather than guessed.
+// number is resolved in two stages:
+//   1. Schedule tab (real STD/STA, hand-maintained — see
+//      apps_script_device_log.gs) — if found, computes the FULL breakdown:
+//      Flying Pay + Turnaround Pay/Overnight Allowance (Turn) or Meal
+//      Deduction (Layover). Schedule times are UTC; converted to each
+//      station's local time (STATION_OFFSETS) before reuse of the same
+//      pay-engine functions the main monthly calculator uses
+//      (calculateOvernightAllowance, getMealDeductionsForSector), since
+//      those expect local-per-station clock times like a parsed roster
+//      would give them.
+//   2. Falls back to the crowd-sourced RouteDurations sheet (duration-only,
+//      Flying Pay estimate) when a flight isn't in Schedule yet.
+// The lookup API auto-derives the return leg's route/flight in both cases,
+// so ONE flight number covers a whole round trip. A swap involving more
+// than one separate trip is a comma/space-separated list, each resolved
+// and summed independently.
 function parseFlightNumbers(raw) {
   return String(raw || '').toUpperCase().split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
 }
 
+function utcToLocalHHMM(utcHHMM, offsetHours) {
+  const utcMin = timeToMinutes(utcHHMM);
+  if (utcMin === null || offsetHours == null) return null;
+  const localMin = ((utcMin + offsetHours * 60) % 1440 + 1440) % 1440;
+  return minutesToHHMM(localMin);
+}
+
+function utcBlockMinutes(std, sta, staNextDay) {
+  const stdMin = timeToMinutes(std);
+  let staMin = timeToMinutes(sta);
+  if (stdMin === null || staMin === null) return null;
+  if (staNextDay) staMin += 1440;
+  let block = staMin - stdMin;
+  while (block < 0) block += 1440;
+  return block;
+}
+
+// Full breakdown from real Schedule data. Duty Type (Turn/Layover) is read
+// directly off the sheet's "Duty Type" column (set on the outbound/CMB-
+// departing leg's row) — NOT inferred from ground time between the two
+// legs' times-of-day, because that's genuinely ambiguous without a real
+// calendar date: a "10:00 return" could be 2 hours or 2 days after an
+// "08:00 arrival", and the same route can be a same-day Turn on some days
+// and a multi-night Layover on others (confirmed by an earlier ground-time
+// heuristic mis-classifying a clearly-overnight test case as a Turn).
+// Returns null if this flight isn't in Schedule, its stations aren't in
+// STATION_OFFSETS, or Duty Type wasn't set — so the caller can fall back
+// to the duration-only estimate rather than silently guessing.
+async function resolveFlightFull(fno, rates) {
+  const res = await lookupSchedule(fno);
+  if (!res || !res.legFound || !res.reverseFound) return null;
+  const dutyType = res.dutyType === 'Turn' || res.dutyType === 'Layover' ? res.dutyType : null;
+  if (!dutyType) return null;
+
+  const leg = res.leg, rev = res.reverse;
+  if (!(leg.dep in STATION_OFFSETS) || !(leg.arr in STATION_OFFSETS)) return null;
+  if (!(rev.dep in STATION_OFFSETS) || !(rev.arr in STATION_OFFSETS)) return null;
+
+  const legBlockMin = utcBlockMinutes(leg.std, leg.sta, leg.staNextDay);
+  const revBlockMin = utcBlockMinutes(rev.std, rev.sta, rev.staNextDay);
+  if (legBlockMin == null || revBlockMin == null) return null;
+
+  const totalBlockMin = legBlockMin + revBlockMin;
+
+  const legLocal = { orig: leg.dep, atd: utcToLocalHHMM(leg.std, STATION_OFFSETS[leg.dep]), dest: leg.arr, ata: utcToLocalHHMM(leg.sta, STATION_OFFSETS[leg.arr]) };
+  const revLocal = { orig: rev.dep, atd: utcToLocalHHMM(rev.std, STATION_OFFSETS[rev.dep]), dest: rev.arr, ata: utcToLocalHHMM(rev.sta, STATION_OFFSETS[rev.arr]) };
+
+  const flyingPayUSD = minutesToDecimalHours(totalBlockMin) * rates.tier1;
+  let turnaroundUSD = 0, overnightUSD = 0, mealUSD = 0;
+
+  if (dutyType === 'Turn') {
+    if (!rates.noTurnaround) {
+      turnaroundUSD = totalBlockMin < TURNAROUND_THRESHOLD_MIN ? TURNAROUND_PAY_SHORT : TURNAROUND_PAY_LONG;
+    }
+    const sectors = [
+      { dutyId: 'swap', dutyType: 'Turn', orig: legLocal.orig, atd: legLocal.atd, ata: legLocal.ata, dest: legLocal.dest, blockMinutes: legBlockMin, seqIndex: 1 },
+      { dutyId: 'swap', dutyType: 'Turn', orig: revLocal.orig, atd: revLocal.atd, ata: revLocal.ata, dest: revLocal.dest, blockMinutes: revBlockMin, seqIndex: 2 }
+    ];
+    overnightUSD = calculateOvernightAllowance(sectors, rates.overnight).totalUSD;
+  } else if (!rates.noMealDeductions) {
+    const outMeals = getMealDeductionsForSector(legLocal);
+    const retMeals = getMealDeductionsForSector(revLocal);
+    mealUSD = (outMeals.length + retMeals.length) * MEAL_RATE;
+  }
+
+  const netUSD = flyingPayUSD + turnaroundUSD + overnightUSD - mealUSD;
+  return { fno, found: true, source: 'schedule', dutyType, blockMin: totalBlockMin, flyingPayUSD, turnaroundUSD, overnightUSD, mealUSD, netUSD };
+}
+
+// Resolves one flight number: Schedule (full breakdown) first, then
+// RouteDurations (Flying-Pay-only estimate), then genuinely not found.
+async function resolveFlight(fno, rates) {
+  const full = await resolveFlightFull(fno, rates);
+  if (full) return full;
+
+  const res = await lookupRouteDuration(fno, '');
+  if (res && res.totalMins != null) {
+    const flyingPayUSD = minutesToDecimalHours(res.totalMins) * rates.tier1;
+    return { fno, found: true, source: 'community', blockMin: res.totalMins, flyingPayUSD, turnaroundUSD: 0, overnightUSD: 0, mealUSD: 0, netUSD: flyingPayUSD };
+  }
+  return { fno, found: false, source: null, blockMin: null, flyingPayUSD: 0, turnaroundUSD: 0, overnightUSD: 0, mealUSD: 0, netUSD: 0 };
+}
+
 async function estimateFlightGroupPay(raw, rates) {
   const flightNos = parseFlightNumbers(raw);
-  if (!flightNos.length) return { flightNos: [], perFlight: [], totalMin: 0, flyingPayUSD: 0, error: 'Enter at least one flight number' };
-
-  const perFlight = await Promise.all(flightNos.map(async fno => {
-    const res = await lookupRouteDuration(fno, '');
-    return (res && res.totalMins != null)
-      ? { fno, mins: res.totalMins, found: true }
-      : { fno, mins: null, found: false };
-  }));
-
-  const totalMin = perFlight.reduce((s, f) => s + (f.mins || 0), 0);
-  const flyingPayUSD = minutesToDecimalHours(totalMin) * rates.tier1;
-  return { flightNos, perFlight, totalMin, flyingPayUSD, error: null };
+  if (!flightNos.length) {
+    return { flightNos: [], perFlight: [], flyingPayUSD: 0, turnaroundUSD: 0, overnightUSD: 0, mealUSD: 0, netUSD: 0, hasEstimateOnly: false, error: 'Enter at least one flight number' };
+  }
+  const perFlight = await Promise.all(flightNos.map(fno => resolveFlight(fno, rates)));
+  const sum = key => perFlight.reduce((s, f) => s + (f[key] || 0), 0);
+  return {
+    flightNos, perFlight,
+    flyingPayUSD: sum('flyingPayUSD'), turnaroundUSD: sum('turnaroundUSD'),
+    overnightUSD: sum('overnightUSD'), mealUSD: sum('mealUSD'), netUSD: sum('netUSD'),
+    hasEstimateOnly: perFlight.some(f => f.found && f.source === 'community'),
+    error: null
+  };
 }
 
 function renderFlightGroupCard(label, r, dollarRate) {
   if (r.error) {
     return `<div class="card"><div class="card-body"><div class="error-box">${label}: ${escapeHtml(r.error)}</div></div></div>`;
   }
-  const payLKR = r.flyingPayUSD * (dollarRate || 0);
-  const flightRows = r.perFlight.map(f =>
-    `<div class="gs"><div class="gs-l">${escapeHtml(f.fno)}</div><div class="gs-v" style="${f.found ? '' : 'color:var(--amber);'}">${f.found ? minutesToHHMM(f.mins) : 'Not found yet'}</div></div>`
-  ).join('');
+  const netLKR = r.netUSD * (dollarRate || 0);
+  const flightRows = r.perFlight.map(f => {
+    if (!f.found) return `<div class="gs"><div class="gs-l">${escapeHtml(f.fno)}</div><div class="gs-v" style="color:var(--amber);">Not found yet</div></div>`;
+    const badge = f.source === 'schedule'
+      ? ` <span class="badge verified" style="font-size:.55rem;">FULL</span>`
+      : ` <span class="badge" style="font-size:.55rem;">EST</span>`;
+    return `<div class="gs"><div class="gs-l">${escapeHtml(f.fno)}${badge}</div><div class="gs-v">${minutesToHHMM(f.blockMin)}</div></div>`;
+  }).join('');
+
+  const rows = [];
+  rows.push(`<div class="gs"><div class="gs-l">Flying Pay</div><div class="gs-v">${fmtUSD(r.flyingPayUSD)}</div></div>`);
+  if (r.turnaroundUSD > 0) rows.push(`<div class="gs"><div class="gs-l">Turnaround Pay</div><div class="gs-v">${fmtUSD(r.turnaroundUSD)}</div></div>`);
+  if (r.overnightUSD > 0) rows.push(`<div class="gs"><div class="gs-l">Overnight Allowance</div><div class="gs-v">${fmtUSD(r.overnightUSD)}</div></div>`);
+  if (r.mealUSD > 0) rows.push(`<div class="gs"><div class="gs-l">Meal Deduction</div><div class="gs-v" style="color:var(--red);">-${fmtUSD(r.mealUSD)}</div></div>`);
+
   const missing = r.perFlight.filter(f => !f.found);
   const missingNote = missing.length
-    ? `<div class="hint" style="color:var(--amber);margin-top:8px;">No community data yet for ${missing.map(f => escapeHtml(f.fno)).join(', ')} — first time it's flown by anyone using the app, or a typo. It won't count toward the total below until someone flies and uploads it.</div>`
+    ? `<div class="hint" style="color:var(--amber);margin-top:8px;">No data yet for ${missing.map(f => escapeHtml(f.fno)).join(', ')} — typo, or first time it's been flown by anyone using the app. Won't count toward the total.</div>`
     : '';
+  const estimateNote = r.hasEstimateOnly
+    ? `<div class="hint" style="color:var(--amber);margin-top:8px;">🌐 Some flight(s) above use community duration data only (not yet in the Schedule sheet) — Turnaround Pay, Overnight Allowance and Meal Deduction aren't included for those.</div>`
+    : '';
+
   return `
     <div class="card">
       <div class="card-head"><div><div class="card-title">${label}</div></div></div>
       <div class="card-body">
         ${flightRows}
+        ${rows.join('')}
         <div class="gs" style="border-top:1px solid var(--b1);margin-top:8px;padding-top:8px;">
-          <div class="gs-l" style="font-weight:700;">Flying Pay</div>
-          <div class="gs-v" style="font-weight:700;">${fmtUSD(r.flyingPayUSD)}</div>
-          <div class="gs-r" style="color:var(--tx3);font-size:.68rem;">${fmtLKR(payLKR)} · Tier 1 rate</div>
+          <div class="gs-l" style="font-weight:700;">Net Total</div>
+          <div class="gs-v" style="font-weight:700;">${fmtUSD(r.netUSD)}</div>
+          <div class="gs-r" style="color:var(--tx3);font-size:.68rem;">${fmtLKR(netLKR)}</div>
         </div>
         ${missingNote}
+        ${estimateNote}
       </div>
     </div>`;
 }
@@ -2465,10 +2567,9 @@ async function calcAndRenderSwap() {
     ]);
 
     let html = `<div class="g2" style="grid-template-columns:1fr 1fr;">${renderFlightGroupCard('Giving', giving, dollarRate)}${renderFlightGroupCard('Getting', getting, dollarRate)}</div>`;
-    html += `<div class="hint" style="text-align:center;margin:8px 0;">Estimate covers Flying Pay only — turnaround pay, overnight allowance and meal deduction need exact roster data and aren't included</div>`;
 
     if (!giving.error && !getting.error) {
-      const diffUSD = getting.flyingPayUSD - giving.flyingPayUSD;
+      const diffUSD = getting.netUSD - giving.netUSD;
       const diffLKR = diffUSD * (dollarRate || 0);
       const gaining = diffUSD >= 0;
       const color = gaining ? 'var(--green)' : 'var(--red)';
@@ -4332,6 +4433,15 @@ function lookupRouteDuration(flightNo, route) {
     '&route=' + encodeURIComponent(route || ''))
     .then(r => r.json())
     .catch(() => ({ legFound: false, reverseFound: false, totalMins: null }));
+}
+
+// Real timetable lookup (Schedule tab) — auto-derives the return leg too.
+// Used by the Swap calculator for full-breakdown estimates; falls back to
+// lookupRouteDuration (flying-pay-only) when a flight isn't in Schedule yet.
+function lookupSchedule(flightNo) {
+  return fetch(PING_URL + '?lookupSchedule=1&flightNo=' + encodeURIComponent(flightNo || ''))
+    .then(r => r.json())
+    .catch(() => ({ legFound: false, reverseFound: false }));
 }
 </script>
 
