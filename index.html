@@ -1487,6 +1487,17 @@ function extractRosterIdentity(lines) {
   return { staffNo, staffName, rosterMonth };
 }
 
+// Convert a roster's own month label ("MAY26") to a YYYY-MM value for the
+// month picker. SriLankan individual rosters are always a single calendar-
+// month bid period (the "01MAY26 - 31MAY26" header), so this is unambiguous
+// even though the roster shows a few lead-in/out days from adjacent months.
+const _MONTH_NUM = { JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12' };
+function _rosterMonthToKey(rm) {
+  const m = /^([A-Z]{3})(\d{2})$/.exec(String(rm || '').toUpperCase());
+  if (!m || !_MONTH_NUM[m[1]]) return null;
+  return '20' + m[2] + '-' + _MONTH_NUM[m[1]];
+}
+
 async function parseRosterPDF(file) {
   const lines = await extractRosterLines(file);
   const identity = extractRosterIdentity(lines);
@@ -3067,6 +3078,12 @@ $('rosterFile').addEventListener('change',async(e)=>{
     }
 
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
+
+    // Auto-fill the Roster Month picker from the roster's own declared period,
+    // so the user doesn't have to set it by hand. Only sets it when detectable;
+    // user can still change it.
+    const _detectedMonth = _rosterMonthToKey(result.identity && result.identity.rosterMonth);
+    if (_detectedMonth) { $('monthYear').value = _detectedMonth; }
 
     const n=result.sectors.length,err=result.warnings.length;
     if(err===0) setUploadStatus(n+' sectors loaded','ok',file.name);
