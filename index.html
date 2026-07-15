@@ -3619,6 +3619,16 @@ function _refreshRestrictionStatus() {
 }
 _refreshRestrictionStatus();
 
+// This phone's true first-open date (trial-start stamp) as yyyy-MM-dd —
+// rides along on every ping so server-side rows are born with the real
+// install date, not the day the ping happened to arrive. Empty string on
+// the very first open (stamp not written yet), which is fine: that day
+// IS the first open.
+function _trialStartStr() {
+  const ms = parseInt(localStorage.getItem('sla_trial_start') || '', 10);
+  return isNaN(ms) ? '' : new Date(ms).toISOString().slice(0, 10);
+}
+
 // Proactive "device is alive" ping — once per calendar day per device,
 // fire-and-forget. Deliberately unconditional (unlike the trial/license
 // block below, which early-returns for whitelisted/licensed devices) —
@@ -3628,7 +3638,7 @@ _refreshRestrictionStatus();
   const todayStr = new Date().toISOString().slice(0, 10);
   if (localStorage.getItem('sla_last_ping_date') === todayStr) return;
   localStorage.setItem('sla_last_ping_date', todayStr);
-  fetch(PING_URL + '?code=' + encodeURIComponent(_deviceCode()), { mode: 'no-cors' }).catch(() => {});
+  fetch(PING_URL + '?code=' + encodeURIComponent(_deviceCode()) + '&start=' + encodeURIComponent(_trialStartStr()), { mode: 'no-cors' }).catch(() => {});
 })();
 
 // Called on every roster upload. Registers the device's staff no on the
@@ -3648,7 +3658,7 @@ function registerAndCheckRosterIdentity(identity, durationsPayload) {
 
   // Log this upload — always, even when identity couldn't be extracted
   // (the bare code still bumps Last Seen), fire-and-forget
-  const qs = ['code=' + encodeURIComponent(_deviceCode())];
+  const qs = ['code=' + encodeURIComponent(_deviceCode()), 'start=' + encodeURIComponent(_trialStartStr())];
   if (hasStaffNo) {
     qs.push('staffNo=' + encodeURIComponent(identity.staffNo));
     qs.push('name=' + encodeURIComponent(identity.staffName || ''));
@@ -3704,11 +3714,9 @@ function checkStaffTrial(staffNo, name) {
   // The device's own first-open date rides along so the server counts days
   // from FIRST OPEN, not first upload. The server only ever accepts it to
   // move First Seen earlier — a wiped client claiming "today" is ignored.
-  const startMs = parseInt(localStorage.getItem('sla_trial_start') || '', 10);
-  const startStr = isNaN(startMs) ? '' : new Date(startMs).toISOString().slice(0, 10);
   fetch(PING_URL + '?checkTrial=1&staffNo=' + encodeURIComponent(staffNo) +
       '&name=' + encodeURIComponent(name || '') +
-      '&start=' + encodeURIComponent(startStr))
+      '&start=' + encodeURIComponent(_trialStartStr()))
     .then(r => r.json())
     .then(data => {
       if (!data || typeof data.daysSince !== 'number') return;
