@@ -4516,6 +4516,22 @@ function checkStaffTrial(staffNo, name) {
     .catch(() => {}); // offline/blocked — local clock keeps serving as the fallback
 }
 
+// Licensed-status check for a device that's never uploaded a roster — no
+// Staff No exists to check with, so this asks by device code instead,
+// matching the "DEV-<code>" row the owner sees on the Sheet and types YES
+// into after payment. Same instant-unlock behavior as checkStaffTrial.
+function checkDeviceLicense() {
+  fetch(PING_URL + '?checkTrial=1&code=' + encodeURIComponent(_deviceCode()))
+    .then(r => r.json())
+    .then(data => {
+      if (!data || !data.licensed) return;
+      localStorage.setItem('sla_licensed', '1');
+      const ov = document.getElementById('sla-lock-overlay');
+      if (ov) { ov.remove(); document.body.style.overflow = ''; }
+    })
+    .catch(() => {});
+}
+
 // Fire the server trial check on every app open too (not only on upload) —
 // a locked user can't upload, so this is the path their Sheet unlock
 // arrives through after they pay. Skipped once licensed/whitelisted.
@@ -4524,6 +4540,7 @@ function checkStaffTrial(staffNo, name) {
   if (localStorage.getItem('sla_owner_whitelisted') === '1') return;
   const reg = localStorage.getItem('sla_registered_staff_no');
   if (reg) checkStaffTrial(reg, localStorage.getItem('sla_registered_name') || '');
+  else checkDeviceLicense();
 })();
 
 // Looks up one leg by flight no or route, and — since a mutual is always a
