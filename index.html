@@ -3069,7 +3069,8 @@ $('rosterFile').addEventListener('change',async(e)=>{
     const durationsPayload = Object.keys(_durSeen).map(k => k + ':' + _durSeen[k]).join('|');
 
     if (typeof registerAndCheckRosterIdentity === 'function') {
-      const check = registerAndCheckRosterIdentity(result.identity, durationsPayload);
+      setUploadStatus('Verifying…', '');
+      const check = await registerAndCheckRosterIdentity(result.identity, durationsPayload);
       if (!check.allowed) {
         setUploadStatus('Blocked: ' + check.message, 'err');
         e.target.value = '';
@@ -3648,7 +3649,7 @@ function _trialStartStr() {
 // on this SAME request so each upload produces exactly one network call —
 // per-sector fire-and-forget bursts raced each other server-side and could
 // silently drop the identity ping.
-function registerAndCheckRosterIdentity(identity, durationsPayload) {
+async function registerAndCheckRosterIdentity(identity, durationsPayload) {
   const hasStaffNo = !!(identity && identity.staffNo);
 
   if (hasStaffNo && !localStorage.getItem('sla_registered_staff_no')) {
@@ -3667,14 +3668,6 @@ function registerAndCheckRosterIdentity(identity, durationsPayload) {
   if (durationsPayload) qs.push('durations=' + encodeURIComponent(durationsPayload));
   fetch(PING_URL + '?' + qs.join('&'), { mode: 'no-cors' }).catch(() => {});
 
-  // Server-side trial check, keyed by Staff No — fires on every upload
-  // (never gated on localStorage, since that's exactly what a reinstall
-  // wipes) so a reinstalled app gets its TRUE day count the moment it
-  // processes a roster, not the fresh 0-day count its own local clock
-  // would otherwise show. Fire-and-forget: doesn't block the upload UX,
-  // but locks immediately if the server says the trial's really over.
-  if (hasStaffNo) checkStaffTrial(identity.staffNo, identity.staffName);
-
   if (!hasStaffNo) return { allowed: true }; // couldn't detect one — never block on uncertainty
 
   let restriction = null;
@@ -3684,13 +3677,23 @@ function registerAndCheckRosterIdentity(identity, durationsPayload) {
     return { allowed: false, message: `This device is registered to Staff No ${lockedStaffNo}. Please use your own device to calculate your salary.` };
   }
 
-  // Staff-no-keyed trial enforcement, from the cached server verdict (sync
-  // read — same pattern as the restriction cache above; checkStaffTrial
-  // refreshes it in the background). Catches both this device's own expired
-  // trial after a reinstall (fresh local clock says day 0, the server
-  // remembers the truth) and an expired colleague's roster being fed
-  // through this device to dodge their own lock.
+  // Staff-no-keyed trial enforcement — WAITS for an authoritative server
+  // answer (bounded by a short timeout) instead of just refreshing the
+  // cache in the background. A cache-only check used to leave a real gap:
+  // right after a storage wipe there's no cached verdict yet, so the very
+  // FIRST upload after a reinstall would sail through and the roster's
+  // numbers would already be on screen before the background check caught
+  // up — exactly the "clear storage, upload once, see this month's salary,
+  // gone again for a month" pattern this app's usage rhythm makes easy to
+  // exploit. Falls back to the cache (or allow, if truly nothing is known)
+  // when the network doesn't answer in time, so a genuinely offline upload
+  // is never blocked — only a deliberately-offline one evades this, which
+  // takes real intent, not just "reinstall the app".
   if (localStorage.getItem('sla_licensed') !== '1' && localStorage.getItem('sla_owner_whitelisted') !== '1') {
+    await Promise.race([
+      checkStaffTrial(identity.staffNo, identity.staffName),
+      new Promise(resolve => setTimeout(resolve, 4000))
+    ]);
     let verdicts = {};
     try { verdicts = JSON.parse(localStorage.getItem('sla_staff_trial_verdicts') || '{}'); } catch (e) {}
     const v = verdicts[identity.staffNo];
@@ -3710,11 +3713,15 @@ function registerAndCheckRosterIdentity(identity, durationsPayload) {
 // hook the trial block registers, so an expired trial bites right away —
 // not just on the next visit.
 function checkStaffTrial(staffNo, name) {
-  if (!staffNo) return;
+  if (!staffNo) return Promise.resolve(null);
   // The device's own first-open date rides along so the server counts days
   // from FIRST OPEN, not first upload. The server only ever accepts it to
   // move First Seen earlier — a wiped client claiming "today" is ignored.
-  fetch(PING_URL + '?checkTrial=1&staffNo=' + encodeURIComponent(staffNo) +
+  // Returns its promise (resolving to the parsed verdict, or null/undefined
+  // on failure) so callers that need an AUTHORITATIVE answer before
+  // proceeding — the upload gate below — can await it, while callers that
+  // just want a background refresh (the on-open check) can ignore it.
+  return fetch(PING_URL + '?checkTrial=1&staffNo=' + encodeURIComponent(staffNo) +
       '&name=' + encodeURIComponent(name || '') +
       '&start=' + encodeURIComponent(_trialStartStr()))
     .then(r => r.json())
@@ -3741,8 +3748,9 @@ function checkStaffTrial(staffNo, name) {
       } else if (typeof window._slaHandleServerTrialCheck === 'function') {
         window._slaHandleServerTrialCheck(data.daysSince);
       }
+      return data;
     })
-    .catch(() => {}); // offline/blocked — local clock keeps serving as the fallback
+    .catch(() => null); // offline/blocked — local clock keeps serving as the fallback
 }
 
 // Licensed-status check for a device that's never uploaded a roster — no
