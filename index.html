@@ -955,6 +955,19 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     <div style="margin-top:10px;font-size:.62rem;color:var(--tx3);text-align:center;">Results are estimates &#183; check with HR for final figures.</div>
   </div>
 </div>
+<!-- ALREADY INSTALLED OVERLAY: a browser tab has no way to force-launch an
+     already-installed PWA (no such web API exists on Android or iOS), so
+     tapping "Open App" from inside a regular browser tab shows this instead
+     of the old silent same-tab reload, which just looked like nothing
+     happened. -->
+<div id="already-installed-overlay" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--card);border:1px solid var(--b1);border-radius:20px;max-width:360px;width:100%;padding:26px 22px;box-shadow:0 12px 48px rgba(0,0,0,.5);text-align:center;">
+    <div style="font-size:2rem;margin-bottom:10px;">&#128241;</div>
+    <div style="font-size:.95rem;font-weight:700;color:var(--tx1);margin-bottom:10px;">Already Installed</div>
+    <div style="font-size:.78rem;color:var(--tx2);line-height:1.6;margin-bottom:20px;">FlyProfit is already on your device. A browser tab like this one can't switch you into it directly &#8212; look for the <strong style="color:var(--tx1);">FlyProfit</strong> icon on your Home Screen or App Drawer and tap that instead.</div>
+    <button id="btnAlreadyInstalledOk" style="width:100%;background:var(--purple);color:#fff;border:none;border-radius:12px;padding:14px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Got it</button>
+  </div>
+</div>
 <!-- CATEGORY PICKER OVERLAY (shown on first launch only) -->
 <div id="category-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);align-items:center;justify-content:center;padding:20px;">
   <div style="background:var(--card);border:1px solid var(--b1);border-radius:20px;max-width:360px;width:100%;padding:28px 22px;box-shadow:0 12px 48px rgba(0,0,0,.6);">
@@ -4306,8 +4319,12 @@ function _handleInstallClick() {
   if(banner) banner.style.display='none';
 
   if (localStorage.getItem('sla_installed') === '1' && !_deferredInstallPrompt) {
-    // Already installed — try to hand off to the installed app
-    window.location.href = './';
+    // No web API can force-launch an already-installed PWA from a browser
+    // tab (true on both Android and iOS) — silently reloading here used to
+    // just look like "nothing happened, still stuck in Chrome". Tell them
+    // plainly where to actually find and open it instead.
+    const ov = document.getElementById('already-installed-overlay');
+    if (ov) ov.style.display = 'flex';
     return;
   }
   if (_deferredInstallPrompt) {
@@ -4337,7 +4354,7 @@ window.addEventListener('appinstalled', function(){
 
 
 <script>
-(function(){var o=document.getElementById('btnDisclaimerOk');if(o)o.addEventListener('click',function(){document.getElementById('disclaimer-overlay').style.display='none';});var d=document.getElementById('pwa-install-dismiss');if(d)d.addEventListener('click',function(){document.getElementById('pwa-install-banner').style.display='none';});})();
+(function(){var o=document.getElementById('btnDisclaimerOk');if(o)o.addEventListener('click',function(){document.getElementById('disclaimer-overlay').style.display='none';});var d=document.getElementById('pwa-install-dismiss');if(d)d.addEventListener('click',function(){document.getElementById('pwa-install-banner').style.display='none';});var a=document.getElementById('btnAlreadyInstalledOk');if(a)a.addEventListener('click',function(){document.getElementById('already-installed-overlay').style.display='none';});})();
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════
