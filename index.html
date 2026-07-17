@@ -903,27 +903,78 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
             <option value="FA_C_OLD">C Flight Attendant (Old Contract, Meal Ded.)</option>
           </select>
         </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><span class="card-ico">📤</span><div><div class="card-title">Flight I'm Giving</div><div class="card-sub">The trip(s) you're giving away</div></div></div>
-      <div class="card-body">
         <div class="field">
-          <label>Flight Number(s)</label>
-          <input type="text" id="sg-flights" placeholder="e.g. UL503" style="text-transform:uppercase;">
-          <div class="hint">Swapping more than one trip? Separate with a comma — e.g. UL503, UL777</div>
+          <label>💱 Dollar Rate (LKR)</label>
+          <input type="number" id="swapDollarRate" step="0.01" placeholder="e.g. 318.56">
+          <div class="hint">Only used for this comparison — separate from the Roster tab's rate, doesn't affect your monthly salary calculation.</div>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="card-ico">📥</span><div><div class="card-title">Flight I'm Getting</div><div class="card-sub">The trip(s) you're receiving in exchange</div></div></div>
+      <div class="card-head"><span class="card-ico">📤</span><div><div class="card-title">Flight I'm Giving</div><div class="card-sub">The trip(s) you're giving away — could be one flight or a whole multi-day range</div></div></div>
       <div class="card-body">
         <div class="field">
-          <label>Flight Number(s)</label>
-          <input type="text" id="sr-flights" placeholder="e.g. UL604" style="text-transform:uppercase;">
-          <div class="hint">Swapping more than one trip? Separate with a comma — e.g. UL604, UL888</div>
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <button class="cat-btn swap-mode-btn active" data-side="sg" data-mode="flights" style="flex:1;padding:9px 4px;font-size:.68rem;">Flight No.</button>
+            <button class="cat-btn swap-mode-btn" data-side="sg" data-mode="paste" style="flex:1;padding:9px 4px;font-size:.68rem;">Paste Roster</button>
+            <button class="cat-btn swap-mode-btn" data-side="sg" data-mode="range" style="flex:1;padding:9px 4px;font-size:.68rem;">My Roster</button>
+          </div>
+
+          <div class="swap-mode-panel" data-side="sg" data-mode="flights">
+            <label>Flight Number(s)</label>
+            <input type="text" id="sg-flights" placeholder="e.g. UL503" style="text-transform:uppercase;">
+            <div class="hint">Swapping more than one trip? Separate with a comma — e.g. UL503, UL777</div>
+          </div>
+
+          <div class="swap-mode-panel" data-side="sg" data-mode="paste" style="display:none;">
+            <label>Paste From Roster</label>
+            <textarea id="sg-paste" rows="5" placeholder="Copy the days for this trip straight from your roster PDF/portal and paste here" style="width:100%;box-sizing:border-box;background:var(--card2);border:1px solid var(--b1);border-radius:10px;padding:10px;color:var(--tx1);font-family:var(--mono);font-size:.72rem;resize:vertical;"></textarea>
+            <div class="hint">Select the lines covering this trip in your roster, copy, and paste as-is — dates, flight numbers, times and all.</div>
+          </div>
+
+          <div class="swap-mode-panel" data-side="sg" data-mode="range" style="display:none;">
+            <label>From your uploaded roster</label>
+            <div style="display:flex;gap:8px;">
+              <select id="sg-range-from" style="flex:1;"></select>
+              <select id="sg-range-to" style="flex:1;"></select>
+            </div>
+            <div class="hint" id="sg-range-hint">Upload your roster on the Roster tab first — then pick the days of this trip here.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="card-ico">📥</span><div><div class="card-title">Flight I'm Getting</div><div class="card-sub">The trip(s) you're receiving in exchange — could be one flight or a whole multi-day range</div></div></div>
+      <div class="card-body">
+        <div class="field">
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <button class="cat-btn swap-mode-btn active" data-side="sr" data-mode="flights" style="flex:1;padding:9px 4px;font-size:.68rem;">Flight No.</button>
+            <button class="cat-btn swap-mode-btn" data-side="sr" data-mode="paste" style="flex:1;padding:9px 4px;font-size:.68rem;">Paste Roster</button>
+            <button class="cat-btn swap-mode-btn" data-side="sr" data-mode="range" style="flex:1;padding:9px 4px;font-size:.68rem;">My Roster</button>
+          </div>
+
+          <div class="swap-mode-panel" data-side="sr" data-mode="flights">
+            <label>Flight Number(s)</label>
+            <input type="text" id="sr-flights" placeholder="e.g. UL604" style="text-transform:uppercase;">
+            <div class="hint">Swapping more than one trip? Separate with a comma — e.g. UL604, UL888</div>
+          </div>
+
+          <div class="swap-mode-panel" data-side="sr" data-mode="paste" style="display:none;">
+            <label>Paste From Roster</label>
+            <textarea id="sr-paste" rows="5" placeholder="Copy the days for this trip straight from your roster PDF/portal and paste here" style="width:100%;box-sizing:border-box;background:var(--card2);border:1px solid var(--b1);border-radius:10px;padding:10px;color:var(--tx1);font-family:var(--mono);font-size:.72rem;resize:vertical;"></textarea>
+            <div class="hint">Select the lines covering this trip in your roster, copy, and paste as-is — dates, flight numbers, times and all.</div>
+          </div>
+
+          <div class="swap-mode-panel" data-side="sr" data-mode="range" style="display:none;">
+            <label>From your uploaded roster</label>
+            <div style="display:flex;gap:8px;">
+              <select id="sr-range-from" style="flex:1;"></select>
+              <select id="sr-range-to" style="flex:1;"></select>
+            </div>
+            <div class="hint" id="sr-range-hint">Upload your roster on the Roster tab first — then pick the days of this trip here.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -2529,6 +2580,137 @@ async function estimateFlightGroupPay(raw, rates) {
   };
 }
 
+// ── PASTE ROSTER / MY ROSTER RANGE: real-sector swap resolution ──────────
+// A mutual swap isn't always one flight's round trip — it can be a whole
+// multi-day, multi-flight range. These two paths give the swap calculator
+// REAL sector data (actual local times, actual duty grouping) instead of a
+// Schedule-sheet UTC lookup, so they reuse the SAME duty-grouping and
+// pay-engine functions the main monthly calculator uses (groupIntoDuties,
+// calculateTurnaroundPay, calculateMealDeductions, calculateOvernightAllowance)
+// rather than the simplified single-round-trip logic in resolveFlightFull.
+//
+// Flying Pay is still kept flat-Tier-1 (no tier-2 split, no 50hr minimum
+// guarantee) — those are MONTHLY concepts that don't apply to an isolated
+// range, same simplification the flight-number path already uses.
+//
+// calculateTurnaroundPay/calculateMealDeductions read category via the
+// GLOBAL getRates()/state.category rather than taking rates as a param, so
+// state.category is swapped to the swap-selected category for this
+// synchronous block only (no `await` in between, so nothing else can ever
+// observe it) and always restored in a finally.
+function computeSectorGroupPay(sectors, nonFlightMarkers, rates, categoryKey) {
+  // groupIntoDuties mutates sector objects in place (dutyId/dutyType) — work
+  // on fresh copies so this can NEVER leak back into state.sectors (the
+  // user's actual uploaded roster) no matter what the caller passed in.
+  const flightSectors = sectors
+    .filter(s => s.orig && s.dest && s.atd && s.ata && s.blockMinutes != null)
+    .map(s => ({ ...s }));
+  if (!flightSectors.length) {
+    return { flyingPayUSD: 0, turnaroundUSD: 0, overnightUSD: 0, mealUSD: 0, netUSD: 0, sectors: [], hasEstimateOnly: false };
+  }
+
+  groupIntoDuties(flightSectors, nonFlightMarkers || []);
+
+  const pricedMin = flightSectors.reduce((sum, s) => {
+    if (s.isPassengering && s.dutyType === 'Layover') return sum;
+    return sum + (s.blockMinutes || 0);
+  }, 0);
+  const flyingPayUSD = minutesToDecimalHours(pricedMin) * rates.tier1;
+
+  const savedCategory = state.category;
+  let turnaroundUSD = 0, mealUSD = 0;
+  try {
+    state.category = categoryKey;
+    turnaroundUSD = rates.noTurnaround ? 0 : calculateTurnaroundPay(flightSectors).totalUSD;
+    mealUSD = rates.noMealDeductions ? 0 : calculateMealDeductions(flightSectors).totalUSD;
+  } finally {
+    state.category = savedCategory;
+  }
+  const overnightUSD = calculateOvernightAllowance(flightSectors, rates.overnight).totalUSD;
+
+  const netUSD = flyingPayUSD + turnaroundUSD + overnightUSD - mealUSD;
+  return { flyingPayUSD, turnaroundUSD, overnightUSD, mealUSD, netUSD, blockMin: pricedMin, sectors: flightSectors, hasEstimateOnly: false };
+}
+
+// Parses a raw pasted chunk of roster text — same line format the PDF
+// parser produces (and already tolerates a "date+data combined on one
+// line" fallback specifically for manual paste) — into real sectors, then
+// runs them through computeSectorGroupPay.
+function resolveRosterTextRange(rawText, rates, categoryKey) {
+  const lines = String(rawText || '').split('\n');
+  const { dutyLines, warnings } = parseRosterText(lines);
+  const { sectors: rawSectors, nonFlightMarkers } = buildSectorsFromDutyLines(dutyLines, warnings);
+  const sectors = finalizeSectors(rawSectors);
+
+  if (!sectors.filter(s => s.orig && s.dest && s.atd && s.ata).length) {
+    return { flightNos: [], perFlight: [], flyingPayUSD: 0, turnaroundUSD: 0, overnightUSD: 0, mealUSD: 0, netUSD: 0, hasEstimateOnly: false,
+      error: warnings.length ? 'Could not read any flights from that text — check it was pasted in full.' : 'Paste the roster lines for this trip first' };
+  }
+
+  const result = computeSectorGroupPay(sectors, nonFlightMarkers, rates, categoryKey);
+  const perFlight = result.sectors.map(s => ({ fno: s.flightNo, found: true, source: 'roster', blockMin: s.blockMinutes }));
+  return {
+    flightNos: perFlight.map(f => f.fno), perFlight,
+    flyingPayUSD: result.flyingPayUSD, turnaroundUSD: result.turnaroundUSD,
+    overnightUSD: result.overnightUSD, mealUSD: result.mealUSD, netUSD: result.netUSD,
+    hasEstimateOnly: false, warnings, error: null
+  };
+}
+
+// Pulls the trip straight from the roster already uploaded on the Roster
+// tab (state.sectors), by date range. Snaps to WHOLE duties — any duty with
+// at least one sector inside [fromDate, toDate] is included in full, even
+// if part of it falls just outside the picked days, so a Turnaround/Meal/
+// Overnight duty is never sliced in half (which would silently mis-price
+// it). Reuses whatever dutyId/dutyType the main Calculate flow already
+// assigned, so a duty spanning outside the visible sector list still groups
+// correctly.
+function resolveMyRosterRange(fromDate, toDate, rates, categoryKey) {
+  if (!fromDate || !toDate || !state.sectors.length) {
+    return { flightNos: [], perFlight: [], flyingPayUSD: 0, turnaroundUSD: 0, overnightUSD: 0, mealUSD: 0, netUSD: 0, hasEstimateOnly: false,
+      error: state.sectors.length ? 'Pick a From and To day' : 'Upload your roster on the Roster tab first' };
+  }
+  const order = _rosterDateOrder(state.sectors);
+  const fromIdx = order.indexOf(fromDate), toIdx = order.indexOf(toDate);
+  if (fromIdx === -1 || toIdx === -1) {
+    return { flightNos: [], perFlight: [], flyingPayUSD: 0, turnaroundUSD: 0, overnightUSD: 0, mealUSD: 0, netUSD: 0, hasEstimateOnly: false, error: 'Pick a From and To day' };
+  }
+  const lo = Math.min(fromIdx, toIdx), hi = Math.max(fromIdx, toIdx);
+  const datesInRange = new Set(order.slice(lo, hi + 1));
+
+  // Always work on fresh copies — groupIntoDuties mutates in place, and this
+  // dutyId numbering is only used to decide which whole duty a picked date
+  // belongs to (computeSectorGroupPay below re-derives its own numbering on
+  // the filtered subset regardless). Must never touch the real
+  // state.sectors objects, which Calculate/Logbook/PDF export still rely on.
+  const working = groupIntoDuties(state.sectors.map(s => ({ ...s })), state.nonFlightMarkers || []);
+
+  const dutyIdsInRange = new Set(working.filter(s => datesInRange.has(s.date)).map(s => s.dutyId));
+  const sectors = working.filter(s => dutyIdsInRange.has(s.dutyId));
+
+  const result = computeSectorGroupPay(sectors, state.nonFlightMarkers, rates, categoryKey);
+  const perFlight = result.sectors.map(s => ({ fno: s.flightNo, found: true, source: 'roster', blockMin: s.blockMinutes }));
+  return {
+    flightNos: perFlight.map(f => f.fno), perFlight,
+    flyingPayUSD: result.flyingPayUSD, turnaroundUSD: result.turnaroundUSD,
+    overnightUSD: result.overnightUSD, mealUSD: result.mealUSD, netUSD: result.netUSD,
+    hasEstimateOnly: false, error: null
+  };
+}
+
+// Unique roster dates in true chronological (seqIndex) order — roster date
+// labels ("10JUL") aren't sortable as strings, so order is taken from parse
+// order instead, same principle groupIntoDuties/findMonthBoundarySeqIndices
+// already rely on.
+function _rosterDateOrder(sectors) {
+  const seen = new Set();
+  const order = [];
+  [...sectors].sort((a, b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0)).forEach(s => {
+    if (s.date && !seen.has(s.date)) { seen.add(s.date); order.push(s.date); }
+  });
+  return order;
+}
+
 function renderFlightGroupCard(label, r, dollarRate) {
   if (r.error) {
     return `<div class="card"><div class="card-body"><div class="error-box">${label}: ${escapeHtml(r.error)}</div></div></div>`;
@@ -2536,7 +2718,9 @@ function renderFlightGroupCard(label, r, dollarRate) {
   const netLKR = r.netUSD * (dollarRate || 0);
   const flightRows = r.perFlight.map(f => {
     if (!f.found) return `<div class="gs"><div class="gs-l">${escapeHtml(f.fno)}</div><div class="gs-v" style="color:var(--amber);">Not found yet</div></div>`;
-    const badge = f.source === 'schedule'
+    const badge = f.source === 'roster'
+      ? ` <span class="badge verified" style="font-size:.55rem;">REAL</span>`
+      : f.source === 'schedule'
       ? ` <span class="badge verified" style="font-size:.55rem;">FULL</span>`
       : ` <span class="badge" style="font-size:.55rem;">EST</span>`;
     return `<div class="gs"><div class="gs-l">${escapeHtml(f.fno)}${badge}</div><div class="gs-v">${minutesToHHMM(f.blockMin)}</div></div>`;
@@ -2573,6 +2757,21 @@ function renderFlightGroupCard(label, r, dollarRate) {
     </div>`;
 }
 
+// Resolves one side (Giving or Getting) per its currently-selected input
+// mode. All three paths converge on the same result shape so
+// renderFlightGroupCard and the diff calculation don't need to know which
+// mode was used.
+async function resolveSwapSide(side, rates, categoryKey) {
+  const mode = document.querySelector(`.swap-mode-btn[data-side="${side}"].active`)?.dataset.mode || 'flights';
+  if (mode === 'paste') {
+    return resolveRosterTextRange($(`${side}-paste`).value, rates, categoryKey);
+  }
+  if (mode === 'range') {
+    return resolveMyRosterRange($(`${side}-range-from`).value, $(`${side}-range-to`).value, rates, categoryKey);
+  }
+  return estimateFlightGroupPay($(`${side}-flights`).value, rates);
+}
+
 async function calcAndRenderSwap() {
   const btn = $('btnSwapCalculate');
   const originalLabel = btn.textContent;
@@ -2581,11 +2780,11 @@ async function calcAndRenderSwap() {
   try {
     const cat = $('swapCategory').value;
     const rates = getRates(cat);
-    const dollarRate = parseFloat($('dollarRate').value) || 0;
+    const dollarRate = parseFloat($('swapDollarRate').value) || 0;
 
     const [giving, getting] = await Promise.all([
-      estimateFlightGroupPay($('sg-flights').value, rates),
-      estimateFlightGroupPay($('sr-flights').value, rates)
+      resolveSwapSide('sg', rates, cat),
+      resolveSwapSide('sr', rates, cat)
     ]);
 
     let html = `<div class="g2" style="grid-template-columns:1fr 1fr;">${renderFlightGroupCard('Giving', giving, dollarRate)}${renderFlightGroupCard('Getting', getting, dollarRate)}</div>`;
@@ -2600,7 +2799,7 @@ async function calcAndRenderSwap() {
           <div class="card-body" style="text-align:center;">
             <div style="font-size:.8rem;color:var(--tx3);margin-bottom:6px;">${gaining ? 'You GAIN' : 'You LOSE'}</div>
             <div style="font-size:1.6rem;font-weight:800;color:${color};">${fmtUSD(Math.abs(diffUSD))}</div>
-            <div style="font-size:.85rem;color:var(--tx3);margin-top:2px;">${dollarRate > 0 ? fmtLKR(Math.abs(diffLKR)) : 'Enter a Dollar Rate on the Roster tab to see LKR'}</div>
+            <div style="font-size:.85rem;color:var(--tx3);margin-top:2px;">${dollarRate > 0 ? fmtLKR(Math.abs(diffLKR)) : 'Enter a Dollar Rate above to see LKR'}</div>
           </div>
         </div>`;
     }
@@ -3879,11 +4078,48 @@ $('blockHoursOverride').addEventListener('input',function(){
 document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('click',function(){
   goTo(b.dataset.page);
   if(b.dataset.page==='page-logbook') renderLogbook();
+  if(b.dataset.page==='page-swap') renderSwapRangePickers();
 });});
 
 // ---------- Swap (Mutual Flight Calculator) wiring ----------
 $('swapCategory').value = state.category || 'CS';
 $('btnSwapCalculate').addEventListener('click', calcAndRenderSwap);
+
+// Mode switcher: one active mode per side (sg/sr), shows/hides the matching
+// input panel. Independent per side — Giving can be "Paste Roster" while
+// Getting is "Flight No.", etc.
+document.querySelectorAll('.swap-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const side = btn.dataset.side, mode = btn.dataset.mode;
+    document.querySelectorAll(`.swap-mode-btn[data-side="${side}"]`).forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll(`.swap-mode-panel[data-side="${side}"]`).forEach(p => { p.style.display = p.dataset.mode === mode ? '' : 'none'; });
+    if (mode === 'range') renderSwapRangePickers();
+  });
+});
+
+// Populates the "My Roster" From/To day pickers from state.sectors (the
+// roster already uploaded on the Roster tab, if any) — same chronological
+// order as _rosterDateOrder, so the dropdown always lists days top-to-bottom
+// as they actually occur, not alphabetically.
+function renderSwapRangePickers() {
+  const order = _rosterDateOrder(state.sectors);
+  ['sg', 'sr'].forEach(side => {
+    const fromSel = $(`${side}-range-from`), toSel = $(`${side}-range-to`);
+    const hint = $(`${side}-range-hint`);
+    if (!fromSel || !toSel) return;
+    const prevFrom = fromSel.value, prevTo = toSel.value;
+    const optionsHtml = order.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+    fromSel.innerHTML = optionsHtml;
+    toSel.innerHTML = optionsHtml;
+    if (order.includes(prevFrom)) fromSel.value = prevFrom;
+    if (order.includes(prevTo)) toSel.value = prevTo;
+    if (hint) {
+      hint.textContent = order.length
+        ? `${order.length} day${order.length === 1 ? '' : 's'} available from your uploaded roster.`
+        : 'Upload your roster on the Roster tab first — then pick the days of this trip here.';
+    }
+  });
+}
 
 // ---------- Logbook wiring ----------
 $('logbookYear').addEventListener('change', renderLogbook);
