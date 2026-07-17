@@ -914,68 +914,16 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     <div class="card">
       <div class="card-head"><span class="card-ico">📤</span><div><div class="card-title">Flight I'm Giving</div><div class="card-sub">The trip(s) you're giving away — could be one flight or a whole multi-day range</div></div></div>
       <div class="card-body">
-        <div class="field">
-          <div style="display:flex;gap:6px;margin-bottom:10px;">
-            <button class="cat-btn swap-mode-btn active" data-side="sg" data-mode="flights" style="flex:1;padding:9px 4px;font-size:.68rem;">Flight No.</button>
-            <button class="cat-btn swap-mode-btn" data-side="sg" data-mode="paste" style="flex:1;padding:9px 4px;font-size:.68rem;">Paste Roster</button>
-            <button class="cat-btn swap-mode-btn" data-side="sg" data-mode="range" style="flex:1;padding:9px 4px;font-size:.68rem;">My Roster</button>
-          </div>
-
-          <div class="swap-mode-panel" data-side="sg" data-mode="flights">
-            <label>Flight Number(s)</label>
-            <input type="text" id="sg-flights" placeholder="e.g. UL503" style="text-transform:uppercase;">
-            <div class="hint">Swapping more than one trip? Separate with a comma — e.g. UL503, UL777</div>
-          </div>
-
-          <div class="swap-mode-panel" data-side="sg" data-mode="paste" style="display:none;">
-            <label>Paste From Roster</label>
-            <textarea id="sg-paste" rows="5" placeholder="Copy the days for this trip straight from your roster PDF/portal and paste here" style="width:100%;box-sizing:border-box;background:var(--card2);border:1px solid var(--b1);border-radius:10px;padding:10px;color:var(--tx1);font-family:var(--mono);font-size:.72rem;resize:vertical;"></textarea>
-            <div class="hint">Select the lines covering this trip in your roster, copy, and paste as-is — dates, flight numbers, times and all.</div>
-          </div>
-
-          <div class="swap-mode-panel" data-side="sg" data-mode="range" style="display:none;">
-            <label>From your uploaded roster</label>
-            <div style="display:flex;gap:8px;">
-              <select id="sg-range-from" style="flex:1;"></select>
-              <select id="sg-range-to" style="flex:1;"></select>
-            </div>
-            <div class="hint" id="sg-range-hint">Upload your roster on the Roster tab first — then pick the days of this trip here.</div>
-          </div>
-        </div>
+        <div id="sg-trips"></div>
+        <button class="swap-add-trip" data-side="sg" style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--b1);background:transparent;color:var(--tx2);font-size:.75rem;font-weight:600;cursor:pointer;font-family:var(--sans);">+ Add Another Trip</button>
       </div>
     </div>
 
     <div class="card">
       <div class="card-head"><span class="card-ico">📥</span><div><div class="card-title">Flight I'm Getting</div><div class="card-sub">The trip(s) you're receiving in exchange — could be one flight or a whole multi-day range</div></div></div>
       <div class="card-body">
-        <div class="field">
-          <div style="display:flex;gap:6px;margin-bottom:10px;">
-            <button class="cat-btn swap-mode-btn active" data-side="sr" data-mode="flights" style="flex:1;padding:9px 4px;font-size:.68rem;">Flight No.</button>
-            <button class="cat-btn swap-mode-btn" data-side="sr" data-mode="paste" style="flex:1;padding:9px 4px;font-size:.68rem;">Paste Roster</button>
-            <button class="cat-btn swap-mode-btn" data-side="sr" data-mode="range" style="flex:1;padding:9px 4px;font-size:.68rem;">My Roster</button>
-          </div>
-
-          <div class="swap-mode-panel" data-side="sr" data-mode="flights">
-            <label>Flight Number(s)</label>
-            <input type="text" id="sr-flights" placeholder="e.g. UL604" style="text-transform:uppercase;">
-            <div class="hint">Swapping more than one trip? Separate with a comma — e.g. UL604, UL888</div>
-          </div>
-
-          <div class="swap-mode-panel" data-side="sr" data-mode="paste" style="display:none;">
-            <label>Paste From Roster</label>
-            <textarea id="sr-paste" rows="5" placeholder="Copy the days for this trip straight from your roster PDF/portal and paste here" style="width:100%;box-sizing:border-box;background:var(--card2);border:1px solid var(--b1);border-radius:10px;padding:10px;color:var(--tx1);font-family:var(--mono);font-size:.72rem;resize:vertical;"></textarea>
-            <div class="hint">Select the lines covering this trip in your roster, copy, and paste as-is — dates, flight numbers, times and all.</div>
-          </div>
-
-          <div class="swap-mode-panel" data-side="sr" data-mode="range" style="display:none;">
-            <label>From your uploaded roster</label>
-            <div style="display:flex;gap:8px;">
-              <select id="sr-range-from" style="flex:1;"></select>
-              <select id="sr-range-to" style="flex:1;"></select>
-            </div>
-            <div class="hint" id="sr-range-hint">Upload your roster on the Roster tab first — then pick the days of this trip here.</div>
-          </div>
-        </div>
+        <div id="sr-trips"></div>
+        <button class="swap-add-trip" data-side="sr" style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed var(--b1);background:transparent;color:var(--tx2);font-size:.75rem;font-weight:600;cursor:pointer;font-family:var(--sans);">+ Add Another Trip</button>
       </div>
     </div>
 
@@ -2739,6 +2687,9 @@ function renderFlightGroupCard(label, r, dollarRate) {
   const estimateNote = r.hasEstimateOnly
     ? `<div class="hint" style="color:var(--amber);margin-top:8px;">🌐 Some flight(s) above use community duration data only (not yet in the Schedule sheet) — Turnaround Pay, Overnight Allowance and Meal Deduction aren't included for those.</div>`
     : '';
+  const blockErrorNote = (r.blockErrors && r.blockErrors.length)
+    ? `<div class="hint" style="color:var(--amber);margin-top:8px;">⚠️ ${r.blockErrors.map(escapeHtml).join(' ')} That trip wasn't counted — the rest of the total above is still correct.</div>`
+    : '';
 
   return `
     <div class="card">
@@ -2753,23 +2704,60 @@ function renderFlightGroupCard(label, r, dollarRate) {
         </div>
         ${missingNote}
         ${estimateNote}
+        ${blockErrorNote}
       </div>
     </div>`;
 }
 
-// Resolves one side (Giving or Getting) per its currently-selected input
-// mode. All three paths converge on the same result shape so
-// renderFlightGroupCard and the diff calculation don't need to know which
-// mode was used.
-async function resolveSwapSide(side, rates, categoryKey) {
-  const mode = document.querySelector(`.swap-mode-btn[data-side="${side}"].active`)?.dataset.mode || 'flights';
+// Resolves ONE trip block, per whichever mode is active on it.
+async function resolveSwapTripBlock(side, idx, rates, categoryKey) {
+  const mode = document.querySelector(`.swap-mode-btn[data-side="${side}"][data-idx="${idx}"].active`)?.dataset.mode || 'flights';
   if (mode === 'paste') {
-    return resolveRosterTextRange($(`${side}-paste`).value, rates, categoryKey);
+    const raw = $(`${side}-${idx}-paste`).value;
+    if (!raw.trim()) return null; // untouched block — skip silently, not an error
+    return resolveRosterTextRange(raw, rates, categoryKey);
   }
   if (mode === 'range') {
-    return resolveMyRosterRange($(`${side}-range-from`).value, $(`${side}-range-to`).value, rates, categoryKey);
+    const from = $(`${side}-${idx}-range-from`).value, to = $(`${side}-${idx}-range-to`).value;
+    if (!from || !to) return null; // untouched (placeholder still selected) — skip silently
+    return resolveMyRosterRange(from, to, rates, categoryKey);
   }
-  return estimateFlightGroupPay($(`${side}-flights`).value, rates);
+  const raw = $(`${side}-${idx}-flights`).value;
+  if (!raw.trim()) return null; // untouched block — skip silently
+  return estimateFlightGroupPay(raw, rates);
+}
+
+// Resolves one side (Giving or Getting) by summing across ALL of its trip
+// blocks — a swap doesn't have to be one flight vs one flight; either side
+// can be several separate trips added via "+ Add Another Trip". Blocks left
+// untouched (the common case when someone doesn't need more than one) are
+// skipped silently rather than erroring the whole side; a block with real
+// input that fails to parse surfaces its own error as a warning note rather
+// than blocking the trips that DID resolve.
+async function resolveSwapSide(side, rates, categoryKey) {
+  const blocks = [...document.querySelectorAll(`.swap-trip-block[data-side="${side}"]`)];
+  const results = [];
+  const blockErrors = [];
+  for (const block of blocks) {
+    const r = await resolveSwapTripBlock(side, block.dataset.idx, rates, categoryKey);
+    if (!r) continue;
+    if (r.error) { blockErrors.push(r.error); continue; }
+    results.push(r);
+  }
+
+  if (!results.length) {
+    return { flightNos: [], perFlight: [], flyingPayUSD: 0, turnaroundUSD: 0, overnightUSD: 0, mealUSD: 0, netUSD: 0, hasEstimateOnly: false,
+      error: blockErrors[0] || 'Enter at least one flight number' };
+  }
+  const sum = key => results.reduce((s, r) => s + (r[key] || 0), 0);
+  return {
+    flightNos: results.flatMap(r => r.flightNos),
+    perFlight: results.flatMap(r => r.perFlight),
+    flyingPayUSD: sum('flyingPayUSD'), turnaroundUSD: sum('turnaroundUSD'),
+    overnightUSD: sum('overnightUSD'), mealUSD: sum('mealUSD'), netUSD: sum('netUSD'),
+    hasEstimateOnly: results.some(r => r.hasEstimateOnly),
+    blockErrors, error: null
+  };
 }
 
 async function calcAndRenderSwap() {
@@ -4085,30 +4073,118 @@ document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('cl
 $('swapCategory').value = state.category || 'CS';
 $('btnSwapCalculate').addEventListener('click', calcAndRenderSwap);
 
-// Mode switcher: one active mode per side (sg/sr), shows/hides the matching
-// input panel. Independent per side — Giving can be "Paste Roster" while
-// Getting is "Flight No.", etc.
-document.querySelectorAll('.swap-mode-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const side = btn.dataset.side, mode = btn.dataset.mode;
-    document.querySelectorAll(`.swap-mode-btn[data-side="${side}"]`).forEach(b => b.classList.toggle('active', b === btn));
-    document.querySelectorAll(`.swap-mode-panel[data-side="${side}"]`).forEach(p => { p.style.display = p.dataset.mode === mode ? '' : 'none'; });
-    if (mode === 'range') renderSwapRangePickers();
+// Each side (Giving/Getting) holds one or more repeatable "trip blocks" —
+// a mutual isn't always a single flight, so "+ Add Another Trip" lets
+// someone build up a side out of several separate trips, each with its own
+// independent input mode. idx is a monotonically-increasing per-side
+// counter (never reused, even after a block is removed) purely so every
+// block's element IDs stay unique — it has no relation to display order.
+const _swapTripCounter = { sg: 0, sr: 0 };
+
+function _swapTripBlockHtml(side, idx) {
+  return `
+    <div class="swap-trip-block" data-side="${side}" data-idx="${idx}" style="border:1px solid var(--b0);border-radius:12px;padding:12px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div class="swap-trip-label" style="font-size:.68rem;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;">Trip</div>
+        <button class="swap-trip-remove" data-side="${side}" data-idx="${idx}" style="display:none;background:none;border:none;color:var(--red);font-size:.7rem;cursor:pointer;padding:2px 6px;">✕ Remove</button>
+      </div>
+      <div class="field">
+        <div style="display:flex;gap:6px;margin-bottom:10px;">
+          <button class="cat-btn swap-mode-btn active" data-side="${side}" data-idx="${idx}" data-mode="flights" style="flex:1;padding:9px 4px;font-size:.68rem;">Flight No.</button>
+          <button class="cat-btn swap-mode-btn" data-side="${side}" data-idx="${idx}" data-mode="paste" style="flex:1;padding:9px 4px;font-size:.68rem;">Paste Roster</button>
+          <button class="cat-btn swap-mode-btn" data-side="${side}" data-idx="${idx}" data-mode="range" style="flex:1;padding:9px 4px;font-size:.68rem;">My Roster</button>
+        </div>
+
+        <div class="swap-mode-panel" data-side="${side}" data-idx="${idx}" data-mode="flights">
+          <label>Flight Number(s)</label>
+          <input type="text" id="${side}-${idx}-flights" placeholder="e.g. UL503" style="text-transform:uppercase;">
+          <div class="hint">More than one flight in this trip? Separate with a comma — e.g. UL503, UL777</div>
+        </div>
+
+        <div class="swap-mode-panel" data-side="${side}" data-idx="${idx}" data-mode="paste" style="display:none;">
+          <label>Paste From Roster</label>
+          <textarea id="${side}-${idx}-paste" rows="5" placeholder="Copy the days for this trip straight from your roster PDF/portal and paste here" style="width:100%;box-sizing:border-box;background:var(--card2);border:1px solid var(--b1);border-radius:10px;padding:10px;color:var(--tx1);font-family:var(--mono);font-size:.72rem;resize:vertical;"></textarea>
+          <div class="hint">Select the lines covering this trip in your roster, copy, and paste as-is — dates, flight numbers, times and all.</div>
+        </div>
+
+        <div class="swap-mode-panel" data-side="${side}" data-idx="${idx}" data-mode="range" style="display:none;">
+          <label>From your uploaded roster</label>
+          <div style="display:flex;gap:8px;">
+            <select id="${side}-${idx}-range-from" style="flex:1;"></select>
+            <select id="${side}-${idx}-range-to" style="flex:1;"></select>
+          </div>
+          <div class="hint" id="${side}-${idx}-range-hint">Upload your roster on the Roster tab first — then pick the days of this trip here.</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Re-labels each side's blocks "Trip 1", "Trip 2"... by their current DOM
+// position (not their idx, which is stable but not necessarily contiguous
+// after a removal), and shows/hides each block's Remove button — hidden
+// whenever it's the only block left, since a side must always have at
+// least one.
+function _renumberSwapTrips(side) {
+  const blocks = document.querySelectorAll(`.swap-trip-block[data-side="${side}"]`);
+  blocks.forEach((block, i) => {
+    const label = block.querySelector('.swap-trip-label');
+    if (label) label.textContent = blocks.length > 1 ? `Trip ${i + 1}` : 'Trip';
+    const removeBtn = block.querySelector('.swap-trip-remove');
+    if (removeBtn) removeBtn.style.display = blocks.length > 1 ? '' : 'none';
   });
+}
+
+function addSwapTrip(side) {
+  const idx = _swapTripCounter[side]++;
+  $(`${side}-trips`).insertAdjacentHTML('beforeend', _swapTripBlockHtml(side, idx));
+  _renumberSwapTrips(side);
+  renderSwapRangePickers();
+}
+
+// First trip block for each side, created once on load.
+addSwapTrip('sg');
+addSwapTrip('sr');
+
+document.querySelectorAll('.swap-add-trip').forEach(btn => {
+  btn.addEventListener('click', () => addSwapTrip(btn.dataset.side));
 });
 
-// Populates the "My Roster" From/To day pickers from state.sectors (the
-// roster already uploaded on the Roster tab, if any) — same chronological
-// order as _rosterDateOrder, so the dropdown always lists days top-to-bottom
-// as they actually occur, not alphabetically.
+// Event delegation for mode-switching and block removal — covers blocks
+// added later via "+ Add Another Trip" too, with no per-block listener
+// wiring needed.
+document.getElementById('page-swap').addEventListener('click', (e) => {
+  const modeBtn = e.target.closest('.swap-mode-btn');
+  if (modeBtn) {
+    const side = modeBtn.dataset.side, idx = modeBtn.dataset.idx, mode = modeBtn.dataset.mode;
+    document.querySelectorAll(`.swap-mode-btn[data-side="${side}"][data-idx="${idx}"]`).forEach(b => b.classList.toggle('active', b === modeBtn));
+    document.querySelectorAll(`.swap-mode-panel[data-side="${side}"][data-idx="${idx}"]`).forEach(p => { p.style.display = p.dataset.mode === mode ? '' : 'none'; });
+    if (mode === 'range') renderSwapRangePickers();
+    return;
+  }
+  const removeBtn = e.target.closest('.swap-trip-remove');
+  if (removeBtn) {
+    const side = removeBtn.dataset.side;
+    removeBtn.closest('.swap-trip-block')?.remove();
+    _renumberSwapTrips(side);
+  }
+});
+
+// Populates every "My Roster" From/To day picker (across every trip block,
+// both sides) from state.sectors (the roster already uploaded on the
+// Roster tab, if any) — same chronological order as _rosterDateOrder, so
+// each dropdown lists days top-to-bottom as they actually occur, not
+// alphabetically. A blank placeholder option is always first so an
+// untouched "My Roster" block reads as genuinely empty (not a spurious
+// default selection) when a side has more than one trip block.
 function renderSwapRangePickers() {
   const order = _rosterDateOrder(state.sectors);
-  ['sg', 'sr'].forEach(side => {
-    const fromSel = $(`${side}-range-from`), toSel = $(`${side}-range-to`);
-    const hint = $(`${side}-range-hint`);
+  document.querySelectorAll('.swap-mode-panel[data-mode="range"]').forEach(panel => {
+    const side = panel.dataset.side, idx = panel.dataset.idx;
+    const fromSel = $(`${side}-${idx}-range-from`), toSel = $(`${side}-${idx}-range-to`);
+    const hint = $(`${side}-${idx}-range-hint`);
     if (!fromSel || !toSel) return;
     const prevFrom = fromSel.value, prevTo = toSel.value;
-    const optionsHtml = order.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+    const optionsHtml = '<option value="">— Select —</option>' + order.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
     fromSel.innerHTML = optionsHtml;
     toSel.innerHTML = optionsHtml;
     if (order.includes(prevFrom)) fromSel.value = prevFrom;
