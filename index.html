@@ -1344,11 +1344,11 @@ function parseRosterText(lines) {
   const skipPatterns = [
     /Individual Roster/i, /Page \d+ of \d+/i, /^Date DD Activity/i,
     /Srilankan Airlines Crew Web Portal/i, /^C\/I ATD/i, /^ATD ATA/i,
-    /^BLH:/i, /^SCDBLH:/i, /^\d{5}\s/i, /^[A-Z]{3}-[A-Z]{2}$/i, /^\d+\.\d+\.\d+/,
+    /^BLH:/i, /^SCDBLH:/i, /^\d{5}\s/i, /^[A-Z]{3}-[A-Z]{2,4}$/i, /^\d+\.\d+\.\d+/,
     /^\d{2}[A-Z]{3}\d{2}\s+-\s+\d{2}[A-Z]{3}\d{2}/i, // "01MAY26 - 31MAY26" header
     /^\d{2}[A-Z]{3}\d{2}\s+\d{2}:\d{2}/i, // "17JUN26 08:32" print timestamp (with or without trailing text)
-    /^[A-Z]{3}-[A-Z]{2}\b/i, // "CMB-CS", "CMB-FA 2", etc. — station+department header
-    /^[A-Za-z][A-Za-z#'*-]*\s[A-Za-z][A-Za-z#'*-]*\s\d{5}\s*[A-Za-z]*/i // crew name + ID line ("#"=male, "*"=junior — company markers, not part of the name)
+    /^[A-Z]{3}-[A-Z]{2,4}\b/i, // "CMB-CS", "CMB-FA 2", "CMB-PUR ...", etc. — station+rank header (rank code 2-4 letters: CS, FA, PUR, ...)
+    /^[A-Za-z][A-Za-z#'*-]*\s[A-Za-z][A-Za-z#'*-]*\s\d{4,7}\s*[A-Za-z]*/i // crew name + ID line ("#"=male, "*"=junior — company markers, not part of the name)
   ];
 
   const tagged = [];
@@ -1357,7 +1357,7 @@ function parseRosterText(lines) {
     const line = raw.trim();
     if (!line) continue;
     if (skipPatterns.some(p => p.test(line))) continue;
-    if (/;/.test(line) && /[A-Za-z][A-Za-z#'*-]*\s[A-Za-z][A-Za-z#'*-]*\s\d{5}/.test(line)) continue; // crew name/duty-code header
+    if (/;/.test(line) && /[A-Za-z][A-Za-z#'*-]*\s[A-Za-z][A-Za-z#'*-]*\s\d{4,7}/.test(line)) continue; // crew name/duty-code header
 
     // Standalone date line: just update the running date label, emit nothing
     const dateOnlyMatch = line.match(dateOnlyRegex);
@@ -1599,7 +1599,7 @@ function extractRosterIdentity(lines) {
   // A trailing "#" or "*" after a name word is a company-side marker
   // ("#"=male crew, "*"=junior crew), not part of the person's actual name
   // — matched here so extraction still works, then stripped out.
-  const headerMatch = joined.match(/([A-Z][a-z]+[#*]?(?:\s[A-Z][a-z]+[#*]?)+)\s+(\d{4,6})\s+[A-Za-z]{3,8}\b/);
+  const headerMatch = joined.match(/([A-Z][a-z]+[#*]?(?:\s[A-Z][a-z]+[#*]?)+)\s+(\d{4,7})\s+[A-Za-z]{3,8}\b/);
   const staffName = headerMatch ? headerMatch[1].replace(/[#*]/g, '').trim() : null;
   const staffNo = headerMatch ? headerMatch[2] : null;
   const periodMatch = joined.match(/(\d{2}[A-Z]{3}\d{2})\s*-\s*(\d{2}[A-Z]{3}\d{2})/);
