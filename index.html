@@ -751,20 +751,6 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       <div class="card-head"><span class="card-ico">🧾</span><div><div class="card-title">Full Breakdown</div></div></div>
       <div class="card-body" id="resultsArea"></div>
     </div>
-    <div id="resultBreakdownExtras" style="display:none;">
-      <div class="card">
-        <div class="card-head"><span class="card-ico">🍽️</span><div><div class="card-title">Meal Deductions</div><div class="card-sub">Per flight breakdown</div></div></div>
-        <div class="card-body" id="mealSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-ico">🔄</span><div><div class="card-title">Turnaround Summary</div><div class="card-sub">Per duty breakdown</div></div></div>
-        <div class="card-body" id="turnSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="card-ico">🌙</span><div><div class="card-title">Overnight Summary</div><div class="card-sub">Midnight crossing duties</div></div></div>
-        <div class="card-body" id="overnightSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
-      </div>
-    </div>
 
     <div class="card">
       <div class="card-head"><span class="card-ico">⏱</span><div><div class="card-title">Block Hours Override</div><div class="card-sub">Only use if company hours differ from roster</div></div></div>
@@ -3224,60 +3210,6 @@ function calculateSalary() {
   try { renderTierGauge(state.lastCalculation.flyingPay); } catch(e) { console.error('[renderTierGauge ERROR]', e.message); }
   try { captureMonthToLogbook(flights); } catch(e) { console.error('[logbook capture ERROR]', e.message); }
 
-  // Turnaround summary on Stats page
-  const turnArea = $('turnSummaryArea');
-  if (turnArea && state.lastCalculation.turnaroundPay) {
-    const tp = state.lastCalculation.turnaroundPay;
-    if (tp.details && tp.details.length > 0) {
-      turnArea.innerHTML = tp.details.map((d,i) => `
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
-          <span style="color:var(--tx2);">${d.flightNo||'Duty '+(i+1)} ${d.dest?'→ '+d.dest:''} &nbsp;·&nbsp; ${minutesToHHMM(d.totalMin)}</span>
-          <span style="color:var(--green);font-weight:600;">+ ${fmtUSD(d.rate)}</span>
-        </div>`).join('') +
-        `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;">
-          <span>Total</span><span style="color:var(--green);">+ ${fmtUSD(tp.totalUSD)}</span>
-        </div>`;
-    } else {
-      turnArea.innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">No turnaround duties this month</div>';
-    }
-  }
-
-  // Meal deductions summary on Stats page
-  const mealArea = $('mealSummaryArea');
-  if (mealArea && state.lastCalculation.mealDeductions) {
-    const md = state.lastCalculation.mealDeductions;
-    if (md.details && md.details.length > 0) {
-      mealArea.innerHTML = md.details.map(d => `
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
-          <span style="color:var(--tx2);">${d.flightNo} &nbsp;·&nbsp; ${d.meals.join(', ')}</span>
-          <span style="color:var(--red);font-weight:600;">− ${fmtUSD(d.amount)}</span>
-        </div>`).join('') +
-        `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;">
-          <span>Total</span><span style="color:var(--red);">− ${fmtUSD(md.totalUSD)}</span>
-        </div>`;
-    } else {
-      mealArea.innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">No meal deductions this month</div>';
-    }
-  }
-
-  // Overnight summary on Stats page
-  const ovArea = $('overnightSummaryArea');
-  if (ovArea && state.lastCalculation.overnightAllowance) {
-    const ov = state.lastCalculation.overnightAllowance;
-    if (ov.details && ov.details.length > 0) {
-      ovArea.innerHTML = ov.details.map((d,i) => `
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
-          <span style="color:var(--tx2);">Duty ${i+1} &nbsp;·&nbsp; ${d.flightNo}</span>
-          <span style="color:var(--green);font-weight:600;">+ $${getRates().overnight.toFixed(2)}</span>
-        </div>`).join('') +
-        `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;">
-          <span>Total</span><span style="color:var(--green);">+ ${fmtUSD(ov.count * getRates().overnight)}</span>
-        </div>`;
-    } else {
-      ovArea.innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">No overnight duties this month</div>';
-    }
-  }
-
   // Layover Allowance on Stats page — informational only, not part of take-home pay
   const laArea = $('layoverAllowanceArea');
   if (laArea && state.lastCalculation.layoverAllowance) {
@@ -3446,7 +3378,6 @@ function renderResults(c) {
   </div>`;
   $('resultsArea').innerHTML = html;
   if ($('fullBreakdownCard')) $('fullBreakdownCard').style.display = 'block';
-  if ($('resultBreakdownExtras')) $('resultBreakdownExtras').style.display = 'block';
 }
 
 function row(label, value, sub) {
@@ -3999,7 +3930,6 @@ $('btnReset').addEventListener('click',()=>{
   if($('statTurns')) $('statTurns').textContent='0 Duties';
   if($('statLayovers')) $('statLayovers').textContent='0 L / 0 P';
   if($('fullBreakdownCard')) $('fullBreakdownCard').style.display='none';
-  if($('resultBreakdownExtras')) $('resultBreakdownExtras').style.display='none';
   renderTierGauge({tier1Min:0,tier2Min:0,actingCMMin:0,overrideUsed:false,totalBlockMin:0});
   updateCalcButtonState();
 });
