@@ -690,15 +690,6 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="card-ico">🎨</span><div><div class="card-title">Appearance</div><div class="card-sub">Choose your theme</div></div></div>
-      <div class="card-body">
-        <div style="display:flex;gap:10px;">
-          <button class="t-opt" data-theme="dark" style="flex:1;padding:12px 6px;border-radius:10px;border:2px solid var(--b1);background:#0b0e1a;color:#e2e8ff;font-size:.8rem;font-weight:700;cursor:pointer;transition:border-color .2s;">🌑 Dark</button>
-          <button class="t-opt" data-theme="light" style="flex:1;padding:12px 6px;border-radius:10px;border:2px solid var(--b1);background:#f0f4f8;color:#1a1f35;font-size:.8rem;font-weight:700;cursor:pointer;transition:border-color .2s;">☀️ Light</button>
-        </div>
-      </div>
-    </div>
-    <div class="card">
       <div class="card-head">
         <span class="card-ico">📋</span>
         <div><div class="card-title">Flight Roster PDF</div><div class="card-sub">Crew Web Portal format</div></div>
@@ -729,6 +720,15 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
     <div id="parseWarnings"></div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">🎨</span><div><div class="card-title">Appearance</div><div class="card-sub">Choose your theme</div></div></div>
+      <div class="card-body">
+        <div style="display:flex;gap:10px;">
+          <button class="t-opt" data-theme="dark" style="flex:1;padding:12px 6px;border-radius:10px;border:2px solid var(--b1);background:#0b0e1a;color:#e2e8ff;font-size:.8rem;font-weight:700;cursor:pointer;transition:border-color .2s;">🌑 Dark</button>
+          <button class="t-opt" data-theme="light" style="flex:1;padding:12px 6px;border-radius:10px;border:2px solid var(--b1);background:#f0f4f8;color:#1a1f35;font-size:.8rem;font-weight:700;cursor:pointer;transition:border-color .2s;">☀️ Light</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- PAGE 2: RESULT -->
@@ -750,6 +750,20 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     <div class="card" id="fullBreakdownCard" style="display:none;">
       <div class="card-head"><span class="card-ico">🧾</span><div><div class="card-title">Full Breakdown</div></div></div>
       <div class="card-body" id="resultsArea"></div>
+    </div>
+    <div id="resultBreakdownExtras" style="display:none;">
+      <div class="card">
+        <div class="card-head"><span class="card-ico">🍽️</span><div><div class="card-title">Meal Deductions</div><div class="card-sub">Per flight breakdown</div></div></div>
+        <div class="card-body" id="mealSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-ico">🔄</span><div><div class="card-title">Turnaround Summary</div><div class="card-sub">Per duty breakdown</div></div></div>
+        <div class="card-body" id="turnSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-ico">🌙</span><div><div class="card-title">Overnight Summary</div><div class="card-sub">Midnight crossing duties</div></div></div>
+        <div class="card-body" id="overnightSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
+      </div>
     </div>
 
     <div class="card">
@@ -811,28 +825,12 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><span class="card-ico">✅</span><div><div class="card-title">Compliance Checklist</div></div></div>
-      <div class="card-body" id="checklistItems"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">🍽️</span><div><div class="card-title">Meal Deductions</div><div class="card-sub">Per flight breakdown</div></div></div>
-      <div class="card-body" id="mealSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">🔄</span><div><div class="card-title">Turnaround Summary</div><div class="card-sub">Per duty breakdown</div></div></div>
-      <div class="card-body" id="turnSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">🌙</span><div><div class="card-title">Overnight Summary</div><div class="card-sub">Midnight crossing duties</div></div></div>
-      <div class="card-body" id="overnightSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
-    </div>
-    <div class="card">
       <div class="card-head"><span class="card-ico">🧳</span><div><div class="card-title">Layover Allowance</div><div class="card-sub">Meals + nights away, check-in to CMB return · informational only</div></div></div>
       <div class="card-body" id="layoverAllowanceArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
     </div>
     <div class="card">
-      <div class="card-head"><span class="card-ico">💡</span><div><div class="card-title">APIT Tax Bands</div><div class="card-sub">Monthly reference</div></div></div>
-      <div class="card-body">
+      <div class="card-head" id="apitBandsHead" style="cursor:pointer;"><span class="card-ico">💡</span><div><div class="card-title">APIT Tax Bands</div><div class="card-sub">Monthly reference · tap to view</div></div><span id="apitBandsChevron" style="margin-left:auto;color:var(--tx3);font-size:.8rem;">▸</span></div>
+      <div class="card-body" id="apitBandsBody" style="display:none;">
         <div style="display:grid;grid-template-columns:1fr auto;gap:7px 16px;font-size:.76rem;">
           <span style="color:var(--tx3);">Up to LKR 150,000</span><span style="font-family:var(--mono);">0%</span>
           <span style="color:var(--tx3);">150,001 – 233,333</span><span style="font-family:var(--mono);">6%</span>
@@ -3224,7 +3222,6 @@ function calculateSalary() {
 
   try { renderResults(state.lastCalculation); } catch(e) { console.error('[renderResults ERROR]', e.message, e.stack); }
   try { renderTierGauge(state.lastCalculation.flyingPay); } catch(e) { console.error('[renderTierGauge ERROR]', e.message); }
-  try { renderChecklist(flights); } catch(e) { console.error('[renderChecklist ERROR]', e.message); }
   try { captureMonthToLogbook(flights); } catch(e) { console.error('[logbook capture ERROR]', e.message); }
 
   // Turnaround summary on Stats page
@@ -3449,24 +3446,11 @@ function renderResults(c) {
   </div>`;
   $('resultsArea').innerHTML = html;
   if ($('fullBreakdownCard')) $('fullBreakdownCard').style.display = 'block';
+  if ($('resultBreakdownExtras')) $('resultBreakdownExtras').style.display = 'block';
 }
 
 function row(label, value, sub) {
   return `<div class="summary-row"><span class="lbl">${label}${sub?`<br><span class="sub">${sub}</span>`:''}</span><span class="val">${value}</span></div>`;
-}
-
-function renderChecklist(flights) {
-  const checks = [
-    { title: 'Exchange Rate', sub: `LKR ${$('dollarRate').value || 'not set'}`, done: !!$('dollarRate').value },
-    { title: 'Roster Sync', sub: flights.length ? `${flights.length} sectors` : 'Pending', done: flights.length > 0 },
-    { title: 'Fixed Base', sub: `LKR ${parseInt($('basicSalary').value||0).toLocaleString()}`, done: parseInt($('basicSalary').value||0) > 0 },
-    { title: 'Calculations', sub: state.lastCalculation ? 'Verified' : 'Pending above', done: !!state.lastCalculation },
-  ];
-  if ($('checklistItems')) $('checklistItems').innerHTML = checks.map(c => `
-    <div class="chk-item">
-      <div class="chk-dot${c.done?'':' pending'}">${c.done?'&#10003;':'&middot;'}</div>
-      <div class="chk-text"><div class="ct-title">${c.title}</div><div class="ct-sub">${c.sub}</div></div>
-    </div>`).join('');
 }
 
 // Fields that rarely change month-to-month — auto-saved and auto-restored
@@ -3948,9 +3932,6 @@ function updateStatCards(){
 
 // renderResults
 
-
-// renderChecklist
-
 // Upload handler
 $('rosterFile').addEventListener('change',async(e)=>{
   const file=e.target.files[0]; if(!file) return;
@@ -4018,8 +3999,8 @@ $('btnReset').addEventListener('click',()=>{
   if($('statTurns')) $('statTurns').textContent='0 Duties';
   if($('statLayovers')) $('statLayovers').textContent='0 L / 0 P';
   if($('fullBreakdownCard')) $('fullBreakdownCard').style.display='none';
+  if($('resultBreakdownExtras')) $('resultBreakdownExtras').style.display='none';
   renderTierGauge({tier1Min:0,tier2Min:0,actingCMMin:0,overrideUsed:false,totalBlockMin:0});
-  renderChecklist([]);
   updateCalcButtonState();
 });
 
@@ -4040,7 +4021,6 @@ $('btnCalculate').addEventListener('click',()=>{
   try {
     calculateSalary();
     updateStatCards();
-    renderChecklist(getAllFlights());
     goTo('page-home');
   } catch(e) {
     console.error('[CALC ERROR]', e.message, e.stack);
@@ -4245,8 +4225,14 @@ $('btnLogbookReset').addEventListener('click', async () => {
 
 // init
 renderHistoryPanel();
-renderChecklist([]);
 renderTierGauge({tier1Min:0,tier2Min:0,actingCMMin:0,overrideUsed:false,totalBlockMin:0});
+
+$('apitBandsHead').addEventListener('click', () => {
+  const body = $('apitBandsBody');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  $('apitBandsChevron').textContent = open ? '▸' : '▾';
+});
 
 // ---------- Category selector wiring ----------
 function updateCatUI() {
