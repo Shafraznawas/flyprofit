@@ -1492,7 +1492,9 @@ function extractRosterIdentity(lines) {
   // A trailing "#" or "*" after a name word is a company-side marker
   // ("#"=male crew, "*"=junior crew), not part of the person's actual name
   // — matched here so extraction still works, then stripped out.
-  const headerMatch = joined.match(/([A-Z][a-z]+[#*]?(?:\s[A-Z][a-z]+[#*]?)+)\s+(?:[A-Za-z]{1,2}\d?)?(\d{4,7})\s+[A-Za-z]{3,8}\b/);
+  // "C" prefix = Contract staff (e.g. "C14819" IS the whole staff number,
+  // not a code glued onto "14819" — keep it, never strip it).
+  const headerMatch = joined.match(/([A-Z][a-z]+[#*]?(?:\s[A-Z][a-z]+[#*]?)+)\s+([Cc]?\d{4,7})\s+[A-Za-z]{3,8}\b/);
   const staffName = headerMatch ? headerMatch[1].replace(/[#*]/g, '').trim() : null;
   const staffNo = headerMatch ? headerMatch[2] : null;
   const periodMatch = joined.match(/(\d{2}[A-Z]{3}\d{2})\s*-\s*(\d{2}[A-Z]{3}\d{2})/);
