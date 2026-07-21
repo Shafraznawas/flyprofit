@@ -532,6 +532,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .field input::placeholder{color:var(--tx3);}
 .field .hint{font-size:.6rem;color:var(--tx3);font-family:var(--mono);margin-top:5px;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.g3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;}
 
 /* UPLOAD */
 .upload-zone{display:block;border:1.5px dashed rgba(124,58,237,.3);border-radius:12px;padding:30px 16px;text-align:center;background:rgba(124,58,237,.04);cursor:pointer;transition:.15s;touch-action:manipulation;}
@@ -656,6 +657,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   <button class="nav-btn" data-page="page-home"><span class="nav-icon">💰</span><span class="nav-lbl">Result</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-inputs"><span class="nav-icon">✏️</span><span class="nav-lbl">Inputs</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-gauge"><span class="nav-icon">📊</span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-logbook"><span class="nav-icon">📖</span><span class="nav-lbl">Logbook</span><span class="nav-dot"></span></button>
 </div>
 
 <div class="scroll-area" id="scrollArea">
@@ -687,15 +689,6 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     </div>
 
     <div class="card">
-      <div class="card-head"><span class="card-ico">🎨</span><div><div class="card-title">Appearance</div><div class="card-sub">Choose your theme</div></div></div>
-      <div class="card-body">
-        <div style="display:flex;gap:10px;">
-          <button class="t-opt" data-theme="dark" style="flex:1;padding:12px 6px;border-radius:10px;border:2px solid var(--b1);background:#0b0e1a;color:#e2e8ff;font-size:.8rem;font-weight:700;cursor:pointer;transition:border-color .2s;">🌑 Dark</button>
-          <button class="t-opt" data-theme="light" style="flex:1;padding:12px 6px;border-radius:10px;border:2px solid var(--b1);background:#f0f4f8;color:#1a1f35;font-size:.8rem;font-weight:700;cursor:pointer;transition:border-color .2s;">☀️ Light</button>
-        </div>
-      </div>
-    </div>
-    <div class="card">
       <div class="card-head">
         <span class="card-ico">📋</span>
         <div><div class="card-title">Flight Roster PDF</div><div class="card-sub">Crew Web Portal format</div></div>
@@ -726,6 +719,15 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
     <div id="parseWarnings"></div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">🎨</span><div><div class="card-title">Appearance</div><div class="card-sub">Choose your theme</div></div></div>
+      <div class="card-body">
+        <div style="display:flex;gap:10px;">
+          <button class="t-opt" data-theme="dark" style="flex:1;padding:12px 6px;border-radius:10px;border:2px solid var(--b1);background:#0b0e1a;color:#e2e8ff;font-size:.8rem;font-weight:700;cursor:pointer;transition:border-color .2s;">🌑 Dark</button>
+          <button class="t-opt" data-theme="light" style="flex:1;padding:12px 6px;border-radius:10px;border:2px solid var(--b1);background:#f0f4f8;color:#1a1f35;font-size:.8rem;font-weight:700;cursor:pointer;transition:border-color .2s;">☀️ Light</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- PAGE 2: RESULT -->
@@ -808,24 +810,12 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><span class="card-ico">✅</span><div><div class="card-title">Compliance Checklist</div></div></div>
-      <div class="card-body" id="checklistItems"></div>
+      <div class="card-head"><span class="card-ico">🧳</span><div><div class="card-title">Layover Allowance</div><div class="card-sub">Meals + nights away, check-in to CMB return · informational only</div></div></div>
+      <div class="card-body" id="layoverAllowanceArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
     </div>
     <div class="card">
-      <div class="card-head"><span class="card-ico">🍽️</span><div><div class="card-title">Meal Deductions</div><div class="card-sub">Per flight breakdown</div></div></div>
-      <div class="card-body" id="mealSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">🔄</span><div><div class="card-title">Turnaround Summary</div><div class="card-sub">Per duty breakdown</div></div></div>
-      <div class="card-body" id="turnSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">🌙</span><div><div class="card-title">Overnight Summary</div><div class="card-sub">Midnight crossing duties</div></div></div>
-      <div class="card-body" id="overnightSummaryArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">💡</span><div><div class="card-title">APIT Tax Bands</div><div class="card-sub">Monthly reference</div></div></div>
-      <div class="card-body">
+      <div class="card-head" id="apitBandsHead" style="cursor:pointer;"><span class="card-ico">💡</span><div><div class="card-title">APIT Tax Bands</div><div class="card-sub">Monthly reference · tap to view</div></div><span id="apitBandsChevron" style="margin-left:auto;color:var(--tx3);font-size:.8rem;">▸</span></div>
+      <div class="card-body" id="apitBandsBody" style="display:none;">
         <div style="display:grid;grid-template-columns:1fr auto;gap:7px 16px;font-size:.76rem;">
           <span style="color:var(--tx3);">Up to LKR 150,000</span><span style="font-family:var(--mono);">0%</span>
           <span style="color:var(--tx3);">150,001 – 233,333</span><span style="font-family:var(--mono);">6%</span>
@@ -837,6 +827,43 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
   </div>
+
+  <!-- PAGE 5: LOGBOOK -->
+  <div class="page" id="page-logbook">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-ico">📖</span>
+        <div><div class="card-title">Flying Logbook</div><div class="card-sub">Auto-saved each time you calculate</div></div>
+        <select id="logbookYear" style="margin-left:auto;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:6px 8px;color:var(--tx1);font-size:.8rem;font-family:var(--mono);"></select>
+      </div>
+      <div class="card-body" id="logbookSummary"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">🏨</span><div><div class="card-title">Long Stays</div><div class="card-sub">2+ nights · yearly quota, by station</div></div></div>
+      <div class="card-body" id="logbookLongStays"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">🧳</span><div><div class="card-title">Layovers</div><div class="card-sub">Single-night layovers</div></div></div>
+      <div class="card-body" id="logbookLayovers1"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">📍</span><div><div class="card-title">Top Destinations</div><div class="card-sub">Most-visited this year</div></div></div>
+      <div class="card-body" id="logbookDestinations"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-ico">🗓️</span><div><div class="card-title">Month by Month</div><div class="card-sub">Your saved flying record</div></div></div>
+      <div class="card-body" id="logbookMonths"></div>
+    </div>
+    <div class="action-row">
+      <button class="act-btn" id="btnLogbookExport">⬇ Export History</button>
+      <button class="act-btn" id="btnLogbookImport">⬆ Import History</button>
+    </div>
+    <div class="action-row">
+      <button class="act-btn" id="btnLogbookReset" style="color:var(--red);">🗑 Reset Logbook</button>
+    </div>
+    <input type="file" id="logbookImportFile" accept="application/json" style="display:none;">
+  </div>
+
 
 </div>
 
@@ -956,6 +983,11 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <button class="emeal-btn ef-chip" data-val="no">No</button>
         <button class="emeal-btn ef-chip" data-val="yes">Yes</button>
       </div>
+    </div>
+    <div id="ef-meal-amount-wrap" style="display:none;margin-bottom:10px;">
+      <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">RETURN NOT SHOWN — ENTER MEAL DEDUCTION AMOUNT (USD)</div>
+      <input id="ef-meal-amount" type="number" step="0.01" min="0" placeholder="e.g. 75.00" inputmode="decimal" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.9rem;font-family:var(--mono);box-sizing:border-box;">
+      <div style="font-size:.62rem;color:var(--tx3);margin-top:4px;line-height:1.4;">This duty's return leg isn't in this roster, so the app can't work out how many meals apply — enter the known amount yourself.</div>
     </div>
     <div class="ef-row">
       <span class="ef-row-lbl">TURNAROUND PAY</span>
@@ -1086,8 +1118,8 @@ const OVERNIGHT_ALLOWANCE_RATE = 20.00; // USD per qualifying duty, fixed for CS
 const TIER_THRESHOLD_MIN = 75 * 60; // minutes
 
 // ---------- Category pay rates ----------
-function getRates() {
-  switch(state && state.category || 'CS') {
+function getRates(catOverride) {
+  switch(catOverride || (state && state.category) || 'CS') {
     case 'CM':        return { tier1: 20.00, tier2: 38.00, overnight: 30.00, actingLabel: null,  actingRate: 0 };                                                     // C5
     case 'FA_SENIOR': return { tier1:  8.50, tier2: 26.00, overnight: 18.00, actingLabel: 'CS',  actingRate: 13.50 };                                                 // C3
     case 'FA_JUNIOR':     return { tier1:  6.50, tier2: 23.00, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, noMealDeductions: true };                     // C2 - New Contract
@@ -1354,6 +1386,11 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
     const times = classified.filter(c => c.type === 'TIME');
 
     let orig = null, atd = null, dest = null, ata = null, ataNextDay = false, checkIn = null;
+    // Sector date defaults to this line's own date, but Case 3 below (check-in
+    // shown on one line, the real ATD/DEST/ATA all on the NEXT line — e.g. an
+    // evening check-in for a just-after-midnight departure) reassigns this to
+    // the NEXT line's date, since that's the day the flight actually departs.
+    let sectorDate = d.date;
 
     if (stations.length >= 2) {
       const firstOtherIdx = classified.findIndex(c => c.type === 'OTHER');
@@ -1426,8 +1463,11 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
           effectiveSeqIdx = next.seqIndex;
         }
       } else if (timeBeforeStation) {
-        // Case 3: only a check-in time before the station, no real ATD on this line.
-        // Next line carries ATD, DEST, ATA all together.
+        // Case 3: only a check-in time before the station, no real ATD on this line
+        // — the check-in was printed the evening before an early/just-after-midnight
+        // departure, so it falls on a different calendar day than the actual flight.
+        // Next line carries ATD, DEST, ATA all together, AND is the day the flight
+        // actually departs — the sector must be dated to THAT line, not this one.
         checkIn = timeBeforeStation.tok;
         const next = dutyLines.slice(i + 1).find(x => x.kind === 'Flight' && x.flightNo === d.flightNo);
         if (next) {
@@ -1442,6 +1482,7 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
           ataNextDay = false;
           next._consumedAsDestOnly = true;
           effectiveSeqIdx = next.seqIndex;
+          if (next.date) sectorDate = next.date;
         }
       }
 
@@ -1454,7 +1495,7 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
     }
 
     const builtSector = {
-      date: d.date, flightNo: d.flightNo, orig, atd, dest, ata, ataNextDay,
+      date: sectorDate, flightNo: d.flightNo, orig, atd, dest, ata, ataNextDay,
       checkIn, isPassengering: d.isPassengering, raw: d.raw, seqIndex: d.seqIndex,
       effectiveSeqIndex: effectiveSeqIdx, _autoMutualMarker: d.isMutualMarker || false
     };
@@ -1500,17 +1541,6 @@ function extractRosterIdentity(lines) {
   const periodMatch = joined.match(/(\d{2}[A-Z]{3}\d{2})\s*-\s*(\d{2}[A-Z]{3}\d{2})/);
   const rosterMonth = periodMatch ? periodMatch[2].slice(2) : null; // e.g. "MAY26"
   return { staffNo, staffName, rosterMonth };
-}
-
-// Convert a roster's own month label ("MAY26") to a YYYY-MM value for the
-// month picker. SriLankan individual rosters are always a single calendar-
-// month bid period (the "01MAY26 - 31MAY26" header), so this is unambiguous
-// even though the roster shows a few lead-in/out days from adjacent months.
-const _MONTH_NUM = { JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12' };
-function _rosterMonthToKey(rm) {
-  const m = /^([A-Z]{3})(\d{2})$/.exec(String(rm || '').toUpperCase());
-  if (!m || !_MONTH_NUM[m[1]]) return null;
-  return '20' + m[2] + '-' + _MONTH_NUM[m[1]];
 }
 
 async function parseRosterPDF(file) {
@@ -2164,6 +2194,136 @@ function calculateOvernightAllowance(sectors, rateUSD) {
 }
 
 // ============================================================
+// LAYOVER ALLOWANCE (informational — Stats page only, does NOT
+// feed into the take-home pay total)
+// ============================================================
+
+/**
+ * Layover Allowance = every meal + every night, counted across the ENTIRE
+ * duty window from CMB check-in (80 min before first departure) through to
+ * CMB ATA (arrival back home) — for each complete (CMB->...->CMB) Layover
+ * duty. This is a genuinely different, WIDER span than both (a) Meal
+ * Deductions (only checks in-flight catering per leg, never ground time at
+ * the destination) and (b) the Logbook's "nights away" quota (only counts
+ * nights actually spent at the destination hotel, i.e. arrival-at-dest to
+ * departure-from-dest). Layover Allowance's "night" is different again: the
+ * crew is "away from base" continuously from check-in to final arrival, so
+ * EVERY midnight in that whole window counts — including a travel night on
+ * an overnight outbound/return flight, before/after any hotel stay. So this
+ * is computed completely independently, not gated by noMealDeductions —
+ * applies uniformly to every category.
+ *
+ * Since presence is continuous from check-in to final arrival, every day
+ * except the very first (starts mid-day, at check-in) and the very last
+ * (ends mid-day, at final arrival) is trivially a FULL day away — no clock
+ * math needed, all 3 meals automatic. Only the first/last day need their
+ * partial-day presence tested against the MEAL_WINDOWS clock boundaries.
+ *
+ * Day-count and clock positions are anchored on a single UTC-absolute-minute
+ * timeline (using STATION_OFFSETS — the same data calcBlockMinutes already
+ * uses), NOT on raw local clock-time subtraction between different-station
+ * rows. That naive approach is ambiguous past 24 hours AND breaks whenever
+ * the origin/destination UTC offset gap is large enough to flip which
+ * calendar day an arrival lands on (verified: it silently mispredicted the
+ * MEL return leg's arrival day by a full day, since MEL is +4.5h from CMB —
+ * large enough to swing the result). Each leg's own printed date label is a
+ * stated fact for THAT leg's departure; converting through UTC and back to
+ * CMB-local for check-in/final-arrival is what correctly reproduces the
+ * roster's own printed values in all cases.
+ *
+ * Verified against two real worked examples: UL265/6 (CMB-RUH-CMB, 1-3 July)
+ * — Day1 Dinner, Day2 Breakfast+Lunch+Dinner, Day3 nothing, 2 nights; and
+ * UL604/5 (CMB-MEL-CMB, check-in 17th 23:00 for a 00:20 18th departure) —
+ * Day1(17th) nothing (check-in too late for dinner), Day2(18th) all 3
+ * meals, Day3(19th) all 3 meals, 2 nights — both hand-verified against the
+ * app's own calcBlockMinutes using real station UTC offsets.
+ */
+function calculateLayoverAllowance(sectors, rateUSD) {
+  const groups = {};
+  sectors.forEach(s => { (groups[s.dutyId] = groups[s.dutyId] || []).push(s); });
+
+  let totalNights = 0;
+  let mealCount = 0;
+  const details = [];
+
+  // Absolute UTC minute of an event: a calendar day-label (a stated roster
+  // fact) combined with that station's own local clock, converted via its
+  // UTC offset — the only way to safely compare two events at different
+  // stations, since local clocks alone can't be combined across timezones.
+  const utcAbs = (dayLabel, clockMin, stationCode) => {
+    const offset = STATION_OFFSETS[stationCode];
+    if (offset == null || dayLabel == null || clockMin == null) return null;
+    return dayLabel * 1440 + clockMin - offset * 60;
+  };
+
+  Object.values(groups).forEach(group => {
+    group.sort((a, b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0));
+    if (group[0].dutyType !== 'Layover') return;
+    if (!_isCompleteDuty(group)) return; // return leg not shown in this roster — window unknown, skip
+
+    const first = group[0];
+    const last = group[group.length - 1];
+    const firstDayLabel = _dayNum(first.date);
+    const lastDayLabel = _dayNum(last.date);
+    const firstAtdMin = timeToMinutes(first.atd);
+    const lastAtdMin = timeToMinutes(last.atd);
+    const lastAtaMin = timeToMinutes(last.ata);
+    if (firstDayLabel == null || lastDayLabel == null || firstAtdMin == null || lastAtdMin == null || lastAtaMin == null) return;
+
+    // Chain forward in UTC: check-in -> outbound departs -> (its own block
+    // minutes, timezone-correct) -> outbound arrives -> return departs (its
+    // OWN printed day label + local clock, converted via ITS station) ->
+    // (its own block minutes) -> final arrival — then convert the two edges
+    // (check-in, final arrival) back to CMB-local, since that's the only
+    // frame either of them needs to be judged in.
+    const utcCheckIn = utcAbs(firstDayLabel, firstAtdMin, first.orig) - CMB_CHECKIN_BUFFER_MIN;
+    const utcFinalArrival = utcAbs(lastDayLabel, lastAtdMin, last.orig) + (last.blockMinutes || 0);
+    if (utcCheckIn == null || utcFinalArrival == null) return;
+
+    const cmbOffsetMin = STATION_OFFSETS['CMB'] * 60;
+    const checkInCmbAbs = utcCheckIn + cmbOffsetMin;
+    const finalArrivalCmbAbs = utcFinalArrival + cmbOffsetMin;
+    const checkInDay = Math.floor(checkInCmbAbs / 1440);
+    const finalArrivalDay = Math.floor(finalArrivalCmbAbs / 1440);
+    const checkInClock = checkInCmbAbs - checkInDay * 1440;
+    const finalArrivalClock = finalArrivalCmbAbs - finalArrivalDay * 1440;
+
+    const numDays = finalArrivalDay - checkInDay + 1;
+    const nights = numDays - 1;
+    if (nights < 0 || numDays > 30) return; // sanity guard — bad/incomplete data, don't inflate
+    totalNights += nights;
+
+    const dutyMeals = [];
+    for (let d = 0; d < numDays; d++) {
+      let presStart, presEnd;
+      if (d === 0 && numDays === 1) { presStart = checkInClock; presEnd = finalArrivalClock; }
+      else if (d === 0) { presStart = checkInClock; presEnd = 1440; }
+      else if (d === numDays - 1) { presStart = 0; presEnd = finalArrivalClock; }
+      else { presStart = 0; presEnd = 1440; }
+      const dayMeals = [];
+      MEAL_WINDOWS.forEach(w => {
+        const ws = timeToMinutes(w.start), we = timeToMinutes(w.end);
+        if (presStart < we && presEnd > ws) dayMeals.push(w.name);
+      });
+      if (dayMeals.length) dutyMeals.push({ dayOffset: d, meals: dayMeals });
+      mealCount += dayMeals.length;
+    }
+
+    const station = _dutyOutstation(group);
+    details.push({ date: first.date, flightNo: first.flightNo, station, nights, dailyMeals: dutyMeals });
+  });
+
+  const mealUSD = mealCount * MEAL_RATE;
+  const overnightUSD = totalNights * (rateUSD || 0);
+  return {
+    mealUSD, overnightUSD,
+    totalUSD: mealUSD + overnightUSD,
+    nights: totalNights, mealCount,
+    details
+  };
+}
+
+// ============================================================
 // APIT TAX CALCULATION (Sri Lanka monthly slabs)
 // ============================================================
 
@@ -2310,6 +2470,7 @@ async function openEditFlight(idx) {
   f.actingCM = result.actingCM;
   f._manualOvernight = result.manualOvernight === 'auto' ? undefined : result.manualOvernight;
   f._manualMealDeduction = result.manualMealDeduction === 'auto' ? undefined : result.manualMealDeduction;
+  f._manualMealDeductionAmount = result.manualMealDeductionAmount;
   f._manualTurnaroundPay = result.manualTurnaroundPay === 'auto' ? undefined : result.manualTurnaroundPay;
 
   const r = calcBlockMinutes(f.orig, f.atd, f.dest, f.ata, false);
@@ -2532,9 +2693,22 @@ function calculateSalary() {
       d.date === f.date && d.flightNo.split('+').includes(f.flightNo)
     );
     if (alreadyCounted) return;
-    mealDeductions.totalUSD += MEAL_RATE;
-    mealDeductions.details.push({ date: f.date, flightNo: f.flightNo, meals: ['Manual'], amount: MEAL_RATE });
+    // A crew-entered amount (only ever set for an incomplete/return-pending
+    // duty, where a flat single-meal add would be meaningless — see the
+    // edit modal) takes precedence over the standard flat rate.
+    const amount = (f._manualMealDeductionAmount != null && f._manualMealDeductionAmount > 0)
+      ? f._manualMealDeductionAmount : MEAL_RATE;
+    mealDeductions.totalUSD += amount;
+    mealDeductions.details.push({ date: f.date, flightNo: f.flightNo, meals: ['Manual'], amount });
   });
+
+  // Layover Allowance — informational only (Stats page), does not touch
+  // the pay total below. Uses the same month-filtered set as meal/turnaround/
+  // overnight above, for consistency (a duty straddling the month boundary
+  // never satisfies _isCompleteDuty's CMB->...->CMB check anyway). Fully
+  // independent of the meal-deduction engine (see function doc) — computed
+  // uniformly for every category, not gated by noMealDeductions.
+  const layoverAllowance = calculateLayoverAllowance(targetFlights, _rates.overnight);
 
   const connectedSeqIndices = mealDeductions.connectedSeqIndices;
   // Mark connected turn sectors as 'Combined' on state.sectors directly
@@ -2583,65 +2757,46 @@ function calculateSalary() {
     flyingPay, flyingPayLKR, turnaroundPay, turnaroundPayLKR,
     mealDeductions, mealDeductionsLKR,
     overnightAllowance, overnightAllowanceLKR,
+    layoverAllowance,
     baseEarnings, totalForTax, fixedDeductions, totalDeductions,
     apit, netBeforeOvernight, finalNet
   };
 
   try { renderResults(state.lastCalculation); } catch(e) { console.error('[renderResults ERROR]', e.message, e.stack); }
   try { renderTierGauge(state.lastCalculation.flyingPay); } catch(e) { console.error('[renderTierGauge ERROR]', e.message); }
-  try { renderChecklist(flights); } catch(e) { console.error('[renderChecklist ERROR]', e.message); }
+  try { captureMonthToLogbook(flights); } catch(e) { console.error('[logbook capture ERROR]', e.message); }
 
-  // Turnaround summary on Stats page
-  const turnArea = $('turnSummaryArea');
-  if (turnArea && state.lastCalculation.turnaroundPay) {
-    const tp = state.lastCalculation.turnaroundPay;
-    if (tp.details && tp.details.length > 0) {
-      turnArea.innerHTML = tp.details.map((d,i) => `
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
-          <span style="color:var(--tx2);">${d.flightNo||'Duty '+(i+1)} ${d.dest?'→ '+d.dest:''} &nbsp;·&nbsp; ${minutesToHHMM(d.totalMin)}</span>
-          <span style="color:var(--green);font-weight:600;">+ ${fmtUSD(d.rate)}</span>
-        </div>`).join('') +
-        `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;">
-          <span>Total</span><span style="color:var(--green);">+ ${fmtUSD(tp.totalUSD)}</span>
-        </div>`;
+  // Layover Allowance on Stats page — informational only, not part of take-home pay
+  const laArea = $('layoverAllowanceArea');
+  if (laArea && state.lastCalculation.layoverAllowance) {
+    const la = state.lastCalculation.layoverAllowance;
+    if (la.details && la.details.length > 0) {
+      laArea.innerHTML =
+        la.details.map(d => {
+          const dayLines = d.dailyMeals.map(dm =>
+            `<div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--tx3);padding:2px 0 2px 10px;">
+              <span>Day ${dm.dayOffset + 1}</span><span>${dm.meals.join(' + ')}</span>
+            </div>`).join('');
+          return `<div style="padding:6px 0;border-bottom:1px solid var(--b0);">
+            <div style="display:flex;justify-content:space-between;font-size:.8rem;">
+              <span style="color:var(--tx1);">${d.station} &nbsp;·&nbsp; ${d.nights} night${d.nights===1?'':'s'} &nbsp;·&nbsp; ${d.flightNo||''}</span>
+              <span style="color:var(--tx1);font-family:var(--mono);">${fmtUSD(d.nights * getRates().overnight + d.dailyMeals.reduce((s,dm)=>s+dm.meals.length,0) * MEAL_RATE)}</span>
+            </div>
+            ${dayLines}
+          </div>`;
+        }).join('') +
+        `<div style="display:flex;justify-content:space-between;padding:8px 0 2px;font-size:.76rem;color:var(--tx3);">
+          <span>Meals (${la.mealCount})</span><span style="font-family:var(--mono);">${fmtUSD(la.mealUSD)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:2px 0 8px;font-size:.76rem;color:var(--tx3);">
+          <span>Nights (${la.nights})</span><span style="font-family:var(--mono);">${fmtUSD(la.overnightUSD)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;border-top:1px solid var(--b0);">
+          <span>Total Layover Allowance</span><span style="color:var(--green);">${fmtUSD(la.totalUSD)}</span>
+        </div>
+        <div style="font-size:.62rem;color:var(--tx3);margin-top:4px;">Informational only — not included in your take-home pay total.</div>`;
     } else {
-      turnArea.innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">No turnaround duties this month</div>';
-    }
-  }
-
-  // Meal deductions summary on Stats page
-  const mealArea = $('mealSummaryArea');
-  if (mealArea && state.lastCalculation.mealDeductions) {
-    const md = state.lastCalculation.mealDeductions;
-    if (md.details && md.details.length > 0) {
-      mealArea.innerHTML = md.details.map(d => `
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
-          <span style="color:var(--tx2);">${d.flightNo} &nbsp;·&nbsp; ${d.meals.join(', ')}</span>
-          <span style="color:var(--red);font-weight:600;">− ${fmtUSD(d.amount)}</span>
-        </div>`).join('') +
-        `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;">
-          <span>Total</span><span style="color:var(--red);">− ${fmtUSD(md.totalUSD)}</span>
-        </div>`;
-    } else {
-      mealArea.innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">No meal deductions this month</div>';
-    }
-  }
-
-  // Overnight summary on Stats page
-  const ovArea = $('overnightSummaryArea');
-  if (ovArea && state.lastCalculation.overnightAllowance) {
-    const ov = state.lastCalculation.overnightAllowance;
-    if (ov.details && ov.details.length > 0) {
-      ovArea.innerHTML = ov.details.map((d,i) => `
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
-          <span style="color:var(--tx2);">Duty ${i+1} &nbsp;·&nbsp; ${d.flightNo}</span>
-          <span style="color:var(--green);font-weight:600;">+ $${getRates().overnight.toFixed(2)}</span>
-        </div>`).join('') +
-        `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.82rem;font-weight:700;">
-          <span>Total</span><span style="color:var(--green);">+ ${fmtUSD(ov.count * getRates().overnight)}</span>
-        </div>`;
-    } else {
-      ovArea.innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">No overnight duties this month</div>';
+      laArea.innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">No complete layover duties this month</div>';
     }
   }
 }
@@ -2785,20 +2940,6 @@ function row(label, value, sub) {
   return `<div class="summary-row"><span class="lbl">${label}${sub?`<br><span class="sub">${sub}</span>`:''}</span><span class="val">${value}</span></div>`;
 }
 
-function renderChecklist(flights) {
-  const checks = [
-    { title: 'Exchange Rate', sub: `LKR ${$('dollarRate').value || 'not set'}`, done: !!$('dollarRate').value },
-    { title: 'Roster Sync', sub: flights.length ? `${flights.length} sectors` : 'Pending', done: flights.length > 0 },
-    { title: 'Fixed Base', sub: `LKR ${parseInt($('basicSalary').value||0).toLocaleString()}`, done: parseInt($('basicSalary').value||0) > 0 },
-    { title: 'Calculations', sub: state.lastCalculation ? 'Verified' : 'Pending above', done: !!state.lastCalculation },
-  ];
-  if ($('checklistItems')) $('checklistItems').innerHTML = checks.map(c => `
-    <div class="chk-item">
-      <div class="chk-dot${c.done?'':' pending'}">${c.done?'&#10003;':'&middot;'}</div>
-      <div class="chk-text"><div class="ct-title">${c.title}</div><div class="ct-sub">${c.sub}</div></div>
-    </div>`).join('');
-}
-
 // Fields that rarely change month-to-month — auto-saved and auto-restored
 const FIXED_VALUE_IDS = ['basicSalary','premiumAllowance','crge','epf','crewTransport','medical','welfare','fau','stampDuty','additionalDeductions'];
 const MONTHLY_VALUE_IDS = ['dollarRate','salesCommission','blockHoursOverride'];
@@ -2897,6 +3038,224 @@ $('btnSaveMonth').addEventListener('click', () => {
   renderHistoryPanel();
   alert(`Saved ${key}.`);
 });
+
+// ══════════════════════════════════════════════════════════════
+// FLYING LOGBOOK — local, per-device, per-calendar-year flight record.
+// Auto-captured on every Calculate (keyed by roster month, so re-calcs
+// overwrite rather than duplicate). Purely local; export/import lets it
+// move to a new phone since the license is device-locked.
+// ══════════════════════════════════════════════════════════════
+const LOGBOOK_KEY = 'sla_logbook';
+const LAYOVER_QUOTA_NIGHTS = 1; // "long" = MORE THAN 1 night (i.e. 2+)
+
+// "07THU" -> 7  (day-of-month only; reliable even when full date is fuzzy)
+function _dayNum(dateStr) {
+  const m = /^(\d{1,2})/.exec(String(dateStr || '').trim());
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// The outstation a duty reached = the point it turned around at.
+// CMB-BOM-CMB -> BOM ; CMB-DXB-LHR-CMB -> LHR ; CMB-NRT (stay) NRT-CMB -> NRT.
+function _dutyOutstation(group) {
+  const last = group[group.length - 1];
+  if (!last) return null;
+  const st = last.dest === 'CMB' ? last.orig : last.dest;
+  return st && st !== 'CMB' ? st : null;
+}
+
+// True only when a duty is fully contained in this roster (leaves CMB and
+// returns to CMB). Cross-month halves (outbound this month, return next, or
+// vice-versa) can't have their nights counted from one roster, so they're
+// excluded from the layover/quota tally.
+function _isCompleteDuty(group) {
+  return group.length > 0 && group[0].orig === 'CMB' && group[group.length - 1].dest === 'CMB';
+}
+
+// Nights at the layover station = (return departure day) - (true arrival day).
+// The roster's date label on the outbound leg's row is its DEPARTURE day, not
+// necessarily its arrival day — so the true arrival day is derived from the
+// leg's own known block minutes (the same trusted duration used everywhere
+// else for pay), not by comparing raw clock digits (unreliable — e.g. "ATA
+// earlier than ATD" fails to signal an overnight arrival on plenty of real
+// flights). daysSpanned = how many midnights THIS flight's actual elapsed
+// duration crosses, computed from its departure clock-time + its own duration.
+function _layoverNights(group, station) {
+  const last = group[group.length - 1];
+  const arrivalSec = group.find(s => s.dest === station) || group[0];
+  const arrDayLabel = _dayNum(arrivalSec.date);
+  const outboundAtdMin = timeToMinutes(arrivalSec.atd);
+  let arr = arrDayLabel;
+  if (arrDayLabel != null && outboundAtdMin != null && arrivalSec.blockMinutes) {
+    const daysSpanned = Math.floor((outboundAtdMin + arrivalSec.blockMinutes) / 1440);
+    arr = arrDayLabel + daysSpanned;
+  } else if (arrDayLabel != null && arrivalSec.ataNextDay) {
+    arr = arrDayLabel + 1; // fallback when block minutes aren't available
+  }
+  const dep = _dayNum(last.date);
+  if (arr == null || dep == null) return 1;
+  let n = dep - arr;
+  if (n < 0) n += 30; // crude month-wrap guard
+  if (n > 60) return 1; // nonsense (bad dates) — don't inflate the quota
+  return Math.max(1, n);
+}
+
+// Convert a roster's own month label ("MAY26") to a YYYY-MM value for the
+// month picker. SriLankan individual rosters are always a single calendar-
+// month bid period (the "01MAY26 - 31MAY26" header), so this is unambiguous
+// even though the roster shows a few lead-in/out days from adjacent months.
+const _MONTH_NUM = { JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12' };
+function _rosterMonthToKey(rm) {
+  const m = /^([A-Z]{3})(\d{2})$/.exec(String(rm || '').toUpperCase());
+  if (!m || !_MONTH_NUM[m[1]]) return null;
+  return '20' + m[2] + '-' + _MONTH_NUM[m[1]];
+}
+
+// Build a compact record for the month and store it under its calendar year.
+// Filed under the selected Roster Month (the flying month) — deliberately
+// requires the month to be set + Calculate pressed, so only confirmed months
+// enter the log (a roster you merely peek at won't pollute it).
+function captureMonthToLogbook(flights) {
+  const monthKey = ($('monthYear').value || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) return; // no Roster Month selected — don't log
+  if (!flights || !flights.length) return;
+  const year = monthKey.slice(0, 4);
+
+  const groups = {};
+  flights.forEach(f => { (groups[f.dutyId] = groups[f.dutyId] || []).push(f); });
+
+  let blockMin = 0;
+  const destinations = {};
+  const layovers = [];
+  const sectors = [];
+
+  Object.values(groups).forEach(group => {
+    group.sort((a, b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0));
+    const outstation = _dutyOutstation(group);
+    if (outstation) destinations[outstation] = (destinations[outstation] || 0) + 1;
+    // Only count nights for complete (CMB→…→CMB) layovers — cross-month halves
+    // can't be measured from a single roster, so they're left out of the tally.
+    if (group[0].dutyType === 'Layover' && outstation && _isCompleteDuty(group)) {
+      layovers.push({ station: outstation, nights: _layoverNights(group, outstation), flightNo: group[0].flightNo, date: group[0].date });
+    }
+  });
+
+  flights.forEach(f => {
+    blockMin += f.blockMinutes || 0;
+    sectors.push({ date: f.date, flightNo: f.flightNo, route: (f.orig || '?') + '-' + (f.dest || '?'), blockMin: f.blockMinutes || 0, type: f.dutyType });
+  });
+
+  const store = JSON.parse(localStorage.getItem(LOGBOOK_KEY) || '{}');
+  store[year] = store[year] || {};
+  store[year][monthKey] = { monthKey, blockMin, sectorCount: flights.length, destinations, layovers, sectors, savedAt: Date.now() };
+  localStorage.setItem(LOGBOOK_KEY, JSON.stringify(store));
+}
+
+function _logbookStore() { return JSON.parse(localStorage.getItem(LOGBOOK_KEY) || '{}'); }
+
+function renderLogbook() {
+  const store = _logbookStore();
+  const years = Object.keys(store).sort().reverse();
+  const sel = $('logbookYear');
+
+  if (!years.length) {
+    sel.innerHTML = '';
+    $('logbookSummary').innerHTML = '<div style="color:var(--tx3);font-size:.85rem;">No flights logged yet. Calculate a month with a roster month set and it appears here automatically.</div>';
+    $('logbookLongStays').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
+    $('logbookLayovers1').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
+    $('logbookDestinations').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
+    $('logbookMonths').innerHTML = '';
+    return;
+  }
+
+  if (!sel.value || !store[sel.value]) {
+    sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  }
+  const year = sel.value && store[sel.value] ? sel.value : years[0];
+  sel.value = year;
+
+  const months = store[year];
+  const monthKeys = Object.keys(months).sort();
+
+  let totalBlock = 0, totalSectors = 0;
+  const destAgg = {};
+  const allLayovers = [];
+  monthKeys.forEach(mk => {
+    const r = months[mk];
+    totalBlock += r.blockMin || 0;
+    totalSectors += r.sectorCount || 0;
+    Object.keys(r.destinations || {}).forEach(d => destAgg[d] = (destAgg[d] || 0) + r.destinations[d]);
+    (r.layovers || []).forEach(l => allLayovers.push(l));
+  });
+  const uniqueDest = Object.keys(destAgg).length;
+
+  const card = (lbl, val) => `<div style="background:var(--card2);border-radius:12px;padding:12px;">
+    <div style="font-size:.6rem;color:var(--tx3);letter-spacing:.05em;margin-bottom:4px;text-transform:uppercase;">${lbl}</div>
+    <div style="font-family:var(--mono);font-size:1.15rem;color:var(--tx1);">${val}</div></div>`;
+  $('logbookSummary').innerHTML =
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      ${card('Block Hours', minutesToHHMM(totalBlock))}
+      ${card('Sectors Flown', totalSectors)}
+      ${card('Airports Visited', uniqueDest)}
+      ${card('Months Logged', monthKeys.length)}
+    </div>`;
+
+  // ── LONG STAYS (2+ nights) — the quota. Grouped by station + night-count,
+  // since the quota is counted per station per length (e.g. FRA-2n, FRA-3n).
+  const oneNight = allLayovers.filter(l => l.nights === 1);
+  const longStays = allLayovers.filter(l => l.nights > LAYOVER_QUOTA_NIGHTS);
+
+  const longGroups = {}; // "FRA|2" -> count
+  longStays.forEach(l => { const k = l.station + '|' + l.nights; longGroups[k] = (longGroups[k] || 0) + 1; });
+  const longGroupKeys = Object.keys(longGroups).sort((a, b) => {
+    const [sa, na] = a.split('|'), [sb, nb] = b.split('|');
+    return sa === sb ? (+na) - (+nb) : (sa < sb ? -1 : 1);
+  });
+  $('logbookLongStays').innerHTML =
+    `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
+      <span style="font-family:var(--mono);font-size:1.7rem;color:var(--purple3);">${longStays.length}</span>
+      <span style="font-size:.75rem;color:var(--tx2);">long stay${longStays.length===1?'':'s'} of <span style="color:var(--tx3);">— (annual quota, TBC)</span></span>
+    </div>` +
+    (longGroupKeys.length
+      ? longGroupKeys.map(k => { const [st, n] = k.split('|'); return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
+          <span style="color:var(--tx1);">${st} <span style="color:var(--tx3);">· ${n} nights</span></span>
+          <span style="color:var(--purple3);font-family:var(--mono);">${longGroups[k]}×</span></div>`; }).join('')
+      : '<div style="color:var(--tx3);font-size:.8rem;">No 2+ night stays logged this year.</div>');
+
+  // ── SINGLE-NIGHT LAYOVERS — grouped by station.
+  const oneGroups = {};
+  oneNight.forEach(l => oneGroups[l.station] = (oneGroups[l.station] || 0) + 1);
+  const oneGroupKeys = Object.keys(oneGroups).sort((a, b) => oneGroups[b] - oneGroups[a]);
+  $('logbookLayovers1').innerHTML =
+    `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
+      <span style="font-family:var(--mono);font-size:1.4rem;color:var(--cyan2);">${oneNight.length}</span>
+      <span style="font-size:.75rem;color:var(--tx2);">single-night layover${oneNight.length===1?'':'s'}</span>
+    </div>` +
+    (oneGroupKeys.length
+      ? oneGroupKeys.map(st => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.8rem;">
+          <span style="color:var(--tx1);">${st}</span>
+          <span style="color:var(--cyan2);font-family:var(--mono);">${oneGroups[st]}×</span></div>`).join('')
+      : '<div style="color:var(--tx3);font-size:.8rem;">No single-night layovers logged this year.</div>');
+
+  const destSorted = Object.keys(destAgg).sort((a, b) => destAgg[b] - destAgg[a]).slice(0, 6);
+  const maxDest = destSorted.length ? destAgg[destSorted[0]] : 1;
+  $('logbookDestinations').innerHTML = destSorted.length
+    ? destSorted.map(d => `<div style="margin-bottom:9px;">
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;color:var(--tx1);margin-bottom:3px;"><span>${d}</span><span style="font-family:var(--mono);color:var(--tx3);">${destAgg[d]}×</span></div>
+        <div style="height:6px;background:var(--card2);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${Math.round(destAgg[d]/maxDest*100)}%;background:var(--purple);"></div></div></div>`).join('')
+    : '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
+
+  $('logbookMonths').innerHTML = monthKeys.slice().reverse().map(mk => {
+    const r = months[mk];
+    const longN = (r.layovers || []).filter(l => l.nights > LAYOVER_QUOTA_NIGHTS).length;
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--b0);">
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;">
+        <span style="color:var(--tx1);font-weight:600;">${mk}</span>
+        <span style="font-family:var(--mono);color:var(--cyan2);">${minutesToHHMM(r.blockMin)}</span>
+      </div>
+      <div style="font-size:.68rem;color:var(--tx3);margin-top:2px;">${r.sectorCount} sectors · ${longN} long stay${longN===1?'':'s'}</div>
+    </div>`;
+  }).join('');
+}
 
 // ---------- PDF Export ----------
 $('btnExportPDF').addEventListener('click', () => {
@@ -3060,9 +3419,6 @@ function updateStatCards(){
 
 // renderResults
 
-
-// renderChecklist
-
 // Upload handler
 $('rosterFile').addEventListener('change',async(e)=>{
   const file=e.target.files[0]; if(!file) return;
@@ -3096,8 +3452,8 @@ $('rosterFile').addEventListener('change',async(e)=>{
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
 
     // Auto-fill the Roster Month picker from the roster's own declared period,
-    // so the user doesn't have to set it by hand. Only sets it when detectable;
-    // user can still change it.
+    // so the user doesn't have to set it by hand (they still press Calculate to
+    // log). Only sets it when detectable; user can still change it.
     const _detectedMonth = _rosterMonthToKey(result.identity && result.identity.rosterMonth);
     if (_detectedMonth) { $('monthYear').value = _detectedMonth; }
 
@@ -3131,7 +3487,6 @@ $('btnReset').addEventListener('click',()=>{
   if($('statLayovers')) $('statLayovers').textContent='0 L / 0 P';
   if($('fullBreakdownCard')) $('fullBreakdownCard').style.display='none';
   renderTierGauge({tier1Min:0,tier2Min:0,actingCMMin:0,overrideUsed:false,totalBlockMin:0});
-  renderChecklist([]);
   updateCalcButtonState();
 });
 
@@ -3152,7 +3507,6 @@ $('btnCalculate').addEventListener('click',()=>{
   try {
     calculateSalary();
     updateStatCards();
-    renderChecklist(getAllFlights());
     goTo('page-home');
   } catch(e) {
     console.error('[CALC ERROR]', e.message, e.stack);
@@ -3177,12 +3531,65 @@ $('blockHoursOverride').addEventListener('input',function(){
 });
 
 // Nav buttons
-document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('click',function(){goTo(b.dataset.page);});});
+document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('click',function(){
+  goTo(b.dataset.page);
+  if(b.dataset.page==='page-logbook') renderLogbook();
+});});
+
+// ---------- Logbook wiring ----------
+$('logbookYear').addEventListener('change', renderLogbook);
+
+$('btnLogbookExport').addEventListener('click', () => {
+  const data = localStorage.getItem(LOGBOOK_KEY) || '{}';
+  if (data === '{}') { alert('Nothing logged yet to export.'); return; }
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'flyprofit-logbook-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+$('btnLogbookImport').addEventListener('click', () => $('logbookImportFile').click());
+$('logbookImportFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const incoming = JSON.parse(await file.text());
+    if (typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('bad format');
+    const store = _logbookStore();
+    // Merge by year then month — imported months overwrite same-key local ones.
+    Object.keys(incoming).forEach(y => {
+      store[y] = store[y] || {};
+      Object.keys(incoming[y]).forEach(mk => { store[y][mk] = incoming[y][mk]; });
+    });
+    localStorage.setItem(LOGBOOK_KEY, JSON.stringify(store));
+    $('logbookYear').value = '';
+    renderLogbook();
+    alert('History imported.');
+  } catch (err) {
+    alert('Could not read that file — make sure it\'s a FlyProfit logbook export.');
+  }
+  e.target.value = '';
+});
+
+$('btnLogbookReset').addEventListener('click', async () => {
+  if (!await showConfirm('Erase all saved Logbook history on this device? This cannot be undone (export a backup first if you want one).')) return;
+  localStorage.removeItem(LOGBOOK_KEY);
+  $('logbookYear').value = '';
+  renderLogbook();
+});
 
 // init
 renderHistoryPanel();
-renderChecklist([]);
 renderTierGauge({tier1Min:0,tier2Min:0,actingCMMin:0,overrideUsed:false,totalBlockMin:0});
+
+$('apitBandsHead').addEventListener('click', () => {
+  const body = $('apitBandsBody');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  $('apitBandsChevron').textContent = open ? '▸' : '▾';
+});
 
 // ---------- Category selector wiring ----------
 function updateCatUI() {
@@ -3286,11 +3693,29 @@ function showEditModal(f, title) {
       btn.onclick = () => { selectedOvn = btn.dataset.val; styleToggle('.eovn-btn', selectedOvn); };
     });
 
-    // Meal deduction manual override (3-state: 'auto' / 'no' / 'yes')
+    // Meal deduction manual override (3-state: 'auto' / 'no' / 'yes').
+    // For the incomplete-trailing-duty case (return leg not shown in this
+    // roster — see findIncompleteTrailingDutyId), a flat single-meal add
+    // makes no sense — we have no idea how many nights/meals the pending
+    // duty actually covers — so 'yes' instead reveals an amount field for
+    // the crew to type the real figure in.
     let selectedMeal = f._manualMealDeduction || 'auto';
     styleToggle('.emeal-btn', selectedMeal);
+    const _allFlightsForModal = getAllFlights();
+    const _boundaryForModal = findMonthBoundarySeqIndices(_allFlightsForModal);
+    const _targetForModal = _allFlightsForModal.filter(x => !_boundaryForModal.has(x.seqIndex));
+    const _incompleteDutyIdForModal = findIncompleteTrailingDutyId(_targetForModal);
+    const isIncompleteMealFlight = _incompleteDutyIdForModal != null && f.dutyId === _incompleteDutyIdForModal;
+    const mealAmountWrap = $('ef-meal-amount-wrap');
+    const mealAmountInput = $('ef-meal-amount');
+    mealAmountInput.value = (f._manualMealDeductionAmount != null) ? f._manualMealDeductionAmount : '';
+    mealAmountWrap.style.display = (isIncompleteMealFlight && selectedMeal === 'yes') ? 'block' : 'none';
     modal.querySelectorAll('.emeal-btn').forEach(btn => {
-      btn.onclick = () => { selectedMeal = btn.dataset.val; styleToggle('.emeal-btn', selectedMeal); };
+      btn.onclick = () => {
+        selectedMeal = btn.dataset.val;
+        styleToggle('.emeal-btn', selectedMeal);
+        mealAmountWrap.style.display = (isIncompleteMealFlight && selectedMeal === 'yes') ? 'block' : 'none';
+      };
     });
 
     // Turnaround pay manual override (3-state: 'auto' / 'no' / 'yes')
@@ -3358,6 +3783,7 @@ function showEditModal(f, title) {
         actingCM: selectedActing,
         manualOvernight: selectedOvn,
         manualMealDeduction: selectedMeal,
+        manualMealDeductionAmount: mealAmountWrap.style.display === 'block' ? (parseFloat(mealAmountInput.value) || null) : null,
         manualTurnaroundPay: selectedTurn,
         isMutualSwap: selectedMutual,
         mutualGivenRoute: selectedMutual ? mutualRouteInput.value.toUpperCase().trim() : '',
@@ -3600,7 +4026,18 @@ window.addEventListener('appinstalled', function(){
      ══════════════════════════════════════════════════════════════ -->
 <script>
 const PING_URL = 'https://script.google.com/macros/s/AKfycbzSF4_Vt0MI43ZUIhIJtKHhykS0HlNYLUv0b5WKR1Kdxiq_I5_um91MNIbozkTI_lW9/exec';
-const SLA_TRIAL_DAYS = 20; // single source of truth — the trial block below reads this
+// Trial length depends on when an install's own trial actually started:
+// existing installs (before the cutoff) keep the original 20 days in full,
+// no matter which day they're currently on; anyone opening the app for the
+// very first time on/after the cutoff gets 10. Keep NEW_INSTALL_CUTOFF
+// identical to apps_script_device_log.gs's copy.
+const NEW_INSTALL_CUTOFF = '2026-07-21';
+const OLD_TRIAL_DAYS = 20;
+const NEW_TRIAL_DAYS = 10;
+function _trialDaysFor(startMs) {
+  const key = new Date(startMs).toISOString().slice(0, 10);
+  return key >= NEW_INSTALL_CUTOFF ? NEW_TRIAL_DAYS : OLD_TRIAL_DAYS;
+}
 
 function _hashStr(s) {
   let h = 5381;
@@ -3716,7 +4153,7 @@ async function registerAndCheckRosterIdentity(identity, durationsPayload) {
     let verdicts = {};
     try { verdicts = JSON.parse(localStorage.getItem('sla_staff_trial_verdicts') || '{}'); } catch (e) {}
     const v = verdicts[identity.staffNo];
-    if (v && !v.licensed && v.daysSince >= SLA_TRIAL_DAYS) {
+    if (v && !v.licensed && v.daysSince >= (v.trialDays || OLD_TRIAL_DAYS)) {
       return { allowed: false, message: `The free trial for Staff No ${identity.staffNo} has ended. Activate FlyProfit to continue.` };
     }
   }
@@ -3749,13 +4186,14 @@ function checkStaffTrial(staffNo, name) {
 
       let verdicts = {};
       try { verdicts = JSON.parse(localStorage.getItem('sla_staff_trial_verdicts') || '{}'); } catch (e) {}
-      verdicts[staffNo] = { daysSince: data.daysSince, licensed: !!data.licensed };
+      verdicts[staffNo] = { daysSince: data.daysSince, licensed: !!data.licensed, trialDays: data.trialDays || OLD_TRIAL_DAYS };
       localStorage.setItem('sla_staff_trial_verdicts', JSON.stringify(verdicts));
 
       if (staffNo !== localStorage.getItem('sla_registered_staff_no')) return;
 
       localStorage.setItem('sla_server_days_since', String(data.daysSince));
       localStorage.setItem('sla_server_days_since_staff', staffNo);
+      localStorage.setItem('sla_server_trial_days', String(data.trialDays || OLD_TRIAL_DAYS));
 
       if (data.licensed) {
         // Sheet-driven unlock: owner typed YES in the Licensed column after
@@ -3765,7 +4203,7 @@ function checkStaffTrial(staffNo, name) {
         const ov = document.getElementById('sla-lock-overlay');
         if (ov) { ov.remove(); document.body.style.overflow = ''; }
       } else if (typeof window._slaHandleServerTrialCheck === 'function') {
-        window._slaHandleServerTrialCheck(data.daysSince);
+        window._slaHandleServerTrialCheck(data.daysSince, data.trialDays);
       }
       return data;
     })
@@ -3809,6 +4247,15 @@ function lookupRouteDuration(flightNo, route) {
     .then(r => r.json())
     .catch(() => ({ legFound: false, reverseFound: false, totalMins: null }));
 }
+
+// Real timetable lookup (Schedule tab) — auto-derives the return leg too.
+// Used by the Swap calculator for full-breakdown estimates; falls back to
+// lookupRouteDuration (flying-pay-only) when a flight isn't in Schedule yet.
+function lookupSchedule(flightNo) {
+  return fetch(PING_URL + '?lookupSchedule=1&flightNo=' + encodeURIComponent(flightNo || ''))
+    .then(r => r.json())
+    .catch(() => ({ legFound: false, reverseFound: false }));
+}
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════
@@ -3824,7 +4271,6 @@ function lookupRouteDuration(flightNo, route) {
 const TRIAL_ENABLED = true;
 
 if (TRIAL_ENABLED) (function(){
-  const TRIAL_DAYS = SLA_TRIAL_DAYS; // defined next to PING_URL in the monitoring block
   const OWNER_SECRET = 'Rifniya01';
   const OWNER_WHATSAPP = '94770077902';
   const _LIC_SALT = 'SLA-FLYPROFIT-2026';                      // TODO: change once, then keep identical in key_generator.html
@@ -3871,6 +4317,19 @@ if (TRIAL_ENABLED) (function(){
     localStorage.setItem('sla_trial_start', start);
     isFirstOpen = true;
   }
+
+  // Trial length: prefer the server's authoritative answer for this Staff
+  // No (reinstall-proof, keyed off the real StaffTrials First Seen) when
+  // one's cached; otherwise fall back to this device's own local start
+  // date vs. the cutoff. Same "prefer server, fall back to local clock"
+  // pattern as serverDays/realElapsedDays below.
+  let serverTrialDays = -1;
+  if (localStorage.getItem('sla_server_days_since_staff') &&
+      localStorage.getItem('sla_server_days_since_staff') === localStorage.getItem('sla_registered_staff_no')) {
+    const std = parseInt(localStorage.getItem('sla_server_trial_days') || '', 10);
+    if (!isNaN(std)) serverTrialDays = std;
+  }
+  const TRIAL_DAYS = serverTrialDays > 0 ? serverTrialDays : _trialDaysFor(parseInt(start, 10));
 
   // First-ever open: show a one-time "trial started" welcome screen
   if (isFirstOpen) {
@@ -3927,8 +4386,9 @@ if (TRIAL_ENABLED) (function(){
   // so it exists even while the local clock still says "inside trial" —
   // that's exactly the reinstall case it guards. showLock is a hoisted
   // function declaration, so referencing it from here is safe.
-  window._slaHandleServerTrialCheck = function(days) {
-    if (days >= TRIAL_DAYS && localStorage.getItem('sla_licensed') !== '1') showLock();
+  window._slaHandleServerTrialCheck = function(days, trialDaysForThis) {
+    const td = trialDaysForThis || TRIAL_DAYS;
+    if (days >= td && localStorage.getItem('sla_licensed') !== '1') showLock();
   };
 
   if (elapsedDays < TRIAL_DAYS) return; // still inside trial window — do nothing
