@@ -4599,7 +4599,18 @@ window.addEventListener('appinstalled', function(){
      ══════════════════════════════════════════════════════════════ -->
 <script>
 const PING_URL = 'https://script.google.com/macros/s/AKfycbzSF4_Vt0MI43ZUIhIJtKHhykS0HlNYLUv0b5WKR1Kdxiq_I5_um91MNIbozkTI_lW9/exec';
-const SLA_TRIAL_DAYS = 20; // single source of truth — the trial block below reads this
+// Trial length depends on when an install's own trial actually started:
+// existing installs (before the cutoff) keep the original 20 days in full,
+// no matter which day they're currently on; anyone opening the app for the
+// very first time on/after the cutoff gets 10. Keep NEW_INSTALL_CUTOFF
+// identical to apps_script_device_log.gs's copy.
+const NEW_INSTALL_CUTOFF = '2026-07-21';
+const OLD_TRIAL_DAYS = 20;
+const NEW_TRIAL_DAYS = 10;
+function _trialDaysFor(startMs) {
+  const key = new Date(startMs).toISOString().slice(0, 10);
+  return key >= NEW_INSTALL_CUTOFF ? NEW_TRIAL_DAYS : OLD_TRIAL_DAYS;
+}
 
 function _hashStr(s) {
   let h = 5381;
@@ -4715,7 +4726,7 @@ async function registerAndCheckRosterIdentity(identity, durationsPayload) {
     let verdicts = {};
     try { verdicts = JSON.parse(localStorage.getItem('sla_staff_trial_verdicts') || '{}'); } catch (e) {}
     const v = verdicts[identity.staffNo];
-    if (v && !v.licensed && v.daysSince >= SLA_TRIAL_DAYS) {
+    if (v && !v.licensed && v.daysSince >= (v.trialDays || OLD_TRIAL_DAYS)) {
       return { allowed: false, message: `The free trial for Staff No ${identity.staffNo} has ended. Activate FlyProfit to continue.` };
     }
   }
@@ -4748,13 +4759,14 @@ function checkStaffTrial(staffNo, name) {
 
       let verdicts = {};
       try { verdicts = JSON.parse(localStorage.getItem('sla_staff_trial_verdicts') || '{}'); } catch (e) {}
-      verdicts[staffNo] = { daysSince: data.daysSince, licensed: !!data.licensed };
+      verdicts[staffNo] = { daysSince: data.daysSince, licensed: !!data.licensed, trialDays: data.trialDays || OLD_TRIAL_DAYS };
       localStorage.setItem('sla_staff_trial_verdicts', JSON.stringify(verdicts));
 
       if (staffNo !== localStorage.getItem('sla_registered_staff_no')) return;
 
       localStorage.setItem('sla_server_days_since', String(data.daysSince));
       localStorage.setItem('sla_server_days_since_staff', staffNo);
+      localStorage.setItem('sla_server_trial_days', String(data.trialDays || OLD_TRIAL_DAYS));
 
       if (data.licensed) {
         // Sheet-driven unlock: owner typed YES in the Licensed column after
@@ -4764,7 +4776,7 @@ function checkStaffTrial(staffNo, name) {
         const ov = document.getElementById('sla-lock-overlay');
         if (ov) { ov.remove(); document.body.style.overflow = ''; }
       } else if (typeof window._slaHandleServerTrialCheck === 'function') {
-        window._slaHandleServerTrialCheck(data.daysSince);
+        window._slaHandleServerTrialCheck(data.daysSince, data.trialDays);
       }
       return data;
     })
@@ -4832,7 +4844,6 @@ function lookupSchedule(flightNo) {
 const TRIAL_ENABLED = true;
 
 if (TRIAL_ENABLED) (function(){
-  const TRIAL_DAYS = SLA_TRIAL_DAYS; // defined next to PING_URL in the monitoring block
   const OWNER_SECRET = 'Rifniya01';
   const OWNER_WHATSAPP = '94770077902';
   const _LIC_SALT = 'SLA-FLYPROFIT-2026';                      // TODO: change once, then keep identical in key_generator.html
@@ -4879,6 +4890,19 @@ if (TRIAL_ENABLED) (function(){
     localStorage.setItem('sla_trial_start', start);
     isFirstOpen = true;
   }
+
+  // Trial length: prefer the server's authoritative answer for this Staff
+  // No (reinstall-proof, keyed off the real StaffTrials First Seen) when
+  // one's cached; otherwise fall back to this device's own local start
+  // date vs. the cutoff. Same "prefer server, fall back to local clock"
+  // pattern as serverDays/realElapsedDays below.
+  let serverTrialDays = -1;
+  if (localStorage.getItem('sla_server_days_since_staff') &&
+      localStorage.getItem('sla_server_days_since_staff') === localStorage.getItem('sla_registered_staff_no')) {
+    const std = parseInt(localStorage.getItem('sla_server_trial_days') || '', 10);
+    if (!isNaN(std)) serverTrialDays = std;
+  }
+  const TRIAL_DAYS = serverTrialDays > 0 ? serverTrialDays : _trialDaysFor(parseInt(start, 10));
 
   // First-ever open: show a one-time "trial started" welcome screen
   if (isFirstOpen) {
@@ -4935,8 +4959,9 @@ if (TRIAL_ENABLED) (function(){
   // so it exists even while the local clock still says "inside trial" —
   // that's exactly the reinstall case it guards. showLock is a hoisted
   // function declaration, so referencing it from here is safe.
-  window._slaHandleServerTrialCheck = function(days) {
-    if (days >= TRIAL_DAYS && localStorage.getItem('sla_licensed') !== '1') showLock();
+  window._slaHandleServerTrialCheck = function(days, trialDaysForThis) {
+    const td = trialDaysForThis || TRIAL_DAYS;
+    if (days >= td && localStorage.getItem('sla_licensed') !== '1') showLock();
   };
 
   if (elapsedDays < TRIAL_DAYS) return; // still inside trial window — do nothing
