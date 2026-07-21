@@ -773,6 +773,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <div class="field"><label>Basic Salary</label><input type="number" id="basicSalary" value="0"></div>
         <div class="field"><label>Premium Allowance</label><input type="number" id="premiumAllowance" value="0"></div>
         <div class="field"><label>CRGE</label><input type="number" id="crge" value="0"></div>
+        <div class="field"><label>Extra Earning</label><input type="number" id="extraEarning" value="0" placeholder="0"></div>
       </div>
     </div>
     <div class="card">
@@ -3013,6 +3014,7 @@ function calculateSalary() {
   const basicSalary = parseFloat($('basicSalary').value) || 0;
   const premiumAllowance = parseFloat($('premiumAllowance').value) || 0;
   const crge = parseFloat($('crge').value) || 0;
+  const extraEarning = parseFloat($('extraEarning').value) || 0;
   const epf = parseFloat($('epf').value) || 0;
   const crewTransport = parseFloat($('crewTransport').value) || 0;
   const medical = parseFloat($('medical').value) || 0;
@@ -3170,7 +3172,7 @@ function calculateSalary() {
 
   // STEP 1 — Base earnings (flying pay, fixed pay, turnaround).
   // Meal deductions subtracted here, matching Excel.
-  const baseEarnings = basicSalary + premiumAllowance + crge + flyingPayLKR +
+  const baseEarnings = basicSalary + premiumAllowance + crge + extraEarning + flyingPayLKR +
                        turnaroundPayLKR - mealDeductionsLKR;
 
   // STEP 2 — Total For Tax: base earnings + sales commission (matching Excel H14).
@@ -3193,7 +3195,7 @@ function calculateSalary() {
   const finalNet = netBeforeOvernight + overnightAllowanceLKR;
 
   state.lastCalculation = {
-    dollarRate, basicSalary, premiumAllowance, crge,
+    dollarRate, basicSalary, premiumAllowance, crge, extraEarning,
     epf, crewTransport, medical, welfare, fau, stampDuty,
     additionalDeductions,
     salesCommission, salesCommissionLKR,
@@ -3304,7 +3306,7 @@ function renderResults(c) {
   if (c.flyingPay.actingCMMin > 0) stub += trow(`Acting ${getRates().actingLabel||'CM'} Pay`, fmtLKR(c.flyingPay.actingCMUSD * c.dollarRate));
   if (c.flyingPay.mutualSpecialMin > 0) stub += trow('Mutual Swap Pay', fmtLKR(c.flyingPay.mutualSpecialUSD * c.dollarRate), `${minutesToHHMM(c.flyingPay.mutualSpecialMin)} at Tier1+$5`);
   stub += trow('Turnaround Pay', fmtLKR(c.turnaroundPayLKR), `${c.turnaroundPay.turnaroundCount} duties`);
-  stub += trow('Fixed Earnings', fmtLKR(c.basicSalary + c.premiumAllowance + c.crge));
+  stub += trow('Fixed Earnings', fmtLKR(c.basicSalary + c.premiumAllowance + c.crge + c.extraEarning));
   if (c.salesCommissionLKR > 0) stub += trow('Sales Commission', fmtLKR(c.salesCommissionLKR));
   stub += trow('Total For Tax', fmtLKR(c.totalForTax), null, 'divider cyan');
   stub += trow('Fixed Deductions', '- ' + fmtLKR(c.epf+c.crewTransport+c.medical+c.welfare+c.fau+c.stampDuty), null, 'red');
@@ -3326,6 +3328,7 @@ function renderResults(c) {
   html += row('Basic Salary', fmtLKR(c.basicSalary));
   html += row('Premium Allowance', fmtLKR(c.premiumAllowance));
   html += row('CRGE', fmtLKR(c.crge));
+  if (c.extraEarning > 0) html += row('Extra Earning', fmtLKR(c.extraEarning));
   const _r = getRates();
   const _payBreakdown = `$${_r.tier1.toFixed(2)} × ${t1hrs}${c.flyingPay.tier2Min>0?` + $${_r.tier2.toFixed(2)} × ${t2hrs}`:''}  = ${fmtUSD(c.flyingPay.tier1USD+c.flyingPay.tier2USD)} — meal deductions below`;
   html += row('Productive Pay', fmtLKR(productivePay), _payBreakdown);
@@ -3385,7 +3388,7 @@ function row(label, value, sub) {
 }
 
 // Fields that rarely change month-to-month — auto-saved and auto-restored
-const FIXED_VALUE_IDS = ['basicSalary','premiumAllowance','crge','epf','crewTransport','medical','welfare','fau','stampDuty','additionalDeductions'];
+const FIXED_VALUE_IDS = ['basicSalary','premiumAllowance','crge','extraEarning','epf','crewTransport','medical','welfare','fau','stampDuty','additionalDeductions'];
 const MONTHLY_VALUE_IDS = ['dollarRate','salesCommission','blockHoursOverride'];
 
 function saveFixedValues() {
@@ -3733,6 +3736,7 @@ $('btnExportPDF').addEventListener('click', () => {
   addLine('Basic Salary', fmtLKR(c.basicSalary));
   addLine('Premium Allowance', fmtLKR(c.premiumAllowance));
   addLine('CRGE', fmtLKR(c.crge));
+  if (c.extraEarning > 0) addLine('Extra Earning', fmtLKR(c.extraEarning));
 
   const productivePay = (c.flyingPay.tier1USD + c.flyingPay.tier2USD) * c.dollarRate - c.mealDeductionsLKR;
   addLine('Productive Pay  (Tier1+Tier2 - Meal Ded.)', fmtLKR(productivePay));
