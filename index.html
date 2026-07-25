@@ -4731,7 +4731,17 @@ async function registerAndCheckRosterIdentity(identity, durationsPayload) {
   // when the network doesn't answer in time, so a genuinely offline upload
   // is never blocked — only a deliberately-offline one evades this, which
   // takes real intent, not just "reinstall the app".
-  if (localStorage.getItem('sla_licensed') !== '1' && localStorage.getItem('sla_owner_whitelisted') !== '1') {
+  //
+  // The sla_licensed/sla_owner_whitelisted shortcuts below are earned by
+  // THIS device's own identity — they must never be used to wave through a
+  // DIFFERENT Staff No's roster. Otherwise any already-licensed phone (or
+  // the owner's own whitelisted one) becomes a free pass for testing/
+  // processing someone else's expired roster, since those local flags say
+  // nothing about the uploaded identity's own license status.
+  const isOwnIdentity = identity.staffNo === lockedStaffNo;
+  const deviceExempt = (isOwnIdentity && localStorage.getItem('sla_licensed') === '1')
+    || (isOwnIdentity && localStorage.getItem('sla_owner_whitelisted') === '1');
+  if (!deviceExempt) {
     await Promise.race([
       checkStaffTrial(identity.staffNo, identity.staffName),
       new Promise(resolve => setTimeout(resolve, 4000))
