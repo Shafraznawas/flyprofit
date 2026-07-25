@@ -4769,13 +4769,21 @@ function checkStaffTrial(staffNo, name) {
   // The device's own first-open date rides along so the server counts days
   // from FIRST OPEN, not first upload. The server only ever accepts it to
   // move First Seen earlier — a wiped client claiming "today" is ignored.
+  // BUT that's only valid when staffNo is actually THIS device's own
+  // identity — this function is also called from the upload gate with
+  // whatever identity was just extracted from an uploaded PDF, which may
+  // belong to someone else entirely (e.g. checking a customer's roster
+  // from the owner's own phone). Sending this device's own start date for
+  // a different person's Staff No would wrongly seed their row with this
+  // device's install history instead of their own.
+  const startParam = staffNo === localStorage.getItem('sla_registered_staff_no') ? _trialStartStr() : '';
   // Returns its promise (resolving to the parsed verdict, or null/undefined
   // on failure) so callers that need an AUTHORITATIVE answer before
   // proceeding — the upload gate below — can await it, while callers that
   // just want a background refresh (the on-open check) can ignore it.
   return fetch(PING_URL + '?checkTrial=1&staffNo=' + encodeURIComponent(staffNo) +
       '&name=' + encodeURIComponent(name || '') +
-      '&start=' + encodeURIComponent(_trialStartStr()))
+      '&start=' + encodeURIComponent(startParam))
     .then(r => r.json())
     .then(data => {
       if (!data || typeof data.daysSince !== 'number') return;
