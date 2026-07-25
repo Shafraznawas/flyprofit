@@ -4784,6 +4784,15 @@ function checkStaffTrial(staffNo, name) {
         localStorage.setItem('sla_licensed', '1');
         const ov = document.getElementById('sla-lock-overlay');
         if (ov) { ov.remove(); document.body.style.overflow = ''; }
+      } else if (localStorage.getItem('sla_licensed') === '1') {
+        // Sheet-driven revoke: owner cleared/changed the Licensed column
+        // after previously activating this device. Reload so the trial
+        // block re-evaluates from scratch (without the early-return it
+        // takes while licensed) and shows the lock screen immediately,
+        // since a previously-activated device is always already past its
+        // trial window.
+        localStorage.removeItem('sla_licensed');
+        location.reload();
       } else if (typeof window._slaHandleServerTrialCheck === 'function') {
         window._slaHandleServerTrialCheck(data.daysSince, data.trialDays);
       }
@@ -4800,19 +4809,27 @@ function checkDeviceLicense() {
   fetch(PING_URL + '?checkTrial=1&code=' + encodeURIComponent(_deviceCode()))
     .then(r => r.json())
     .then(data => {
-      if (!data || !data.licensed) return;
-      localStorage.setItem('sla_licensed', '1');
-      const ov = document.getElementById('sla-lock-overlay');
-      if (ov) { ov.remove(); document.body.style.overflow = ''; }
+      if (!data) return;
+      if (data.licensed) {
+        localStorage.setItem('sla_licensed', '1');
+        const ov = document.getElementById('sla-lock-overlay');
+        if (ov) { ov.remove(); document.body.style.overflow = ''; }
+      } else if (localStorage.getItem('sla_licensed') === '1') {
+        // Sheet-driven revoke — see the matching branch in checkStaffTrial.
+        localStorage.removeItem('sla_licensed');
+        location.reload();
+      }
     })
     .catch(() => {});
 }
 
 // Fire the server trial check on every app open too (not only on upload) —
 // a locked user can't upload, so this is the path their Sheet unlock
-// arrives through after they pay. Skipped once licensed/whitelisted.
+// arrives through after they pay. Also runs while already licensed (not
+// skipped) so a revoke — owner clearing/changing the Licensed column —
+// gets noticed on the customer's very next app open instead of never.
+// Only the owner's own permanent bypass (?owner=... whitelist) is skipped.
 (function() {
-  if (localStorage.getItem('sla_licensed') === '1') return;
   if (localStorage.getItem('sla_owner_whitelisted') === '1') return;
   const reg = localStorage.getItem('sla_registered_staff_no');
   if (reg) checkStaffTrial(reg, localStorage.getItem('sla_registered_name') || '');
