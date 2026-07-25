@@ -3956,8 +3956,12 @@ $('btnHelp').addEventListener('click', () => {
 $('dollarRate').addEventListener('input', updateCalcButtonState);
 updateCalcButtonState();
 
-$('btnCalculate').addEventListener('click',()=>{
+$('btnCalculate').addEventListener('click', async ()=>{
   try {
+    if (typeof checkDeviceTrialGate === 'function') {
+      const gate = await checkDeviceTrialGate();
+      if (!gate.allowed) { alert(gate.message); return; }
+    }
     calculateSalary();
     updateStatCards();
     goTo('page-home');
@@ -4821,6 +4825,32 @@ function checkDeviceLicense() {
       }
     })
     .catch(() => {});
+}
+
+// Closes a real gap the Staff-No-keyed gate above doesn't cover: it only
+// runs on a ROSTER UPLOAD, so a device that never uploads a roster — either
+// because it's in private/incognito browsing (fresh storage every time, so
+// the local elapsedDays clock always reads "brand new") or because it only
+// ever uses "+ Add Flight Manually" — never has its trial checked against
+// anything at all. _deviceCode() is computed from stable hardware/browser
+// signals, not localStorage, so unlike the local clock it survives private
+// browsing; this asks the server for that device code's own DEV-<code> row
+// (the same one the daily ping already maintains) and blocks Calculate when
+// it's expired and not licensed. Only engages when no Staff No is known yet
+// — once one is, the upload gate and the Staff-No trial system are already
+// authoritative and this would be redundant. Fails open (allows) on a
+// missing/erroring/slow answer, same tolerance as the upload gate.
+async function checkDeviceTrialGate() {
+  if (localStorage.getItem('sla_registered_staff_no')) return { allowed: true };
+  if (localStorage.getItem('sla_licensed') === '1' || localStorage.getItem('sla_owner_whitelisted') === '1') return { allowed: true };
+  const data = await Promise.race([
+    fetch(PING_URL + '?checkTrial=1&code=' + encodeURIComponent(_deviceCode())).then(r => r.json()).catch(() => null),
+    new Promise(resolve => setTimeout(() => resolve(null), 4000))
+  ]);
+  if (data && typeof data.daysSince === 'number' && !data.licensed && data.daysSince >= (data.trialDays || OLD_TRIAL_DAYS)) {
+    return { allowed: false, message: 'Your free trial has ended. Activate FlyProfit to continue.' };
+  }
+  return { allowed: true };
 }
 
 // Fire the server trial check on every app open too (not only on upload) —
