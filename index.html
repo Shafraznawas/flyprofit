@@ -703,6 +703,29 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           <input type="file" id="rosterFile" accept="application/pdf">
         </label>
         <div class="sdot" id="uploadStatus"><span class="dot"></span>No roster loaded</div>
+
+        <!-- iPhone/iPad only: crew routinely download the roster from the crew
+             portal and then can't locate it, because iOS never tells them where
+             it went. The "Recents" tab in the iOS file picker always lists the
+             newest download first, so they never need to know the folder.
+             Unhidden only on iOS by the isIOS check in the script below;
+             Android crew get the share sheet instead. -->
+        <details id="iosPdfHelp" style="display:none;margin-top:10px;border:1px solid var(--b1);border-radius:10px;background:rgba(255,255,255,.02);">
+          <summary style="cursor:pointer;padding:10px 12px;font-size:.76rem;font-weight:700;color:var(--tx2);list-style:none;">📱 Can't find your PDF on iPhone?</summary>
+          <div style="padding:0 12px 12px;font-size:.74rem;color:var(--tx3);line-height:1.6;">
+            Your roster is already on the phone — you just have to reach it:
+            <div style="margin:8px 0 0;padding-left:2px;">
+              <div>1. Tap <b style="color:var(--tx2);">Tap to upload Roster PDF</b> above.</div>
+              <div>2. Choose <b style="color:var(--tx2);">Choose File</b> — not Photo Library.</div>
+              <div>3. Tap <b style="color:var(--tx2);">Recents</b> at the bottom.</div>
+              <div>4. Your roster is normally the newest item at the top.</div>
+            </div>
+            <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--b0);">
+              <b style="color:var(--tx2);">Not listed?</b> Open the roster from the crew portal, tap the Share icon, choose <b style="color:var(--tx2);">Save to Files</b>, then follow the steps above.
+            </div>
+          </div>
+        </details>
+
         <button class="btn-outline" id="btnAddManualFlight">+ Add Flight Manually</button>
       </div>
     </div>
@@ -3873,11 +3896,29 @@ function updateStatCards(){
 // renderResults
 
 // Upload handler
-$('rosterFile').addEventListener('change',async(e)=>{
-  const file=e.target.files[0]; if(!file) return;
-  setUploadStatus('Reading roster PDF...','');
+// Single entry point for every roster import path. The file picker below and
+// the Android share-target bootstrap both call this, so PDF parsing, the
+// identity/trial check and all rendering stay in exactly one place.
+// Returns true only when a roster was actually imported.
+async function importRosterFile(file, source){
+  const fromShare = source === 'share';
+  const INVALID_MSG = 'This file is not a valid roster PDF.';
+  if(!file) return false;
+  // PDF-only guard — a share sheet can hand us any file type
+  if(!(file.type==='application/pdf' || /\.pdf$/i.test(file.name||''))){
+    setUploadStatus(INVALID_MSG,'err'); return false;
+  }
+  setUploadStatus(fromShare?'Importing roster…':'Reading roster PDF...','');
   try{
     const result=await parseRosterPDF(file);
+
+    // Readable PDF, but nothing identifying it as a CAE roster: no staff header,
+    // no bid period and no sectors. A leave-only roster still carries the header,
+    // so this never rejects a genuine roster.
+    const _rid = (result && result.identity) || {};
+    if(!_rid.staffNo && !_rid.rosterMonth && (!result.sectors || result.sectors.length===0)){
+      setUploadStatus(INVALID_MSG,'err'); return false;
+    }
 
     // Route-duration learning rides along on the single identity ping below
     // as one batched parameter — NEVER as separate per-sector requests. A
@@ -3897,8 +3938,7 @@ $('rosterFile').addEventListener('change',async(e)=>{
       const check = await registerAndCheckRosterIdentity(result.identity, durationsPayload);
       if (!check.allowed) {
         setUploadStatus('Blocked: ' + check.message, 'err');
-        e.target.value = '';
-        return;
+        return false;
       }
     }
 
@@ -3914,10 +3954,129 @@ $('rosterFile').addEventListener('change',async(e)=>{
     if(err===0) setUploadStatus(n+' sectors loaded','ok',file.name);
     else setUploadStatus(n+' sectors &middot; '+err+' need review','err',file.name);
     updateStatCards(); renderFlightTable(); renderWarnings(); updateCalcButtonState();
+    return true;
   }catch(err){
-    setUploadStatus('Failed: '+err.message,'err'); console.error(err);
+    // pdf.js throws here on an unreadable/non-PDF file, so a shared file that
+    // isn't a roster reports the same plain message rather than a raw error.
+    setUploadStatus(fromShare?INVALID_MSG:('Failed: '+err.message),'err');
+    console.error(err);
+    return false;
   }
+}
+
+$('rosterFile').addEventListener('change',async(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  const ok=await importRosterFile(file);
+  if(!ok) e.target.value='';   // let the same file be re-picked after a failure
 });
+
+// iOS can't receive shared files (no Web Share Target support in WebKit), so
+// iPhone/iPad users get the "where is my PDF" helper instead. iPadOS 13+ reports
+// itself as MacIntel, hence the touch-point check.
+(function(){
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS && $('iosPdfHelp')) $('iosPdfHelp').style.display = 'block';
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   ANDROID SHARE SHEET — pick up a roster shared from Chrome, Gmail,
+   WhatsApp, Files, etc. sw.js has already stashed the PDF and
+   redirected here with ?shared=<id>, so this runs identically
+   whether the app was closed, backgrounded or already open.
+   iOS/iPadOS does not implement the Web Share Target API, so this
+   never fires there — iPhone keeps using the Import button, helped
+   by the "Can't find your PDF?" panel on the Roster tab.
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  const _p = new URLSearchParams(location.search);
+  const sharedId = _p.get('shared');
+  const shareErr = _p.get('shareerr');
+  if (!sharedId && !shareErr) return;
+
+  const SHARE_CACHE = 'sla-share-inbox';   // must match sw.js
+  const SHARE_PATH  = 'share-target';      // must match sw.js
+  const SEEN_KEY    = 'sla_share_consumed';
+  const INVALID_MSG = 'This file is not a valid roster PDF.';
+
+  // Strip the one-shot param immediately, so a manual reload — or Android
+  // restoring the tab later — can never replay the same import.
+  function clearShareParam(){
+    try{
+      const u = new URL(location.href);
+      u.searchParams.delete('shared'); u.searchParams.delete('shareerr');
+      history.replaceState(null,'',u.pathname+(u.search||'')+u.hash);
+    }catch(e){}
+  }
+
+  function showBusy(text){
+    let ov = document.getElementById('sla-share-overlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'sla-share-overlay';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(11,14,26,.94);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px;';
+      ov.innerHTML = '<div style="max-width:320px;width:100%;background:#151a2e;border:1px solid rgba(124,58,237,.3);border-radius:16px;padding:26px 20px;text-align:center;font-family:sans-serif;color:#e2e8f0;">'
+        + '<div id="sla-share-ico" style="font-size:1.9rem;margin-bottom:10px;">📥</div>'
+        + '<div id="sla-share-msg" style="font-size:.88rem;font-weight:700;line-height:1.45;"></div>'
+        + '<button id="sla-share-ok" style="display:none;width:100%;margin-top:18px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:.82rem;cursor:pointer;">OK</button>'
+        + '</div>';
+      document.body.appendChild(ov);
+    }
+    document.getElementById('sla-share-msg').textContent = text;
+    return ov;
+  }
+  function closeBusy(){ const o=document.getElementById('sla-share-overlay'); if(o) o.remove(); }
+  function failBusy(text){
+    showBusy(text);
+    const ico = document.getElementById('sla-share-ico'); if(ico) ico.textContent='⚠️';
+    const ok  = document.getElementById('sla-share-ok');
+    if(ok){ ok.style.display='block'; ok.onclick=closeBusy; }
+  }
+
+  async function run(){
+    clearShareParam();
+
+    if (shareErr){
+      failBusy(shareErr==='nofile' ? 'No file was shared.' : INVALID_MSG);
+      return;
+    }
+
+    // Duplicate guard — a given share id is imported at most once, ever.
+    let seen=[];
+    try{ seen=JSON.parse(localStorage.getItem(SEEN_KEY)||'[]'); }catch(e){ seen=[]; }
+    if (seen.indexOf(sharedId) !== -1) return;
+
+    showBusy('Importing roster…');
+    try{
+      const cache = await caches.open(SHARE_CACHE);
+      const key = new URL('./'+SHARE_PATH+'/'+sharedId, location.href).href;
+      const res = await cache.match(key);
+      if (!res){ failBusy('That shared roster is no longer available. Please share it again.'); return; }
+
+      // Consume before importing: delete the entry and record the id up front so
+      // even a crash part-way through can't import the same PDF a second time.
+      await cache.delete(key);
+      seen.push(sharedId);
+      try{ localStorage.setItem(SEEN_KEY, JSON.stringify(seen.slice(-25))); }catch(e){}
+
+      const name = decodeURIComponent(res.headers.get('X-Share-Filename')||'roster.pdf');
+      const file = new File([await res.blob()], name, { type:'application/pdf' });
+
+      if (await importRosterFile(file, 'share')){
+        closeBusy();
+        goTo('page-roster');
+      } else {
+        failBusy(INVALID_MSG);
+      }
+    }catch(err){
+      console.error('[share-target]', err);
+      failBusy(INVALID_MSG);
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();
 
 // Reset
 $('btnReset').addEventListener('click',()=>{
