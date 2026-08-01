@@ -2038,12 +2038,17 @@ function getMealDeductionsForSector(sector) {
         // CMB dep, non-CMB arr: full window inside flight
         if (atdMin <= msd && ataAbs >= med) hit = true;
       } else if (!fromCMB && toCMB) {
-        // Abroad dep, CMB arr: full window inside flight — matches the CMB-
-        // departure case above. A departure that's only PART-WAY into the
-        // meal window (like UL403 leaving BKK at 07:45, 15 of the 60
-        // Breakfast minutes still on the ground) means part of that meal
-        // was available on the ground, so it must NOT be deducted.
-        if (atdMin <= msd && ataAbs >= med) hit = true;
+        // Abroad dep, CMB arr — two separate edges, not a single "full
+        // window" test:
+        //  - Departure edge: if the meal window has already STARTED before
+        //    takeoff (still on the ground abroad), don't deduct — even 1
+        //    minute of it pre-departure disqualifies (UL403 leaving BKK
+        //    07:45, Breakfast starts 07:30 => not deducted).
+        //  - Arrival edge: once departed, even 1 minute of the window still
+        //    in the air (before landing) IS enough to deduct — it doesn't
+        //    matter how much of the window runs past landing (UL504 landing
+        //    CMB 13:02 during the 12:30-13:30 Lunch window => still deducted).
+        if (msd >= atdMin && msd < ataAbs) hit = true;
       } else if (fromCMB && toCMB) {
         // CMB both: 1 min overlap
         if (atdMin < med && ataAbs > msd) hit = true;

@@ -1,5 +1,5 @@
-﻿// SLA Salary Portal — Service Worker v147
-const CACHE = 'sla-salary-v171';
+﻿// SLA Salary Portal — Service Worker v148
+const CACHE = 'sla-salary-v172';
 
 // Inbox for PDFs handed over by the Android share sheet. Deliberately a
 // SEPARATE cache from CACHE: the activate handler below wipes old asset
