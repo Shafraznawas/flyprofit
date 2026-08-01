@@ -1881,6 +1881,18 @@ function calculateFlyingPay(sectors, hasLeave) {
   let mutualTakenMin = 0, mutualGivenMin = 0;
   const countedMutualDutyIds = new Set();
 
+  // A mutual duty's given-away hours default to an EVEN swap (given =
+  // taken) when nobody has entered the real number — crew don't generally
+  // track this, and an even swap has no effect on pay either way, which
+  // matches how it should behave under 75h. Defaulting to "gave away 0"
+  // instead (the old behavior) silently dropped real flying hours from
+  // pay entirely below 75h, and would overstate the special bonus rate
+  // above 75h. A manually-entered value always wins.
+  const mutualDutyTakenMin = {};
+  ordered.forEach(s => {
+    if (s.isMutualSwap) mutualDutyTakenMin[s.dutyId] = (mutualDutyTakenMin[s.dutyId] || 0) + (s.blockMinutes || 0);
+  });
+
   ordered.forEach(s => {
     const mins = s.blockMinutes || 0;
     if (s.isPassengering && s.dutyType === 'Layover') return; // no hourly pay for P on a layover; P on a Turn is still paid
@@ -1898,7 +1910,8 @@ function calculateFlyingPay(sectors, hasLeave) {
       // so only count it once.
       if (!countedMutualDutyIds.has(s.dutyId)) {
         countedMutualDutyIds.add(s.dutyId);
-        mutualGivenMin += s._mutualGivenMinutes || 0;
+        const givenOverride = s._mutualGivenMinutes;
+        mutualGivenMin += (givenOverride != null ? givenOverride : mutualDutyTakenMin[s.dutyId]);
       }
       return;
     }
