@@ -1030,11 +1030,9 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
     <div id="ef-mutual-route-wrap" style="display:none;margin-bottom:10px;">
-      <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">GAVE AWAY — ROUTE OR FLIGHT NO (e.g. CMB-MLE or UL225)</div>
-      <input id="ef-mutual-route" type="text" placeholder="CMB-MLE" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.85rem;font-family:var(--mono);text-transform:uppercase;box-sizing:border-box;margin-bottom:8px;">
-      <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">GAVE AWAY — ROUND-TRIP HOURS (HH:MM)</div>
-      <input id="ef-mutual-hours" type="text" maxlength="5" placeholder="auto-estimated" inputmode="numeric" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.85rem;font-family:var(--mono);box-sizing:border-box;">
-      <div id="ef-mutual-status" style="font-size:.68rem;color:var(--tx3);margin-top:6px;line-height:1.4;"></div>
+      <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:4px;">MUTUAL HOURS DIFFERENCE (OPTIONAL)</div>
+      <input id="ef-mutual-hours" type="text" maxlength="6" placeholder="e.g. +02:00" inputmode="text" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:.85rem;font-family:var(--mono);box-sizing:border-box;">
+      <div style="font-size:.62rem;color:var(--tx3);margin-top:6px;line-height:1.4;">Only matters if this month's total goes above 75 hours. A PLUS number here pays those extra hours at a special rate. Leave blank if you don't know — it won't affect your pay below 75 hours either way.</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <button id="ef-cancel" style="padding:12px;border-radius:12px;border:1.5px solid var(--b2);background:transparent;color:var(--tx2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Cancel</button>
@@ -1206,6 +1204,23 @@ function minutesToHHMM(mins) {
   mins = Math.abs(Math.round(mins));
   const h = Math.floor(mins / 60), m = mins % 60;
   return `${sign}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+// Parses an optionally-signed "HH:MM" (e.g. "+02:00", "-01:30", or plain
+// "02:00" treated as positive) for the mutual-swap hours-difference field.
+// Unlike timeToMinutes, the sign applies to the whole duration, not just
+// the hours part, so "-01:30" correctly parses to -90, not -30.
+function parseSignedHHMM(str) {
+  const s = String(str || '').trim();
+  if (!s) return null;
+  const neg = s.startsWith('-');
+  const clean = s.replace(/^[+-]/, '');
+  const parts = clean.split(':');
+  if (parts.length !== 2) return null;
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+  const total = h * 60 + m;
+  return neg ? -total : total;
 }
 
 function minutesToDecimalHours(mins) {
@@ -1827,8 +1842,6 @@ function calculateFlyingPay(sectors, hasLeave) {
 
   let standardAccumMin = 0;
   let tier1Min = 0, tier2Min = 0, actingCMMin = 0;
-  let mutualTakenMin = 0, mutualGivenMin = 0;
-  const countedMutualDutyIds = new Set();
 
   ordered.forEach(s => {
     const mins = s.blockMinutes || 0;
@@ -1837,20 +1850,10 @@ function calculateFlyingPay(sectors, hasLeave) {
       actingCMMin += mins;
       return;
     }
-    if (s.isMutualSwap) {
-      // Pulled out of the normal accumulation entirely and reconciled
-      // separately below — a mutual's "extra" hours are a monthly
-      // aggregate concept (taken minus given-away), not chronological.
-      mutualTakenMin += mins;
-      // The given-away round-trip total is per-duty, not per-leg — both
-      // legs of a Turn share the same dutyId and the same stored value,
-      // so only count it once.
-      if (!countedMutualDutyIds.has(s.dutyId)) {
-        countedMutualDutyIds.add(s.dutyId);
-        mutualGivenMin += s._mutualGivenMinutes || 0;
-      }
-      return;
-    }
+    // Mutual-swap flights are counted as completely ordinary hours here —
+    // same Tier 1/Tier 2 fold as any other flight, whether the month ends
+    // up under or over 75h. The optional hours-difference bonus below is a
+    // separate top-up on top of this, never a replacement for it.
     const remainingTier1 = Math.max(0, TIER_THRESHOLD_MIN - standardAccumMin);
     const intoTier1 = Math.min(mins, remainingTier1);
     const intoTier2 = mins - intoTier1;
@@ -1858,21 +1861,6 @@ function calculateFlyingPay(sectors, hasLeave) {
     tier2Min += intoTier2;
     standardAccumMin += mins;
   });
-
-  // ── MUTUAL SWAP: fold the "ordinary" (non-extra) portion of mutual hours
-  // into the same tier accumulation as normal duties, right after all
-  // non-mutual hours. Only the net gain (taken - given-away) is held back
-  // to be taxed specially once we know where it lands relative to 75h.
-  const mutualOrdinaryMin = Math.min(mutualTakenMin, mutualGivenMin);
-  const netExtraMin = Math.max(0, mutualTakenMin - mutualGivenMin);
-  {
-    const remainingTier1 = Math.max(0, TIER_THRESHOLD_MIN - standardAccumMin);
-    const intoTier1 = Math.min(mutualOrdinaryMin, remainingTier1);
-    const intoTier2 = mutualOrdinaryMin - intoTier1;
-    tier1Min += intoTier1;
-    tier2Min += intoTier2;
-    standardAccumMin += mutualOrdinaryMin;
-  }
 
   // ── MINIMUM GUARANTEE: 50 hours ──────────────────────────
   // Applied only when no leave (S/L, CLV, ALV, ALP) in the month
@@ -1892,26 +1880,42 @@ function calculateFlyingPay(sectors, hasLeave) {
     guaranteeApplied = true;
   }
 
-  // ── MUTUAL SWAP NET-EXTRA ABOVE 75H ──────────────────────
-  // tier1Min + tier2Min == standardAccumMin at this point (the "baseline" —
-  // everything except the mutual's net gain). Only the slice of the net
-  // gain that pushes the TRUE total further past 75h gets the special
-  // "Tier 1 + $5/hr" rate; pre-existing excess (already in tier2Min) is untouched.
-  const totalMin = standardAccumMin + netExtraMin;
-  const totalExcessMin = Math.max(0, totalMin - TIER_THRESHOLD_MIN);
-  const mutualSpecialMin = Math.max(0, totalExcessMin - tier2Min);
+  // ── MUTUAL SWAP HOURS-DIFFERENCE BONUS ──────────────────────
+  // Optional, per-duty, and only ever matters once the month's real total
+  // (standardAccumMin, already including mutual hours as ordinary) passes
+  // 75h — a blank field, a minus number, or a month under 75h all mean:
+  // no bonus, pay stays exactly as computed above. A plus number re-prices
+  // that many minutes from ordinary rate up to Tier1+$5 — taken out of
+  // Tier 1 first (that's what "ordinary" means below 75h), spilling into
+  // Tier 2 only if the bonus is somehow larger than all of Tier 1.
+  let mutualBonusMin = 0;
+  if (standardAccumMin > TIER_THRESHOLD_MIN) {
+    const countedMutualBonusDutyIds = new Set();
+    ordered.forEach(s => {
+      if (!s.isMutualSwap || countedMutualBonusDutyIds.has(s.dutyId)) return;
+      countedMutualBonusDutyIds.add(s.dutyId);
+      const diff = s._mutualHoursDiffMin;
+      if (diff > 0) mutualBonusMin += diff;
+    });
+    mutualBonusMin = Math.min(mutualBonusMin, tier1Min + tier2Min);
+  }
+  if (mutualBonusMin > 0) {
+    const fromTier1 = Math.min(mutualBonusMin, tier1Min);
+    tier1Min -= fromTier1;
+    tier2Min -= (mutualBonusMin - fromTier1);
+  }
 
   const rates = getRates();
   const tier1USD = minutesToDecimalHours(tier1Min) * rates.tier1;
   const tier2USD = minutesToDecimalHours(tier2Min) * rates.tier2;
   const actingCMUSD = minutesToDecimalHours(actingCMMin) * rates.actingRate;
-  const mutualSpecialUSD = minutesToDecimalHours(mutualSpecialMin) * (rates.tier1 + 5);
+  const mutualSpecialUSD = minutesToDecimalHours(mutualBonusMin) * (rates.tier1 + 5);
   const totalUSD = tier1USD + tier2USD + actingCMUSD + mutualSpecialUSD;
 
   return {
-    tier1Min, tier2Min, actingCMMin, mutualSpecialMin,
+    tier1Min, tier2Min, actingCMMin, mutualSpecialMin: mutualBonusMin,
     tier1USD, tier2USD, actingCMUSD, mutualSpecialUSD, totalUSD,
-    totalBlockMin: totalMin + actingCMMin,
+    totalBlockMin: standardAccumMin + actingCMMin,
     guaranteeApplied, guaranteeTopUpMin
   };
 }
@@ -2538,8 +2542,7 @@ async function openEditFlight(idx) {
   // the user only ever has to interact with one row.
   flights.filter(x => x.dutyId === f.dutyId).forEach(x => {
     x.isMutualSwap = result.isMutualSwap;
-    x._mutualGivenRoute = result.mutualGivenRoute || '';
-    x._mutualGivenMinutes = result.mutualGivenMinutes;
+    x._mutualHoursDiffMin = result.mutualHoursDiffMin;
   });
 
   renderFlightTable();
@@ -3924,20 +3927,16 @@ function showEditModal(f, title) {
       btn.onclick = () => { selectedTurn = btn.dataset.val; styleToggle('.eturn-btn', selectedTurn); };
     });
 
-    // Mutual swap: applies to the whole Turn duty (both legs), the user only
-    // ever enters ONE side (route/flight no of the flight they gave away) —
-    // the app looks up the return leg itself and estimates the round-trip total.
+    // Mutual swap: applies to the whole Turn duty (both legs). Optional
+    // signed hours-difference — only ever matters if this month's total
+    // crosses 75h (see calculateFlyingPay); otherwise it's ignored, so
+    // leaving it blank is always safe.
     let selectedMutual = f.isMutualSwap || false;
-    let mutualHoursAutoFilled = true;
     const mutualRouteWrap = $('ef-mutual-route-wrap');
-    const mutualRouteInput = $('ef-mutual-route');
     const mutualHoursInput = $('ef-mutual-hours');
-    const mutualStatus = $('ef-mutual-status');
     styleToggle('.emutual-btn', selectedMutual);
     mutualRouteWrap.style.display = selectedMutual ? 'block' : 'none';
-    mutualRouteInput.value = f._mutualGivenRoute || '';
-    mutualHoursInput.value = f._mutualGivenMinutes != null ? minutesToHHMM(f._mutualGivenMinutes) : '';
-    mutualStatus.textContent = '';
+    mutualHoursInput.value = f._mutualHoursDiffMin != null ? minutesToHHMM(f._mutualHoursDiffMin) : '';
     modal.querySelectorAll('.emutual-btn').forEach(btn => {
       btn.onclick = () => {
         selectedMutual = btn.dataset.val === 'true';
@@ -3945,26 +3944,6 @@ function showEditModal(f, title) {
         mutualRouteWrap.style.display = selectedMutual ? 'block' : 'none';
       };
     });
-    mutualHoursInput.addEventListener('input', () => { mutualHoursAutoFilled = false; });
-    let mutualLookupTimer;
-    mutualRouteInput.oninput = () => {
-      clearTimeout(mutualLookupTimer);
-      const val = mutualRouteInput.value.toUpperCase().trim();
-      if (!val) { mutualStatus.textContent = ''; return; }
-      mutualStatus.textContent = 'Looking up...';
-      mutualLookupTimer = setTimeout(async () => {
-        const isRoute = val.includes('-');
-        const res = await lookupRouteDuration(isRoute ? '' : val, isRoute ? val : '');
-        if (res && res.totalMins != null) {
-          if (mutualHoursAutoFilled) {
-            mutualHoursInput.value = minutesToHHMM(res.totalMins);
-          }
-          mutualStatus.textContent = `Estimated round-trip: ${minutesToHHMM(res.totalMins)} (edit hours above if you know it's different)`;
-        } else {
-          mutualStatus.textContent = 'Not enough data learned for this route/flight yet — enter the round-trip hours manually above';
-        }
-      }, 500);
-    };
 
     modal.style.display = 'flex';
     $('ef-orig').focus();
@@ -3985,8 +3964,7 @@ function showEditModal(f, title) {
         manualMealDeductionAmount: mealAmountWrap.style.display === 'block' ? (parseFloat(mealAmountInput.value) || null) : null,
         manualTurnaroundPay: selectedTurn,
         isMutualSwap: selectedMutual,
-        mutualGivenRoute: selectedMutual ? mutualRouteInput.value.toUpperCase().trim() : '',
-        mutualGivenMinutes: selectedMutual ? timeToMinutes(mutualHoursInput.value.trim()) : null
+        mutualHoursDiffMin: selectedMutual ? parseSignedHHMM(mutualHoursInput.value.trim()) : null
       });
     };
   });
