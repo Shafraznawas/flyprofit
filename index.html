@@ -1135,6 +1135,7 @@ const STATION_OFFSETS = {
   COK: 5.5,
   IXE: 5.5,
   VTZ: 5.5,
+  TRV: 5.5,
   // Nepal & Bangladesh
   KTM: 5.75,
   DAC: 6.0,
@@ -1268,22 +1269,34 @@ function minutesToDecimalHours(mins) {
  */
 function calcBlockMinutes(orig, atd, dest, ata, ataNextDay) {
   if (!orig || !dest) return { minutes: null, error: 'Missing station code' };
-  if (!(orig in STATION_OFFSETS)) return { minutes: null, error: `Unknown station: ${orig}` };
-  if (!(dest in STATION_OFFSETS)) return { minutes: null, error: `Unknown station: ${dest}` };
+
+  // An airport missing from STATION_OFFSETS must never stop pay from being
+  // calculated — the crew flew the sector regardless of whether we know its
+  // time zone. Fall back to Colombo's own offset (correct for most of
+  // SriLankan's South Asian network, and exactly right for e.g. India) and
+  // still return real, payable minutes — just flag which station needs its
+  // real time zone added for full accuracy later.
+  const unknown = [orig, dest].filter(s => !(s in STATION_OFFSETS));
+  const origOffset = orig in STATION_OFFSETS ? STATION_OFFSETS[orig] : STATION_OFFSETS.CMB;
+  const destOffset = dest in STATION_OFFSETS ? STATION_OFFSETS[dest] : STATION_OFFSETS.CMB;
 
   const atdMin = timeToMinutes(atd);
   const ataMin = timeToMinutes(ata);
   if (atdMin === null) return { minutes: null, error: 'Missing/invalid ATD' };
   if (ataMin === null) return { minutes: null, error: 'Missing/invalid ATA' };
 
-  const utcAtd = atdMin - STATION_OFFSETS[orig] * 60;
-  let utcAta = ataMin - STATION_OFFSETS[dest] * 60;
+  const utcAtd = atdMin - origOffset * 60;
+  let utcAta = ataMin - destOffset * 60;
   if (ataNextDay) utcAta += 1440;
 
   let block = utcAta - utcAtd;
   while (block < 0) block += 1440;
 
-  return { minutes: block, error: null };
+  const error = unknown.length
+    ? `${unknown.join(', ')} not in the airport list yet — hours estimated using Colombo's time zone. Add the real time zone to be exact.`
+    : null;
+
+  return { minutes: block, error };
 }
 
 // ============================================================
@@ -1629,6 +1642,12 @@ async function parseRosterPDF(file) {
   const { sectors: rawSectors, nonFlightMarkers } = buildSectorsFromDutyLines(dutyLines, warnings);
   const sectors = finalizeSectors(rawSectors);
   groupIntoDuties(sectors, nonFlightMarkers);
+
+  // Hours were still calculated (see calcBlockMinutes' fallback) — this is
+  // just a heads-up so the airport's real time zone can be added later.
+  sectors.forEach(s => {
+    if (s.blockError) warnings.push({ line: s.raw, reason: s.blockError });
+  });
 
   // Auto-detected "M" marker (not always printed by crewing — a hint, not
   // something to rely on alone) applies to the whole Turn duty, same as a
@@ -2019,8 +2038,12 @@ function getMealDeductionsForSector(sector) {
         // CMB dep, non-CMB arr: full window inside flight
         if (atdMin <= msd && ataAbs >= med) hit = true;
       } else if (!fromCMB && toCMB) {
-        // non-CMB dep, CMB arr: 1 min overlap
-        if (atdMin < med && ataAbs > msd) hit = true;
+        // Abroad dep, CMB arr: full window inside flight — matches the CMB-
+        // departure case above. A departure that's only PART-WAY into the
+        // meal window (like UL403 leaving BKK at 07:45, 15 of the 60
+        // Breakfast minutes still on the ground) means part of that meal
+        // was available on the ground, so it must NOT be deducted.
+        if (atdMin <= msd && ataAbs >= med) hit = true;
       } else if (fromCMB && toCMB) {
         // CMB both: 1 min overlap
         if (atdMin < med && ataAbs > msd) hit = true;
