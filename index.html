@@ -463,6 +463,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 }
 [data-theme="light"]{--bg:#f0f4f8;--card:#ffffff;--card2:#f8fafc;--inp:#e2e8f0;--b0:rgba(0,0,0,.08);--b1:rgba(0,0,0,.12);--b2:rgba(124,58,237,.2);--tx1:#1a1f35;--tx2:#4a5568;--tx3:#3f4c66;--purple:#6d28d9;--purple2:#7c3aed;--purple3:#8b5cf6;--cyan:#0891b2;--red:#dc2626;--amber:#d97706;--green:#16a34a;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{font-size:115%;}
 html,body{height:100%;overflow:hidden;}
 body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
 
@@ -708,23 +709,22 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
              portal and then can't locate it, because iOS never tells them where
              it went. The "Recents" tab in the iOS file picker always lists the
              newest download first, so they never need to know the folder.
-             Unhidden only on iOS by the isIOS check in the script below;
-             Android crew get the share sheet instead. -->
-        <details id="iosPdfHelp" style="display:none;margin-top:10px;border:1px solid var(--b1);border-radius:10px;background:rgba(255,255,255,.02);">
-          <summary style="cursor:pointer;padding:10px 12px;font-size:.76rem;font-weight:700;color:var(--tx2);list-style:none;">📱 Can't find your PDF on iPhone?</summary>
-          <div style="padding:0 12px 12px;font-size:.74rem;color:var(--tx3);line-height:1.6;">
-            Your roster is already on the phone — you just have to reach it:
-            <div style="margin:8px 0 0;padding-left:2px;">
-              <div>1. Tap <b style="color:var(--tx2);">Tap to upload Roster PDF</b> above.</div>
-              <div>2. Choose <b style="color:var(--tx2);">Choose File</b> — not Photo Library.</div>
-              <div>3. Tap <b style="color:var(--tx2);">Recents</b> at the bottom.</div>
-              <div>4. Your roster is normally the newest item at the top.</div>
-            </div>
-            <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--b0);">
-              <b style="color:var(--tx2);">Not listed?</b> Open the roster from the crew portal, tap the Share icon, choose <b style="color:var(--tx2);">Save to Files</b>, then follow the steps above.
+             Always expanded (was a collapsed <details> that most crew never
+             tapped open, so the fix was invisible in practice) — unhidden
+             only on iOS by the isIOS check in the script below; Android crew
+             get the share sheet instead. -->
+        <div id="iosPdfHelp" style="display:none;margin-top:10px;border:1px solid rgba(245,158,11,.3);border-radius:10px;background:rgba(245,158,11,.06);">
+          <div style="padding:10px 12px 4px;font-size:.76rem;font-weight:700;color:var(--amber);">📱 Can't find your PDF? Do this:</div>
+          <div style="padding:0 12px 12px;font-size:.74rem;color:var(--tx2);line-height:1.7;">
+            <div>1. Tap <b style="color:var(--tx1);">Tap to upload Roster PDF</b> above.</div>
+            <div>2. Choose <b style="color:var(--tx1);">Choose File</b> — not Photo Library.</div>
+            <div>3. Tap <b style="color:var(--tx1);">Recents</b> at the bottom.</div>
+            <div>4. Your roster is normally the newest item at the top.</div>
+            <div style="margin-top:10px;padding-top:9px;border-top:1px solid rgba(245,158,11,.2);">
+              <b style="color:var(--tx1);">Not listed?</b> Open the roster from the crew portal, tap the Share icon, choose <b style="color:var(--tx1);">Save to Files</b>, then follow the steps above.
             </div>
           </div>
-        </details>
+        </div>
 
         <button class="btn-outline" id="btnAddManualFlight">+ Add Flight Manually</button>
       </div>
