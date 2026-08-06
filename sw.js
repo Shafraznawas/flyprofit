@@ -1,5 +1,5 @@
-﻿// SLA Salary Portal — Service Worker v154
-const CACHE = 'sla-salary-v178';
+﻿// SLA Salary Portal — Service Worker v156
+const CACHE = 'sla-salary-v180';
 
 // Inbox for PDFs handed over by the Android share sheet. Deliberately a
 // SEPARATE cache from CACHE: the activate handler below wipes old asset
@@ -79,33 +79,56 @@ self.addEventListener('fetch', e => {
 
   if (e.request.method !== 'GET') return;
 
+  // Only the app's own files (index.html, icons, pdf.worker.min.js, etc.)
+  // go through the cache-first path below. Anything to a different origin —
+  // script.google.com, i.e. trial checks, license checks, and upload/usage
+  // logging — is left completely alone here (no respondWith) so it always
+  // hits the network fresh, exactly as before this change. Locking,
+  // licensing and monitoring all depend on that staying true.
+  if (url.origin !== self.location.origin) return;
+
   // Don't cache the one-shot share hand-off URLs — they're unique per share
   // and would otherwise pile up in the asset cache forever.
   const isShareNav = url.searchParams.has('shared') || url.searchParams.has('shareerr');
 
-  e.respondWith(
-    fetch(e.request, { cache: 'no-cache' })
+  // Cache-first, falling back to network. Previously this always tried the
+  // network FIRST and only fell back to the cache once that attempt failed
+  // — fine on a good connection, but on a weak/no signal the network
+  // attempt can take several seconds to give up before the cached copy
+  // ever gets used, and that delay stacks up across every file the app
+  // loads. Serving the cached copy immediately (when there is one) fixes
+  // that; a network fetch still runs alongside to refresh the cache for
+  // next time, kept alive via waitUntil so it completes even though the
+  // response itself already went out.
+  e.respondWith((async () => {
+    const cached = await caches.match(e.request);
+    const networkFetch = fetch(e.request, { cache: 'no-cache' })
       .then(res => {
         if (res && res.status === 200 && !isShareNav) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
+          caches.open(CACHE).then(c => c.put(e.request, res.clone()));
         }
         return res;
       })
-      .catch(() => {
-        return caches.match(e.request).then(cached => {
-          if (cached) return cached;
-          // A navigation carrying a query string — notably the share hand-off
-          // ./?shared=<id> — has no exact cache entry, so fall back to the app
-          // shell. Without this, sharing a roster while offline dead-ends on
-          // the 503 below instead of opening the app.
-          if (e.request.mode === 'navigate') {
-            return caches.match('./index.html')
-              .then(shell => shell || caches.match('./'))
-              .then(shell => shell || new Response('Offline', { status: 503 }));
-          }
-          return new Response('Offline', { status: 503 });
-        });
-      })
-  );
+      .catch(() => null);
+
+    if (cached) {
+      e.waitUntil(networkFetch);
+      return cached;
+    }
+
+    const netRes = await networkFetch;
+    if (netRes) return netRes;
+
+    // Nothing cached and the network failed too.
+    // A navigation carrying a query string — notably the share hand-off
+    // ./?shared=<id> — has no exact cache entry, so fall back to the app
+    // shell. Without this, sharing a roster while offline dead-ends on
+    // the 503 below instead of opening the app.
+    if (e.request.mode === 'navigate') {
+      return caches.match('./index.html')
+        .then(shell => shell || caches.match('./'))
+        .then(shell => shell || new Response('Offline', { status: 503 }));
+    }
+    return new Response('Offline', { status: 503 });
+  })());
 });

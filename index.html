@@ -675,7 +675,8 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <div class="g2">
           <div class="field">
             <label>📅 Roster Month</label>
-            <input type="month" id="monthYear">
+            <input type="month" id="monthYear" readonly>
+            <div class="hint">Auto-filled from your uploaded roster</div>
           </div>
           <div class="field">
             <label>💵 USD Rate (LKR)</label>
@@ -3975,9 +3976,11 @@ async function importRosterFile(file, source){
 
     state.sectors=result.sectors; state.nonFlightMarkers=result.nonFlightMarkers; state.warnings=result.warnings; state.hasLeave=result.hasLeave||false;
 
-    // Auto-fill the Roster Month picker from the roster's own declared period,
-    // so the user doesn't have to set it by hand (they still press Calculate to
-    // log). Only sets it when detectable; user can still change it.
+    // Fill the (now read-only) Roster Month display from the roster's own
+    // declared period — no manual entry anymore, this is the only way it
+    // gets set. If undetectable, it's simply left blank: salary calculation
+    // itself never depends on this field (see updateCalcButtonState), only
+    // Logbook auto-capture and the saved-month label do.
     const _detectedMonth = _rosterMonthToKey(result.identity && result.identity.rosterMonth);
     if (_detectedMonth) { $('monthYear').value = _detectedMonth; }
 
