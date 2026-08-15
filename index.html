@@ -4654,6 +4654,11 @@ if (TRIAL_ENABLED) (function(){
         <div style="font-size:2rem;margin-bottom:10px;">🔒</div>
         <div style="font-size:1.05rem;font-weight:700;margin-bottom:6px;">Trial Period Ended</div>
         <div style="font-size:.78rem;color:#94a3b8;margin-bottom:18px;">Your ${TRIAL_DAYS}-day trial has expired.<br>Activate for just LKR 3,500 — lifetime access.</div>
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Already Paid? Check By Staff No</div>
+        <input id="sla-staffno-check-input" type="text" placeholder="e.g. 17401" autocomplete="off" inputmode="text" style="width:100%;box-sizing:border-box;background:#0b0e1a;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;padding:11px;color:#e2e8f0;font-family:monospace;font-size:.95rem;text-align:center;letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase;">
+        <button id="sla-staffno-check-btn" style="width:100%;background:rgba(124,58,237,.15);border:1.5px solid rgba(124,58,237,.4);color:#c084fc;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">Check &amp; Activate</button>
+        <div id="sla-staffno-check-msg" style="font-size:.68rem;margin-top:10px;text-align:left;line-height:1.5;display:none;"></div>
+        <div style="height:1px;background:rgba(255,255,255,.08);margin:20px 0;"></div>
         <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">${lockIdLabel}</div>
         <div id="sla-device-code" style="font-family:monospace;font-size:1.3rem;font-weight:700;letter-spacing:.1em;color:#c084fc;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:16px;">${lockId}</div>
         <a id="sla-wa-btn" href="#" target="_blank" rel="noopener" style="display:block;background:#25D366;color:#fff;text-decoration:none;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;margin-bottom:14px;">📱 Send via WhatsApp</a>
@@ -4685,6 +4690,59 @@ if (TRIAL_ENABLED) (function(){
       'I\'ve made the payment and will attach my payment slip/screenshot in this chat.'
     );
     document.getElementById('sla-wa-btn').href = 'https://wa.me/' + OWNER_WHATSAPP + '?text=' + waMsg;
+
+    // "Already Paid? Check By Staff No" — the primary, intended path: the
+    // owner marks Licensed=YES on the customer's Staff No row and that alone
+    // should be enough, no key needed. The gap this closes is that a phone
+    // only asks about the Staff No it currently has saved locally, and that
+    // link can go missing (storage cleared, opened via a different browser/
+    // app context) — leaving someone stuck on the fragile device-code path
+    // even though their real, stable identity is already licensed. Typing
+    // the Staff No here re-establishes that link on the spot.
+    async function checkStaffNoAndActivate() {
+      const btn = document.getElementById('sla-staffno-check-btn');
+      const input = document.getElementById('sla-staffno-check-input');
+      const msg = document.getElementById('sla-staffno-check-msg');
+      const typed = input.value.trim().toUpperCase();
+      msg.style.display = 'none';
+      if (!/^[Cc]?\d{4,7}$/.test(typed)) {
+        msg.style.color = '#f87171';
+        msg.textContent = 'Please enter a valid Staff No.';
+        msg.style.display = 'block';
+        return;
+      }
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = 'Checking…';
+
+      // Set it BEFORE checking so checkStaffTrial treats it as this
+      // device's own identity (its internal auto-unlock branch only fires
+      // for that case) — rolled back below unless it actually unlocks, so
+      // a mistyped number can't stick as a wrong permanent link.
+      const prevStaffNo = localStorage.getItem('sla_registered_staff_no');
+      localStorage.setItem('sla_registered_staff_no', typed);
+      const data = await checkStaffTrial(typed, '');
+
+      if (!document.getElementById('sla-lock-overlay')) return; // checkStaffTrial already unlocked it
+
+      if (prevStaffNo) localStorage.setItem('sla_registered_staff_no', prevStaffNo);
+      else localStorage.removeItem('sla_registered_staff_no');
+
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+      msg.style.display = 'block';
+      if (!data) {
+        msg.style.color = '#f87171';
+        msg.textContent = 'Could not reach the server — check your internet and try again.';
+      } else {
+        msg.style.color = '#f59e0b';
+        msg.textContent = 'Not activated yet for this Staff No — pay & send your reference below, or contact the owner.';
+      }
+    }
+    document.getElementById('sla-staffno-check-btn').addEventListener('click', checkStaffNoAndActivate);
+    document.getElementById('sla-staffno-check-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') checkStaffNoAndActivate();
+    });
 
     document.getElementById('sla-activate-btn').addEventListener('click', function() {
       const entered = document.getElementById('sla-key-input').value.trim().toUpperCase();
