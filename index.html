@@ -492,11 +492,26 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 
 /* TOP NAV TABS */
 .bottomnav{height:var(--nav-h);flex-shrink:0;background:rgba(11,14,26,.98);border-bottom:1px solid var(--b0);display:flex;align-items:stretch;z-index:100;}
-.nav-btn{flex:1;border:none;border-bottom:3px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:6px 4px 5px;color:var(--tx3);font-family:var(--sans);transition:color .15s,border-color .15s;}
+.nav-btn{position:relative;flex:1;border:none;border-bottom:3px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:6px 4px 5px;color:var(--tx3);font-family:var(--sans);transition:color .15s,border-color .15s;}
 .nav-btn.active{color:var(--purple3);border-bottom-color:var(--purple3);background:rgba(124,58,237,.08);}
 .nav-icon{font-size:17px;line-height:1;}
 .nav-lbl{font-size:.58rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
 .nav-dot{display:none;}
+/* Red pip on the Docs tab when something is expiring / overdue. */
+.nav-dot.on{display:block;position:absolute;top:5px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 6px rgba(248,113,113,.75);}
+
+/* DOCS (document & medical expiry tracker) */
+.doc-card-head{display:flex;align-items:center;gap:9px;padding:13px 15px;border-bottom:1px solid var(--b0);}
+.doc-pill{margin-left:auto;font-size:.56rem;font-family:var(--mono);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:20px;white-space:nowrap;}
+.doc-pill.ok{background:rgba(74,222,128,.1);color:var(--green);border:1px solid rgba(74,222,128,.25);}
+.doc-pill.soon{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.28);}
+.doc-pill.urgent{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.3);}
+.doc-pill.none{background:rgba(255,255,255,.04);color:var(--tx3);border:1px solid var(--b0);}
+.doc-todo{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;margin-top:9px;font-size:.74rem;line-height:1.5;}
+.doc-todo.info{background:rgba(0,200,240,.06);border:1px solid rgba(0,200,240,.18);color:var(--tx2);}
+.doc-todo.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber);}
+.doc-todo.urgent{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
+.doc-todo b{color:var(--tx1);}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -660,6 +675,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   <button class="nav-btn" data-page="page-gauge"><span class="nav-icon">📊</span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-logbook"><span class="nav-icon">📖</span><span class="nav-lbl">Logbook</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-swap"><span class="nav-icon">🔄</span><span class="nav-lbl">Swap</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-docs"><span class="nav-icon">🪪</span><span class="nav-lbl">Docs</span><span class="nav-dot" id="docsNavDot"></span></button>
 </div>
 
 <div class="scroll-area" id="scrollArea">
@@ -940,6 +956,45 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
 
     <button class="tb-calc" id="btnSwapCalculate" style="width:100%;padding:14px;border-radius:12px;">⚡ Compare</button>
     <div id="swapResultsArea"></div>
+  </div>
+
+  <!-- PAGE 7: DOCS (ID / medical / docket expiry tracker) -->
+  <!-- Deliberately its own tab and completely separate from every salary
+       figure — nothing here feeds the calculator, and the calculator never
+       reads it. Everything lives in localStorage on the crew member's own
+       phone (passport/ID numbers) and is NEVER sent to the monitoring
+       sheet or any server. -->
+  <div class="page" id="page-docs">
+    <div id="docsAlertArea"></div>
+    <div id="docsCards"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-ico">🔔</span>
+        <div><div class="card-title">Phone Reminders</div><div class="card-sub">So you're told even with the app closed</div></div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:.75rem;color:var(--tx2);line-height:1.65;">
+          This puts every reminder date above into your phone's own calendar. Your phone then alerts you on each day — you don't need to open FlyProfit at all.
+        </div>
+        <div style="font-size:.68rem;color:var(--tx3);line-height:1.6;margin-top:9px;">
+          Tap this again any time you change a date, so your calendar stays correct.
+        </div>
+        <button class="btn-outline" id="btnDocsCalendar" style="margin-top:12px;">📅 Add Reminders To My Calendar</button>
+        <div id="docsCalendarMsg" style="font-size:.68rem;line-height:1.6;margin-top:9px;display:none;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body" style="display:flex;gap:9px;align-items:flex-start;">
+        <span style="font-size:.9rem;">🔒</span>
+        <span style="font-size:.7rem;color:var(--tx3);line-height:1.6;">Everything on this page is stored only on this phone. It is never uploaded, never shared, and is not part of any salary calculation.</span>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="act-btn" id="btnDocsClear" style="color:var(--red);">🗑 Clear All Documents</button>
+    </div>
   </div>
 
 </div>
@@ -4185,6 +4240,7 @@ document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('cl
   goTo(b.dataset.page);
   if(b.dataset.page==='page-logbook') renderLogbook();
   if(b.dataset.page==='page-swap') renderSwapRangePickers();
+  if(b.dataset.page==='page-docs') refreshDocsStatus();
 });});
 
 // ---------- Swap (Mutual Flight Calculator) wiring ----------
@@ -4314,6 +4370,441 @@ function renderSwapRangePickers() {
     }
   });
 }
+
+// ============================================================
+// DOCUMENTS & MEDICAL EXPIRY TRACKER (Docs tab)
+// ============================================================
+// Deliberately isolated from every salary path: calculateSalary() never
+// reads this, and none of it is ever sent to PING_URL. These are personal
+// ID/passport numbers, so they live in localStorage on this device only.
+//
+// Reminders surface two ways, because this app is opened rarely (crew
+// mostly open it near payday) — in-app alone would sail straight past a
+// "45 days before" date:
+//   1. In-app: a banner at the top of the tab plus a red pip on the nav
+//      button, recomputed from the dates on every app open.
+//   2. The phone's own calendar (.ics export) — the phone then alerts
+//      them with FlyProfit closed. Each reminder carries a STABLE UID so
+//      re-exporting after a date change updates the existing entry in
+//      place instead of piling up duplicates, and rules that no longer
+//      apply are re-issued as STATUS:CANCELLED so calendars that honour
+//      it drop them.
+const DOCS_KEY = 'sla_documents';
+const DOCS_SEQ_KEY = 'sla_documents_ics_seq';
+
+// warn/urgent = days-left thresholds at which the status pill turns
+// amber / red. Passport's are wide because its alert lead time is 7 months.
+const DOC_DEFS = [
+  { key:'whiteId', icon:'🪪', title:'White ID', sub:'Airport / airside pass', fields:[
+      { key:'number', label:'ID No', type:'text', ph:'Optional' },
+      { key:'expiry', label:'Expiry Date', type:'date', warn:60, urgent:30 }
+  ]},
+  { key:'companyId', icon:'🏢', title:'Company ID', sub:'SriLankan Airlines ID', fields:[
+      { key:'number', label:'ID No', type:'text', ph:'Optional' },
+      { key:'expiry', label:'Expiry Date', type:'date', warn:60, urgent:30 }
+  ]},
+  { key:'blueDocket', icon:'🔵', title:'Blue Docket', sub:'Annual medical & docket expiry', fields:[
+      { key:'number', label:'Docket No', type:'text', ph:'Optional' },
+      { key:'medicalExpiry', label:'Annual Medical Expiry', type:'date', warn:60, urgent:30 },
+      { key:'gmoAppointment', label:'GMO Appointment Date', type:'date', noStatus:true,
+        hint:'Fill this in once you have booked. It stops the "book your appointment" reminder and adds a 2-day warning before the appointment.' },
+      { key:'docketExpiry', label:'Docket Expiry', type:'date', warn:60, urgent:30 }
+  ]},
+  { key:'blackDocket', icon:'⚫', title:'Black Docket', sub:'Medical expiry', fields:[
+      { key:'number', label:'Docket No', type:'text', ph:'Optional' },
+      { key:'medicalExpiry', label:'Medical Expiry', type:'date', warn:14, urgent:7 }
+  ]},
+  { key:'passport', icon:'🛂', title:'Passport', sub:'Alerts 7 months ahead', fields:[
+      { key:'number', label:'Passport No', type:'text', ph:'Optional' },
+      { key:'expiry', label:'Expiry Date', type:'date', warn:210, urgent:90 }
+  ]}
+];
+
+function _docDayOnly(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function _docToday() { return _docDayOnly(new Date()); }
+function _docParse(s) {
+  if (!s) return null;
+  const p = String(s).split('-');
+  if (p.length !== 3) return null;
+  const d = new Date(+p[0], +p[1] - 1, +p[2]);
+  return isNaN(d.getTime()) ? null : d;
+}
+function _docAddDays(d, n) { const x = new Date(d.getTime()); x.setDate(x.getDate() + n); return x; }
+// Clamps to the end of the target month, so "2 months before 31 Mar" can't
+// roll forward into the next month the way a bare setMonth() would.
+function _docAddMonths(d, n) {
+  const x = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  const lastDay = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
+  x.setDate(Math.min(d.getDate(), lastDay));
+  return x;
+}
+function _docDaysBetween(a, b) { return Math.round((_docDayOnly(b) - _docDayOnly(a)) / 86400000); }
+function _docFmt(d) {
+  if (!d) return '';
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate() + ' ' + M[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function loadDocs() {
+  try { return JSON.parse(localStorage.getItem(DOCS_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function saveDocs(d) { localStorage.setItem(DOCS_KEY, JSON.stringify(d)); }
+
+// The owner's reminder rules, one place. Every reminder is keyed by a
+// stable (docKey, ruleKey) pair — that pair becomes its calendar UID, so
+// changing a date moves the existing calendar entry rather than adding a
+// second one. `group` exists only to collapse the in-app banner down to
+// the single most recent reminder per real-world thing being tracked.
+function buildDocReminders(data) {
+  const out = [];
+  // `expiry` is the real-world date the reminder is about. A reminder stays
+  // "due" in-app until the document is renewed, so by then a title like
+  // "expires in 7 months" is stale — the banner recomputes the live
+  // days-left from this instead of trusting the title.
+  const push = (docKey, ruleKey, group, when, level, title, detail, expiry) => {
+    if (!when) return;
+    out.push({ docKey, ruleKey, group, when: _docDayOnly(when), level, title, detail, expiry: expiry || null });
+  };
+  const d = data || {};
+
+  // White ID / Company ID — the owner didn't specify a schedule for these
+  // two, so they get the same sensible default as a docket: 2 months, then
+  // 1 month, then on the day.
+  [['whiteId', 'White ID'], ['companyId', 'Company ID']].forEach(([k, name]) => {
+    const e = _docParse((d[k] || {}).expiry);
+    if (!e) return;
+    push(k, '2m', k, _docAddMonths(e, -2), 'info', name + ' expires in 2 months', name + ' expires on ' + _docFmt(e) + '. Start the renewal.', e);
+    push(k, '1m', k, _docAddMonths(e, -1), 'warn', name + ' expires in 1 month', name + ' expires on ' + _docFmt(e) + '. Renew it now.', e);
+    push(k, 'exp', k, e, 'urgent', name + ' expires today', 'Your ' + name + ' expires today.', e);
+  });
+
+  // Blue Docket — annual medical
+  const bd = d.blueDocket || {};
+  const bMed = _docParse(bd.medicalExpiry);
+  const gmo = _docParse(bd.gmoAppointment);
+  if (bMed) {
+    const on = ' Annual medical expires on ' + _docFmt(bMed) + '.';
+    push('blueDocket', 'med-2m', 'blueDocket:med', _docAddMonths(bMed, -2), 'info', 'Annual Medical due in 2 months', 'Your annual medical is coming up.' + on, bMed);
+    push('blueDocket', 'med-45d', 'blueDocket:med', _docAddDays(bMed, -45), 'info', 'Collect Medical Test Paper', 'Collect your medical test paper from the medical centre.' + on, bMed);
+    // Skipped once an appointment date is entered — the owner's
+    // "unless mention specific date".
+    if (!gmo) {
+      push('blueDocket', 'med-30d', 'blueDocket:med', _docAddDays(bMed, -30), 'warn', 'Book your doctor appointment', 'Book your GMO appointment, then enter the date in FlyProfit.' + on, bMed);
+    }
+    push('blueDocket', 'med-11d', 'blueDocket:med', _docAddDays(bMed, -11), 'urgent', 'Send warning email to Safety Training', 'Your annual medical expires in 11 days — send the warning email to Safety Training.' + on, bMed);
+  }
+  if (gmo) {
+    push('blueDocket', 'gmo-2d', 'blueDocket:gmo', _docAddDays(gmo, -2), 'warn', 'GMO appointment in 2 days', 'Your GMO appointment is on ' + _docFmt(gmo) + '.');
+  }
+
+  // Blue Docket — docket expiry itself
+  const bDoc = _docParse(bd.docketExpiry);
+  if (bDoc) {
+    const on = ' Blue Docket expires on ' + _docFmt(bDoc) + '.';
+    push('blueDocket', 'dock-2m', 'blueDocket:dock', _docAddMonths(bDoc, -2), 'info', 'Blue Docket expires in 2 months', 'Start your Blue Docket renewal.' + on, bDoc);
+    push('blueDocket', 'dock-1m', 'blueDocket:dock', _docAddMonths(bDoc, -1), 'warn', 'Blue Docket expires in 1 month', 'Renew your Blue Docket now.' + on, bDoc);
+    push('blueDocket', 'dock-7d', 'blueDocket:dock', _docAddDays(bDoc, -7), 'urgent', 'Blue Docket expires within a week', 'Warning — renew your Blue Docket immediately.' + on, bDoc);
+  }
+
+  // Black Docket — medical
+  const kMed = _docParse((d.blackDocket || {}).medicalExpiry);
+  if (kMed) {
+    const on = ' Black Docket medical expires on ' + _docFmt(kMed) + '.';
+    push('blackDocket', 'med-14d', 'blackDocket:med', _docAddDays(kMed, -14), 'warn', 'Black Docket medical expires in 2 weeks', 'Renew your Black Docket medical.' + on, kMed);
+    push('blackDocket', 'med-7d', 'blackDocket:med', _docAddDays(kMed, -7), 'urgent', 'Black Docket medical expires in 1 week', 'Warning — renew your Black Docket medical now.' + on, kMed);
+    push('blackDocket', 'med-exp', 'blackDocket:med', kMed, 'urgent', 'Black Docket medical expires today', 'Your Black Docket medical expires today.', kMed);
+  }
+
+  // Passport
+  const pp = _docParse((d.passport || {}).expiry);
+  if (pp) {
+    push('passport', '7m', 'passport', _docAddMonths(pp, -7), 'warn', 'Passport renewal due', 'Passport expires on ' + _docFmt(pp) + '. Start the renewal — many countries refuse entry inside 6 months.', pp);
+  }
+
+  out.sort((a, b) => a.when - b.when);
+  return out;
+}
+
+// Every (docKey, ruleKey) the rules above can ever produce, derived by
+// running them against fully-populated dates rather than hardcoded — so a
+// new rule can't be forgotten here. Used to cancel stale calendar entries.
+function _allDocRuleIds() {
+  const far = '2099-01-01';
+  const base = { whiteId:{expiry:far}, companyId:{expiry:far}, blackDocket:{medicalExpiry:far}, passport:{expiry:far} };
+  const withGmo = buildDocReminders(Object.assign({}, base, { blueDocket:{ medicalExpiry:far, gmoAppointment:far, docketExpiry:far } }));
+  const noGmo   = buildDocReminders(Object.assign({}, base, { blueDocket:{ medicalExpiry:far, docketExpiry:far } }));
+  const seen = {};
+  withGmo.concat(noGmo).forEach(r => { seen[r.docKey + '|' + r.ruleKey] = 1; });
+  return Object.keys(seen);
+}
+
+function docFieldStatus(value, field) {
+  const e = _docParse(value);
+  if (!e) return { level: 'none', label: 'NOT SET', days: null };
+  const days = _docDaysBetween(_docToday(), e);
+  if (days < 0) return { level: 'urgent', label: 'EXPIRED', days };
+  if (days === 0) return { level: 'urgent', label: 'EXPIRES TODAY', days };
+  const lbl = days + (days === 1 ? ' DAY LEFT' : ' DAYS LEFT');
+  if (days <= (field.urgent || 30)) return { level: 'urgent', label: lbl, days };
+  if (days <= (field.warn || 60)) return { level: 'soon', label: lbl, days };
+  return { level: 'ok', label: lbl, days };
+}
+
+const _DOC_LEVEL_RANK = { none: 0, ok: 1, soon: 2, urgent: 3 };
+
+function renderDocs() {
+  const wrap = $('docsCards');
+  if (!wrap) return;
+  const data = loadDocs();
+  wrap.innerHTML = DOC_DEFS.map(def => {
+    const doc = data[def.key] || {};
+    const fields = def.fields.map(f => {
+      const val = escapeHtml(doc[f.key] || '');
+      const hint = f.hint ? `<div class="hint">${escapeHtml(f.hint)}</div>` : '';
+      return `<div class="field">
+        <label>${escapeHtml(f.label)}</label>
+        <input type="${f.type}" data-doc="${def.key}" data-field="${f.key}" value="${val}"${f.ph ? ` placeholder="${escapeHtml(f.ph)}"` : ''}>
+        ${hint}
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div class="doc-card-head">
+        <span class="card-ico">${def.icon}</span>
+        <div><div class="card-title">${escapeHtml(def.title)}</div><div class="card-sub">${escapeHtml(def.sub)}</div></div>
+        <span class="doc-pill none" data-pill="${def.key}">NOT SET</span>
+      </div>
+      <div class="card-body">${fields}<div data-todos="${def.key}"></div></div>
+    </div>`;
+  }).join('');
+  refreshDocsStatus();
+}
+
+// Updates pills / to-do lines / banner / nav pip WITHOUT rebuilding the
+// inputs, so it can run on every keystroke without stealing focus.
+function refreshDocsStatus() {
+  const data = loadDocs();
+  const today = _docToday();
+
+  DOC_DEFS.forEach(def => {
+    const doc = data[def.key] || {};
+    const pill = document.querySelector(`[data-pill="${def.key}"]`);
+    if (pill) {
+      let worst = { level: 'none', label: 'NOT SET' };
+      def.fields.filter(f => f.type === 'date' && !f.noStatus).forEach(f => {
+        const st = docFieldStatus(doc[f.key], f);
+        if (_DOC_LEVEL_RANK[st.level] > _DOC_LEVEL_RANK[worst.level]) worst = st;
+        else if (worst.level === 'none' && st.level !== 'none') worst = st;
+      });
+      pill.className = 'doc-pill ' + worst.level;
+      pill.textContent = worst.label;
+    }
+  });
+
+  // Only reminders whose day has arrived. Because they're rebuilt from the
+  // current dates every time, renewing a document (entering the new date)
+  // clears its old reminders automatically — the owner's "unless changed
+  // the date to new date".
+  const due = buildDocReminders(data).filter(r => r.when <= today);
+
+  // One line per tracked thing: the most recent reminder supersedes the
+  // earlier ones in the same group.
+  const latestPerGroup = {};
+  due.forEach(r => {
+    const cur = latestPerGroup[r.group];
+    if (!cur || r.when >= cur.when) latestPerGroup[r.group] = r;
+  });
+  const active = Object.keys(latestPerGroup).map(k => latestPerGroup[k]);
+
+  // A reminder stays "due" until the document is actually renewed, so its
+  // original wording goes stale — "expires in 7 months" read four months
+  // later, or "expires today" read a week after it lapsed. Both the title
+  // and the countdown are therefore rebuilt from today's date, and an
+  // already-expired document gets a purpose-written line instead.
+  const docName = k => (DOC_DEFS.find(x => x.key === k) || {}).title || 'Document';
+  const liveLine = r => {
+    const n = r.expiry ? _docDaysBetween(today, r.expiry) : null;
+    if (n !== null && n < 0) {
+      return {
+        title: docName(r.docKey) + ' has EXPIRED',
+        tail: ` <b style="color:var(--red);">· ${-n} day${n === -1 ? '' : 's'} ago</b>`,
+        detail: 'It expired on ' + _docFmt(r.expiry) + '. Renew it as soon as possible.'
+      };
+    }
+    let tail = '';
+    if (n === 0) tail = ' <b style="color:var(--red);">· expires TODAY</b>';
+    else if (n !== null) tail = ` <b>· ${n} day${n === 1 ? '' : 's'} left</b>`;
+    return { title: r.title, tail, detail: r.detail };
+  };
+  const lineHtml = (r, extraStyle) => {
+    const v = liveLine(r);
+    return `<div class="doc-todo ${r.level}"${extraStyle ? ` style="${extraStyle}"` : ''}>`
+      + `<span>${r.level === 'urgent' ? '⚠️' : '🔔'}</span>`
+      + `<span><b>${escapeHtml(v.title)}</b>${v.tail}<br>${escapeHtml(v.detail)}</span></div>`;
+  };
+
+  const byDoc = {};
+  active.forEach(r => { (byDoc[r.docKey] = byDoc[r.docKey] || []).push(r); });
+  DOC_DEFS.forEach(def => {
+    const box = document.querySelector(`[data-todos="${def.key}"]`);
+    if (!box) return;
+    const list = byDoc[def.key] || [];
+    box.innerHTML = list.map(r => lineHtml(r)).join('');
+  });
+
+  const alertArea = $('docsAlertArea');
+  if (alertArea) {
+    const urgent = active.filter(r => r.level === 'urgent');
+    const others = active.filter(r => r.level !== 'urgent');
+    if (!active.length) {
+      const anyDate = DOC_DEFS.some(def => (def.fields || []).some(f => f.type === 'date' && (data[def.key] || {})[f.key]));
+      alertArea.innerHTML = anyDate
+        ? `<div class="card"><div class="card-body" style="display:flex;gap:9px;align-items:center;"><span style="font-size:1rem;">✅</span><span style="font-size:.78rem;color:var(--green);">Nothing needs attention right now.</span></div></div>`
+        : `<div class="card"><div class="card-body" style="font-size:.76rem;color:var(--tx2);line-height:1.65;">Add your expiry dates below and FlyProfit will warn you before each one runs out.</div></div>`;
+    } else {
+      alertArea.innerHTML = `<div class="card" style="border-color:${urgent.length ? 'rgba(248,113,113,.3)' : 'rgba(245,158,11,.28)'};">
+        <div class="card-head"><span class="card-ico">${urgent.length ? '⚠️' : '🔔'}</span><div><div class="card-title">Needs Your Attention</div><div class="card-sub">${active.length} item${active.length === 1 ? '' : 's'}</div></div></div>
+        <div class="card-body">${urgent.concat(others).map(r => lineHtml(r, 'margin-top:0;margin-bottom:8px;')).join('')}</div>
+      </div>`;
+    }
+  }
+
+  const dot = $('docsNavDot');
+  if (dot) dot.classList.toggle('on', active.some(r => r.level === 'urgent' || r.level === 'warn'));
+}
+
+// ---- Calendar (.ics) export ----
+function _icsEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+function _icsDay(d) {
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+}
+// RFC 5545 caps a content line at 75 octets; continuations start with a space.
+function _icsFold(line) {
+  if (line.length <= 73) return line;
+  let out = line.slice(0, 73), rest = line.slice(73);
+  while (rest.length) { out += '\r\n ' + rest.slice(0, 72); rest = rest.slice(72); }
+  return out;
+}
+
+function buildDocsIcs() {
+  const data = loadDocs();
+  const today = _docToday();
+  // Past reminders are skipped — a calendar entry dated last month would
+  // either fire instantly or not at all.
+  const upcoming = buildDocReminders(data).filter(r => r.when >= today);
+
+  // Bumping SEQUENCE on every export is what tells a calendar "this is a
+  // revision of the event you already have with this UID", not a new one.
+  const seq = (parseInt(localStorage.getItem(DOCS_SEQ_KEY) || '0', 10) || 0) + 1;
+  localStorage.setItem(DOCS_SEQ_KEY, String(seq));
+
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const uidFor = (docKey, ruleKey) => 'flyprofit-' + docKey + '-' + ruleKey + '@flyprofit.app';
+
+  const lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0',
+    'PRODID:-//FlyProfit//Document Reminders//EN',
+    'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:FlyProfit Reminders'
+  ];
+
+  upcoming.forEach(r => {
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + uidFor(r.docKey, r.ruleKey));
+    lines.push('DTSTAMP:' + stamp);
+    lines.push('SEQUENCE:' + seq);
+    lines.push('STATUS:CONFIRMED');
+    lines.push('TRANSP:TRANSPARENT');
+    lines.push('DTSTART;VALUE=DATE:' + _icsDay(r.when));
+    lines.push('DTEND;VALUE=DATE:' + _icsDay(_docAddDays(r.when, 1)));
+    lines.push('SUMMARY:' + _icsEsc('FlyProfit: ' + r.title));
+    lines.push('DESCRIPTION:' + _icsEsc(r.detail));
+    lines.push('BEGIN:VALARM');
+    lines.push('ACTION:DISPLAY');
+    lines.push('DESCRIPTION:' + _icsEsc(r.title));
+    lines.push('TRIGGER;RELATED=START:PT9H'); // 09:00 on the day itself
+    lines.push('END:VALARM');
+    lines.push('END:VEVENT');
+  });
+
+  // Anything this person no longer has a date for goes out cancelled, so a
+  // calendar that honours CANCEL removes the stale entry by itself.
+  const live = {};
+  upcoming.forEach(r => { live[r.docKey + '|' + r.ruleKey] = 1; });
+  _allDocRuleIds().filter(id => !live[id]).forEach(id => {
+    const [docKey, ruleKey] = id.split('|');
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + uidFor(docKey, ruleKey));
+    lines.push('DTSTAMP:' + stamp);
+    lines.push('SEQUENCE:' + seq);
+    lines.push('STATUS:CANCELLED');
+    lines.push('DTSTART;VALUE=DATE:' + _icsDay(today));
+    lines.push('DTEND;VALUE=DATE:' + _icsDay(_docAddDays(today, 1)));
+    lines.push('SUMMARY:' + _icsEsc('FlyProfit reminder (removed)'));
+    lines.push('END:VEVENT');
+  });
+
+  lines.push('END:VCALENDAR');
+  return { ics: lines.map(_icsFold).join('\r\n') + '\r\n', count: upcoming.length };
+}
+
+// ---------- Docs wiring ----------
+(function () {
+  const cards = $('docsCards');
+  if (!cards) return;
+
+  // Saved on every keystroke; only the read-outs refresh, so the field
+  // being typed into never loses focus mid-edit.
+  cards.addEventListener('input', e => {
+    const el = e.target;
+    if (!el.dataset || !el.dataset.doc) return;
+    const data = loadDocs();
+    data[el.dataset.doc] = data[el.dataset.doc] || {};
+    data[el.dataset.doc][el.dataset.field] = el.value;
+    saveDocs(data);
+    refreshDocsStatus();
+  });
+
+  $('btnDocsCalendar').addEventListener('click', () => {
+    const msg = $('docsCalendarMsg');
+    const built = buildDocsIcs();
+    if (!built.count) {
+      msg.style.display = 'block';
+      msg.style.color = 'var(--amber)';
+      msg.textContent = 'Add at least one expiry date first — there is nothing to remind you about yet.';
+      return;
+    }
+    const blob = new Blob([built.ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'flyprofit-reminders.ics';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+    msg.style.display = 'block';
+    msg.style.color = 'var(--tx3)';
+    msg.innerHTML = `<b style="color:var(--green);">${built.count} reminder${built.count === 1 ? '' : 's'} ready.</b><br>`
+      + 'On iPhone it saves to <b>Files</b> — open it from there and tap <b>Add All</b> to put them in your Calendar.<br>'
+      + 'On Android, tap the downloaded file and choose your Calendar app.';
+  });
+
+  $('btnDocsClear').addEventListener('click', async () => {
+    if (!await showConfirm('Erase all saved documents and dates from this phone? This cannot be undone.')) return;
+    localStorage.removeItem(DOCS_KEY);
+    renderDocs();
+    const msg = $('docsCalendarMsg');
+    if (msg) {
+      msg.style.display = 'block';
+      msg.style.color = 'var(--tx3)';
+      msg.textContent = 'Documents cleared. Reminders already in your phone calendar stay there until you delete them.';
+    }
+  });
+
+  renderDocs();
+})();
 
 // ---------- Logbook wiring ----------
 $('logbookYear').addEventListener('change', renderLogbook);
