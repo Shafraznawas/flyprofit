@@ -492,11 +492,26 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 
 /* TOP NAV TABS */
 .bottomnav{height:var(--nav-h);flex-shrink:0;background:rgba(11,14,26,.98);border-bottom:1px solid var(--b0);display:flex;align-items:stretch;z-index:100;}
-.nav-btn{flex:1;border:none;border-bottom:3px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:6px 4px 5px;color:var(--tx3);font-family:var(--sans);transition:color .15s,border-color .15s;}
+.nav-btn{position:relative;flex:1;border:none;border-bottom:3px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:6px 4px 5px;color:var(--tx3);font-family:var(--sans);transition:color .15s,border-color .15s;}
 .nav-btn.active{color:var(--purple3);border-bottom-color:var(--purple3);background:rgba(124,58,237,.08);}
 .nav-icon{font-size:17px;line-height:1;}
 .nav-lbl{font-size:.58rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
 .nav-dot{display:none;}
+/* Red pip on the Docs tab when something is expiring / overdue. */
+.nav-dot.on{display:block;position:absolute;top:5px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 6px rgba(248,113,113,.75);}
+
+/* DOCS (document & medical expiry tracker) */
+.doc-card-head{display:flex;align-items:center;gap:9px;padding:13px 15px;border-bottom:1px solid var(--b0);}
+.doc-pill{margin-left:auto;font-size:.56rem;font-family:var(--mono);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:20px;white-space:nowrap;}
+.doc-pill.ok{background:rgba(74,222,128,.1);color:var(--green);border:1px solid rgba(74,222,128,.25);}
+.doc-pill.soon{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.28);}
+.doc-pill.urgent{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.3);}
+.doc-pill.none{background:rgba(255,255,255,.04);color:var(--tx3);border:1px solid var(--b0);}
+.doc-todo{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;margin-top:9px;font-size:.74rem;line-height:1.5;}
+.doc-todo.info{background:rgba(0,200,240,.06);border:1px solid rgba(0,200,240,.18);color:var(--tx2);}
+.doc-todo.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber);}
+.doc-todo.urgent{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
+.doc-todo b{color:var(--tx1);}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -659,6 +674,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   <button class="nav-btn" data-page="page-inputs"><span class="nav-icon">✏️</span><span class="nav-lbl">Inputs</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-gauge"><span class="nav-icon">📊</span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-logbook"><span class="nav-icon">📖</span><span class="nav-lbl">Logbook</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-docs"><span class="nav-icon">🪪</span><span class="nav-lbl">Docs</span><span class="nav-dot" id="docsNavDot"></span></button>
 </div>
 
 <div class="scroll-area" id="scrollArea">
@@ -889,6 +905,45 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       <button class="act-btn" id="btnLogbookReset" style="color:var(--red);">🗑 Reset Logbook</button>
     </div>
     <input type="file" id="logbookImportFile" accept="application/json" style="display:none;">
+  </div>
+
+  <!-- PAGE 7: DOCS (ID / medical / docket expiry tracker) -->
+  <!-- Deliberately its own tab and completely separate from every salary
+       figure — nothing here feeds the calculator, and the calculator never
+       reads it. Everything lives in localStorage on the crew member's own
+       phone (passport/ID numbers) and is NEVER sent to the monitoring
+       sheet or any server. -->
+  <div class="page" id="page-docs">
+    <div id="docsAlertArea"></div>
+    <div id="docsCards"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <span class="card-ico">🔔</span>
+        <div><div class="card-title">Phone Reminders</div><div class="card-sub">So you're told even with the app closed</div></div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:.75rem;color:var(--tx2);line-height:1.65;">
+          This puts every reminder date above into your phone's own calendar. Your phone then alerts you on each day — you don't need to open FlyProfit at all.
+        </div>
+        <div style="font-size:.68rem;color:var(--tx3);line-height:1.6;margin-top:9px;">
+          Tap this again any time you change a date, so your calendar stays correct.
+        </div>
+        <button class="btn-outline" id="btnDocsCalendar" style="margin-top:12px;">📅 Add Reminders To My Calendar</button>
+        <div id="docsCalendarMsg" style="font-size:.68rem;line-height:1.6;margin-top:9px;display:none;"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body" style="display:flex;gap:9px;align-items:flex-start;">
+        <span style="font-size:.9rem;">🔒</span>
+        <span style="font-size:.7rem;color:var(--tx3);line-height:1.6;">Everything on this page is stored only on this phone. It is never uploaded, never shared, and is not part of any salary calculation.</span>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="act-btn" id="btnDocsClear" style="color:var(--red);">🗑 Clear All Documents</button>
+    </div>
   </div>
 
 </div>
@@ -2402,7 +2457,6 @@ function calculateAPITTax(taxableIncomeLKR) {
   return { tax: Math.max(0, tax), slabUsed: slabLabel };
 }
 
-
 // ============================================================
 // UI WIRING LAYER
 // ============================================================
@@ -3740,7 +3794,443 @@ $('blockHoursOverride').addEventListener('input',function(){
 document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('click',function(){
   goTo(b.dataset.page);
   if(b.dataset.page==='page-logbook') renderLogbook();
+  if(b.dataset.page==='page-docs') refreshDocsStatus();
 });});
+
+// ============================================================
+// DOCUMENTS & MEDICAL EXPIRY TRACKER (Docs tab)
+// ============================================================
+// Deliberately isolated from every salary path: calculateSalary() never
+// reads this, and none of it is ever sent to PING_URL. These are personal
+// ID/passport numbers, so they live in localStorage on this device only.
+//
+// Reminders surface two ways, because this app is opened rarely (crew
+// mostly open it near payday) — in-app alone would sail straight past a
+// "45 days before" date:
+//   1. In-app: a banner at the top of the tab plus a red pip on the nav
+//      button, recomputed from the dates on every app open.
+//   2. The phone's own calendar (.ics export) — the phone then alerts
+//      them with FlyProfit closed. Each reminder carries a STABLE UID so
+//      re-exporting after a date change updates the existing entry in
+//      place instead of piling up duplicates, and rules that no longer
+//      apply are re-issued as STATUS:CANCELLED so calendars that honour
+//      it drop them.
+const DOCS_KEY = 'sla_documents';
+const DOCS_SEQ_KEY = 'sla_documents_ics_seq';
+
+// warn/urgent = days-left thresholds at which the status pill turns
+// amber / red. Passport's are wide because its alert lead time is 7 months.
+const DOC_DEFS = [
+  { key:'whiteId', icon:'🪪', title:'White ID', sub:'Airport / airside pass', fields:[
+      { key:'number', label:'ID No', type:'text', ph:'Optional' },
+      { key:'expiry', label:'Expiry Date', type:'date', warn:60, urgent:30 }
+  ]},
+  { key:'companyId', icon:'🏢', title:'Company ID', sub:'SriLankan Airlines ID', fields:[
+      { key:'number', label:'ID No', type:'text', ph:'Optional' },
+      { key:'expiry', label:'Expiry Date', type:'date', warn:60, urgent:30 }
+  ]},
+  { key:'blueDocket', icon:'🔵', title:'Blue Docket', sub:'Annual medical & docket expiry', fields:[
+      { key:'number', label:'Docket No', type:'text', ph:'Optional' },
+      { key:'medicalExpiry', label:'Annual Medical Expiry', type:'date', warn:60, urgent:30 },
+      { key:'gmoAppointment', label:'GMO Appointment Date', type:'date', noStatus:true,
+        hint:'Fill this in once you have booked. It stops the "book your appointment" reminder and adds a 2-day warning before the appointment.' },
+      { key:'docketExpiry', label:'Docket Expiry', type:'date', warn:60, urgent:30 }
+  ]},
+  { key:'blackDocket', icon:'⚫', title:'Black Docket', sub:'Medical expiry', fields:[
+      { key:'number', label:'Docket No', type:'text', ph:'Optional' },
+      { key:'medicalExpiry', label:'Medical Expiry', type:'date', warn:14, urgent:7 }
+  ]},
+  { key:'passport', icon:'🛂', title:'Passport', sub:'Alerts 7 months ahead', fields:[
+      { key:'number', label:'Passport No', type:'text', ph:'Optional' },
+      { key:'expiry', label:'Expiry Date', type:'date', warn:210, urgent:90 }
+  ]}
+];
+
+function _docDayOnly(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function _docToday() { return _docDayOnly(new Date()); }
+function _docParse(s) {
+  if (!s) return null;
+  const p = String(s).split('-');
+  if (p.length !== 3) return null;
+  const d = new Date(+p[0], +p[1] - 1, +p[2]);
+  return isNaN(d.getTime()) ? null : d;
+}
+function _docAddDays(d, n) { const x = new Date(d.getTime()); x.setDate(x.getDate() + n); return x; }
+// Clamps to the end of the target month, so "2 months before 31 Mar" can't
+// roll forward into the next month the way a bare setMonth() would.
+function _docAddMonths(d, n) {
+  const x = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  const lastDay = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
+  x.setDate(Math.min(d.getDate(), lastDay));
+  return x;
+}
+function _docDaysBetween(a, b) { return Math.round((_docDayOnly(b) - _docDayOnly(a)) / 86400000); }
+function _docFmt(d) {
+  if (!d) return '';
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate() + ' ' + M[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function loadDocs() {
+  try { return JSON.parse(localStorage.getItem(DOCS_KEY) || '{}') || {}; } catch (e) { return {}; }
+}
+function saveDocs(d) { localStorage.setItem(DOCS_KEY, JSON.stringify(d)); }
+
+// The owner's reminder rules, one place. Every reminder is keyed by a
+// stable (docKey, ruleKey) pair — that pair becomes its calendar UID, so
+// changing a date moves the existing calendar entry rather than adding a
+// second one. `group` exists only to collapse the in-app banner down to
+// the single most recent reminder per real-world thing being tracked.
+function buildDocReminders(data) {
+  const out = [];
+  // `expiry` is the real-world date the reminder is about. A reminder stays
+  // "due" in-app until the document is renewed, so by then a title like
+  // "expires in 7 months" is stale — the banner recomputes the live
+  // days-left from this instead of trusting the title.
+  const push = (docKey, ruleKey, group, when, level, title, detail, expiry) => {
+    if (!when) return;
+    out.push({ docKey, ruleKey, group, when: _docDayOnly(when), level, title, detail, expiry: expiry || null });
+  };
+  const d = data || {};
+
+  // White ID / Company ID — the owner didn't specify a schedule for these
+  // two, so they get the same sensible default as a docket: 2 months, then
+  // 1 month, then on the day.
+  [['whiteId', 'White ID'], ['companyId', 'Company ID']].forEach(([k, name]) => {
+    const e = _docParse((d[k] || {}).expiry);
+    if (!e) return;
+    push(k, '2m', k, _docAddMonths(e, -2), 'info', name + ' expires in 2 months', name + ' expires on ' + _docFmt(e) + '. Start the renewal.', e);
+    push(k, '1m', k, _docAddMonths(e, -1), 'warn', name + ' expires in 1 month', name + ' expires on ' + _docFmt(e) + '. Renew it now.', e);
+    push(k, 'exp', k, e, 'urgent', name + ' expires today', 'Your ' + name + ' expires today.', e);
+  });
+
+  // Blue Docket — annual medical
+  const bd = d.blueDocket || {};
+  const bMed = _docParse(bd.medicalExpiry);
+  const gmo = _docParse(bd.gmoAppointment);
+  if (bMed) {
+    const on = ' Annual medical expires on ' + _docFmt(bMed) + '.';
+    push('blueDocket', 'med-2m', 'blueDocket:med', _docAddMonths(bMed, -2), 'info', 'Annual Medical due in 2 months', 'Your annual medical is coming up.' + on, bMed);
+    push('blueDocket', 'med-45d', 'blueDocket:med', _docAddDays(bMed, -45), 'info', 'Collect Medical Test Paper', 'Collect your medical test paper from the medical centre.' + on, bMed);
+    // Skipped once an appointment date is entered — the owner's
+    // "unless mention specific date".
+    if (!gmo) {
+      push('blueDocket', 'med-30d', 'blueDocket:med', _docAddDays(bMed, -30), 'warn', 'Book your doctor appointment', 'Book your GMO appointment, then enter the date in FlyProfit.' + on, bMed);
+    }
+    push('blueDocket', 'med-11d', 'blueDocket:med', _docAddDays(bMed, -11), 'urgent', 'Send warning email to Safety Training', 'Your annual medical expires in 11 days — send the warning email to Safety Training.' + on, bMed);
+  }
+  if (gmo) {
+    push('blueDocket', 'gmo-2d', 'blueDocket:gmo', _docAddDays(gmo, -2), 'warn', 'GMO appointment in 2 days', 'Your GMO appointment is on ' + _docFmt(gmo) + '.');
+  }
+
+  // Blue Docket — docket expiry itself
+  const bDoc = _docParse(bd.docketExpiry);
+  if (bDoc) {
+    const on = ' Blue Docket expires on ' + _docFmt(bDoc) + '.';
+    push('blueDocket', 'dock-2m', 'blueDocket:dock', _docAddMonths(bDoc, -2), 'info', 'Blue Docket expires in 2 months', 'Start your Blue Docket renewal.' + on, bDoc);
+    push('blueDocket', 'dock-1m', 'blueDocket:dock', _docAddMonths(bDoc, -1), 'warn', 'Blue Docket expires in 1 month', 'Renew your Blue Docket now.' + on, bDoc);
+    push('blueDocket', 'dock-7d', 'blueDocket:dock', _docAddDays(bDoc, -7), 'urgent', 'Blue Docket expires within a week', 'Warning — renew your Blue Docket immediately.' + on, bDoc);
+  }
+
+  // Black Docket — medical
+  const kMed = _docParse((d.blackDocket || {}).medicalExpiry);
+  if (kMed) {
+    const on = ' Black Docket medical expires on ' + _docFmt(kMed) + '.';
+    push('blackDocket', 'med-14d', 'blackDocket:med', _docAddDays(kMed, -14), 'warn', 'Black Docket medical expires in 2 weeks', 'Renew your Black Docket medical.' + on, kMed);
+    push('blackDocket', 'med-7d', 'blackDocket:med', _docAddDays(kMed, -7), 'urgent', 'Black Docket medical expires in 1 week', 'Warning — renew your Black Docket medical now.' + on, kMed);
+    push('blackDocket', 'med-exp', 'blackDocket:med', kMed, 'urgent', 'Black Docket medical expires today', 'Your Black Docket medical expires today.', kMed);
+  }
+
+  // Passport
+  const pp = _docParse((d.passport || {}).expiry);
+  if (pp) {
+    push('passport', '7m', 'passport', _docAddMonths(pp, -7), 'warn', 'Passport renewal due', 'Passport expires on ' + _docFmt(pp) + '. Start the renewal — many countries refuse entry inside 6 months.', pp);
+  }
+
+  out.sort((a, b) => a.when - b.when);
+  return out;
+}
+
+// Every (docKey, ruleKey) the rules above can ever produce, derived by
+// running them against fully-populated dates rather than hardcoded — so a
+// new rule can't be forgotten here. Used to cancel stale calendar entries.
+function _allDocRuleIds() {
+  const far = '2099-01-01';
+  const base = { whiteId:{expiry:far}, companyId:{expiry:far}, blackDocket:{medicalExpiry:far}, passport:{expiry:far} };
+  const withGmo = buildDocReminders(Object.assign({}, base, { blueDocket:{ medicalExpiry:far, gmoAppointment:far, docketExpiry:far } }));
+  const noGmo   = buildDocReminders(Object.assign({}, base, { blueDocket:{ medicalExpiry:far, docketExpiry:far } }));
+  const seen = {};
+  withGmo.concat(noGmo).forEach(r => { seen[r.docKey + '|' + r.ruleKey] = 1; });
+  return Object.keys(seen);
+}
+
+function docFieldStatus(value, field) {
+  const e = _docParse(value);
+  if (!e) return { level: 'none', label: 'NOT SET', days: null };
+  const days = _docDaysBetween(_docToday(), e);
+  if (days < 0) return { level: 'urgent', label: 'EXPIRED', days };
+  if (days === 0) return { level: 'urgent', label: 'EXPIRES TODAY', days };
+  const lbl = days + (days === 1 ? ' DAY LEFT' : ' DAYS LEFT');
+  if (days <= (field.urgent || 30)) return { level: 'urgent', label: lbl, days };
+  if (days <= (field.warn || 60)) return { level: 'soon', label: lbl, days };
+  return { level: 'ok', label: lbl, days };
+}
+
+const _DOC_LEVEL_RANK = { none: 0, ok: 1, soon: 2, urgent: 3 };
+
+function renderDocs() {
+  const wrap = $('docsCards');
+  if (!wrap) return;
+  const data = loadDocs();
+  wrap.innerHTML = DOC_DEFS.map(def => {
+    const doc = data[def.key] || {};
+    const fields = def.fields.map(f => {
+      const val = escapeHtml(doc[f.key] || '');
+      const hint = f.hint ? `<div class="hint">${escapeHtml(f.hint)}</div>` : '';
+      return `<div class="field">
+        <label>${escapeHtml(f.label)}</label>
+        <input type="${f.type}" data-doc="${def.key}" data-field="${f.key}" value="${val}"${f.ph ? ` placeholder="${escapeHtml(f.ph)}"` : ''}>
+        ${hint}
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div class="doc-card-head">
+        <span class="card-ico">${def.icon}</span>
+        <div><div class="card-title">${escapeHtml(def.title)}</div><div class="card-sub">${escapeHtml(def.sub)}</div></div>
+        <span class="doc-pill none" data-pill="${def.key}">NOT SET</span>
+      </div>
+      <div class="card-body">${fields}<div data-todos="${def.key}"></div></div>
+    </div>`;
+  }).join('');
+  refreshDocsStatus();
+}
+
+// Updates pills / to-do lines / banner / nav pip WITHOUT rebuilding the
+// inputs, so it can run on every keystroke without stealing focus.
+function refreshDocsStatus() {
+  const data = loadDocs();
+  const today = _docToday();
+
+  DOC_DEFS.forEach(def => {
+    const doc = data[def.key] || {};
+    const pill = document.querySelector(`[data-pill="${def.key}"]`);
+    if (pill) {
+      let worst = { level: 'none', label: 'NOT SET' };
+      def.fields.filter(f => f.type === 'date' && !f.noStatus).forEach(f => {
+        const st = docFieldStatus(doc[f.key], f);
+        if (_DOC_LEVEL_RANK[st.level] > _DOC_LEVEL_RANK[worst.level]) worst = st;
+        else if (worst.level === 'none' && st.level !== 'none') worst = st;
+      });
+      pill.className = 'doc-pill ' + worst.level;
+      pill.textContent = worst.label;
+    }
+  });
+
+  // Only reminders whose day has arrived. Because they're rebuilt from the
+  // current dates every time, renewing a document (entering the new date)
+  // clears its old reminders automatically — the owner's "unless changed
+  // the date to new date".
+  const due = buildDocReminders(data).filter(r => r.when <= today);
+
+  // One line per tracked thing: the most recent reminder supersedes the
+  // earlier ones in the same group.
+  const latestPerGroup = {};
+  due.forEach(r => {
+    const cur = latestPerGroup[r.group];
+    if (!cur || r.when >= cur.when) latestPerGroup[r.group] = r;
+  });
+  const active = Object.keys(latestPerGroup).map(k => latestPerGroup[k]);
+
+  // A reminder stays "due" until the document is actually renewed, so its
+  // original wording goes stale — "expires in 7 months" read four months
+  // later, or "expires today" read a week after it lapsed. Both the title
+  // and the countdown are therefore rebuilt from today's date, and an
+  // already-expired document gets a purpose-written line instead.
+  const docName = k => (DOC_DEFS.find(x => x.key === k) || {}).title || 'Document';
+  const liveLine = r => {
+    const n = r.expiry ? _docDaysBetween(today, r.expiry) : null;
+    if (n !== null && n < 0) {
+      return {
+        title: docName(r.docKey) + ' has EXPIRED',
+        tail: ` <b style="color:var(--red);">· ${-n} day${n === -1 ? '' : 's'} ago</b>`,
+        detail: 'It expired on ' + _docFmt(r.expiry) + '. Renew it as soon as possible.'
+      };
+    }
+    let tail = '';
+    if (n === 0) tail = ' <b style="color:var(--red);">· expires TODAY</b>';
+    else if (n !== null) tail = ` <b>· ${n} day${n === 1 ? '' : 's'} left</b>`;
+    return { title: r.title, tail, detail: r.detail };
+  };
+  const lineHtml = (r, extraStyle) => {
+    const v = liveLine(r);
+    return `<div class="doc-todo ${r.level}"${extraStyle ? ` style="${extraStyle}"` : ''}>`
+      + `<span>${r.level === 'urgent' ? '⚠️' : '🔔'}</span>`
+      + `<span><b>${escapeHtml(v.title)}</b>${v.tail}<br>${escapeHtml(v.detail)}</span></div>`;
+  };
+
+  const byDoc = {};
+  active.forEach(r => { (byDoc[r.docKey] = byDoc[r.docKey] || []).push(r); });
+  DOC_DEFS.forEach(def => {
+    const box = document.querySelector(`[data-todos="${def.key}"]`);
+    if (!box) return;
+    const list = byDoc[def.key] || [];
+    box.innerHTML = list.map(r => lineHtml(r)).join('');
+  });
+
+  const alertArea = $('docsAlertArea');
+  if (alertArea) {
+    const urgent = active.filter(r => r.level === 'urgent');
+    const others = active.filter(r => r.level !== 'urgent');
+    if (!active.length) {
+      const anyDate = DOC_DEFS.some(def => (def.fields || []).some(f => f.type === 'date' && (data[def.key] || {})[f.key]));
+      alertArea.innerHTML = anyDate
+        ? `<div class="card"><div class="card-body" style="display:flex;gap:9px;align-items:center;"><span style="font-size:1rem;">✅</span><span style="font-size:.78rem;color:var(--green);">Nothing needs attention right now.</span></div></div>`
+        : `<div class="card"><div class="card-body" style="font-size:.76rem;color:var(--tx2);line-height:1.65;">Add your expiry dates below and FlyProfit will warn you before each one runs out.</div></div>`;
+    } else {
+      alertArea.innerHTML = `<div class="card" style="border-color:${urgent.length ? 'rgba(248,113,113,.3)' : 'rgba(245,158,11,.28)'};">
+        <div class="card-head"><span class="card-ico">${urgent.length ? '⚠️' : '🔔'}</span><div><div class="card-title">Needs Your Attention</div><div class="card-sub">${active.length} item${active.length === 1 ? '' : 's'}</div></div></div>
+        <div class="card-body">${urgent.concat(others).map(r => lineHtml(r, 'margin-top:0;margin-bottom:8px;')).join('')}</div>
+      </div>`;
+    }
+  }
+
+  const dot = $('docsNavDot');
+  if (dot) dot.classList.toggle('on', active.some(r => r.level === 'urgent' || r.level === 'warn'));
+}
+
+// ---- Calendar (.ics) export ----
+function _icsEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+}
+function _icsDay(d) {
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+}
+// RFC 5545 caps a content line at 75 octets; continuations start with a space.
+function _icsFold(line) {
+  if (line.length <= 73) return line;
+  let out = line.slice(0, 73), rest = line.slice(73);
+  while (rest.length) { out += '\r\n ' + rest.slice(0, 72); rest = rest.slice(72); }
+  return out;
+}
+
+function buildDocsIcs() {
+  const data = loadDocs();
+  const today = _docToday();
+  // Past reminders are skipped — a calendar entry dated last month would
+  // either fire instantly or not at all.
+  const upcoming = buildDocReminders(data).filter(r => r.when >= today);
+
+  // Bumping SEQUENCE on every export is what tells a calendar "this is a
+  // revision of the event you already have with this UID", not a new one.
+  const seq = (parseInt(localStorage.getItem(DOCS_SEQ_KEY) || '0', 10) || 0) + 1;
+  localStorage.setItem(DOCS_SEQ_KEY, String(seq));
+
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const uidFor = (docKey, ruleKey) => 'flyprofit-' + docKey + '-' + ruleKey + '@flyprofit.app';
+
+  const lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0',
+    'PRODID:-//FlyProfit//Document Reminders//EN',
+    'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:FlyProfit Reminders'
+  ];
+
+  upcoming.forEach(r => {
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + uidFor(r.docKey, r.ruleKey));
+    lines.push('DTSTAMP:' + stamp);
+    lines.push('SEQUENCE:' + seq);
+    lines.push('STATUS:CONFIRMED');
+    lines.push('TRANSP:TRANSPARENT');
+    lines.push('DTSTART;VALUE=DATE:' + _icsDay(r.when));
+    lines.push('DTEND;VALUE=DATE:' + _icsDay(_docAddDays(r.when, 1)));
+    lines.push('SUMMARY:' + _icsEsc('FlyProfit: ' + r.title));
+    lines.push('DESCRIPTION:' + _icsEsc(r.detail));
+    lines.push('BEGIN:VALARM');
+    lines.push('ACTION:DISPLAY');
+    lines.push('DESCRIPTION:' + _icsEsc(r.title));
+    lines.push('TRIGGER;RELATED=START:PT9H'); // 09:00 on the day itself
+    lines.push('END:VALARM');
+    lines.push('END:VEVENT');
+  });
+
+  // Anything this person no longer has a date for goes out cancelled, so a
+  // calendar that honours CANCEL removes the stale entry by itself.
+  const live = {};
+  upcoming.forEach(r => { live[r.docKey + '|' + r.ruleKey] = 1; });
+  _allDocRuleIds().filter(id => !live[id]).forEach(id => {
+    const [docKey, ruleKey] = id.split('|');
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + uidFor(docKey, ruleKey));
+    lines.push('DTSTAMP:' + stamp);
+    lines.push('SEQUENCE:' + seq);
+    lines.push('STATUS:CANCELLED');
+    lines.push('DTSTART;VALUE=DATE:' + _icsDay(today));
+    lines.push('DTEND;VALUE=DATE:' + _icsDay(_docAddDays(today, 1)));
+    lines.push('SUMMARY:' + _icsEsc('FlyProfit reminder (removed)'));
+    lines.push('END:VEVENT');
+  });
+
+  lines.push('END:VCALENDAR');
+  return { ics: lines.map(_icsFold).join('\r\n') + '\r\n', count: upcoming.length };
+}
+
+// ---------- Docs wiring ----------
+(function () {
+  const cards = $('docsCards');
+  if (!cards) return;
+
+  // Saved on every keystroke; only the read-outs refresh, so the field
+  // being typed into never loses focus mid-edit.
+  cards.addEventListener('input', e => {
+    const el = e.target;
+    if (!el.dataset || !el.dataset.doc) return;
+    const data = loadDocs();
+    data[el.dataset.doc] = data[el.dataset.doc] || {};
+    data[el.dataset.doc][el.dataset.field] = el.value;
+    saveDocs(data);
+    refreshDocsStatus();
+  });
+
+  $('btnDocsCalendar').addEventListener('click', () => {
+    const msg = $('docsCalendarMsg');
+    const built = buildDocsIcs();
+    if (!built.count) {
+      msg.style.display = 'block';
+      msg.style.color = 'var(--amber)';
+      msg.textContent = 'Add at least one expiry date first — there is nothing to remind you about yet.';
+      return;
+    }
+    const blob = new Blob([built.ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'flyprofit-reminders.ics';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+    msg.style.display = 'block';
+    msg.style.color = 'var(--tx3)';
+    msg.innerHTML = `<b style="color:var(--green);">${built.count} reminder${built.count === 1 ? '' : 's'} ready.</b><br>`
+      + 'On iPhone it saves to <b>Files</b> — open it from there and tap <b>Add All</b> to put them in your Calendar.<br>'
+      + 'On Android, tap the downloaded file and choose your Calendar app.';
+  });
+
+  $('btnDocsClear').addEventListener('click', async () => {
+    if (!await showConfirm('Erase all saved documents and dates from this phone? This cannot be undone.')) return;
+    localStorage.removeItem(DOCS_KEY);
+    renderDocs();
+    const msg = $('docsCalendarMsg');
+    if (msg) {
+      msg.style.display = 'block';
+      msg.style.color = 'var(--tx3)';
+      msg.textContent = 'Documents cleared. Reminders already in your phone calendar stay there until you delete them.';
+    }
+  });
+
+  renderDocs();
+})();
 
 // ---------- Logbook wiring ----------
 $('logbookYear').addEventListener('change', renderLogbook);
@@ -3989,6 +4479,14 @@ function showConfirm(message) {
   });
 }
 
+// First-launch overlays (disclaimer -> category picker -> trial-started)
+// must appear ONE AT A TIME, not stacked by z-index. This default no-op
+// keeps the chain below safe to call even before the trial script (much
+// further down the page) has replaced it with the real function, or when
+// TRIAL_ENABLED is off / the user is already licensed and no trial-started
+// popup should ever appear.
+window._slaShowTrialStartIfFirst = function(){};
+
 // ---------- Hidden admin reset: tap designation 5x rapidly ----------
 (function() {
   const desig = document.getElementById('topDesig');
@@ -4014,10 +4512,17 @@ function showConfirm(message) {
   const overlay = document.getElementById('category-overlay');
   if (!overlay) return;
 
-  // Show if no category saved yet
-  if (!localStorage.getItem('sla_category')) {
-    overlay.style.display = 'flex';
-  }
+  // Triggered by the disclaimer's "Got it" click (below), not on load — so
+  // this never appears before the crew member has actually dismissed the
+  // disclaimer. If a category is already saved, skip straight to the
+  // trial-started check instead of showing this at all.
+  window._slaAfterDisclaimer = function() {
+    if (!localStorage.getItem('sla_category')) {
+      overlay.style.display = 'flex';
+    } else {
+      window._slaShowTrialStartIfFirst();
+    }
+  };
 
   let pickedCat = null;
   const confirmBtn = document.getElementById('btnCategoryConfirm');
@@ -4044,6 +4549,7 @@ function showConfirm(message) {
     localStorage.setItem('sla_category', pickedCat);
     updateCatUI();
     overlay.style.display = 'none';
+    window._slaShowTrialStartIfFirst();
   });
 })();
 
@@ -4063,11 +4569,22 @@ if ('serviceWorker' in navigator) {
     t.style.display = 'block';
   }
 
-  // As soon as a new SW takes control of this tab, reload to load the latest app —
-  // this is what makes updates apply automatically instead of needing a manual cache clear.
+  // As soon as a NEW sw takes over from an existing one, reload to load the
+  // latest app — this is what makes updates apply automatically instead of
+  // needing a manual cache clear.
+  //
+  // The _hadController guard matters more than it looks: sw.js calls
+  // clients.claim(), so on a first-ever visit the freshly installed worker
+  // also fires controllerchange. Without this check that got treated as "an
+  // update landed" and reloaded the page ~600ms after load — right on top of
+  // a new crew member's welcome screens. Worse, the reload made the trial
+  // block see an already-written sla_trial_start, so isFirstOpen was false
+  // and the "trial started" popup could never appear on a real new device.
+  // No previous controller means this is the first install, not an update.
+  const _hadController = !!navigator.serviceWorker.controller;
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (_swRefreshing) return;
+    if (!_hadController || _swRefreshing) return;
     _swRefreshing = true;
     _showUpdateToast('🔄 Updating to the latest version…');
     setTimeout(() => window.location.reload(), 600);
@@ -4103,6 +4620,48 @@ if ('serviceWorker' in navigator) {
 </script>
 
 <script>
+// ── OWNER-ONLY "fresh device" reset ────────────────────────
+// ?owner=<secret>&freshtest=1 wipes this browser's saved state and
+// reloads, so the first-launch sequence (disclaimer -> category picker
+// -> trial started) can be retested on a real phone. Private/incognito
+// windows are NOT a reliable substitute — on both iOS Safari and Chrome
+// they keep storage alive for as long as ANY private tab stays open, so
+// a second "fresh" test in the same private session silently reuses the
+// first one's state. Gated on the owner secret because clearing storage
+// also clears the trial start date.
+(function(){
+  var p = new URLSearchParams(location.search);
+  // Gated on freshtest's OWN secret value, deliberately NOT on ?owner=.
+  // Putting owner=<secret> in the link was self-defeating: the trial block
+  // treats that param as the permanent owner bypass and writes
+  // sla_owner_whitelisted, which makes the whole trial system early-return
+  // forever — no welcome popup and no lock screen, straight to the
+  // estimator. That is the opposite of a fresh-device test.
+  if (p.get('freshtest') !== 'Rifniya01') return;
+
+  // The wipe has to be the LAST thing before reloading. The rest of the
+  // page's scripts still run underneath this one during the async cleanup
+  // below, and the trial block would happily write a fresh sla_trial_start
+  // back into storage — clearing only at the end guarantees the reload
+  // really does start from nothing.
+  var done = function(){
+    try { localStorage.clear(); sessionStorage.clear(); } catch(e){}
+    location.replace(location.pathname);
+  };
+  var jobs = [];
+  if (window.caches) {
+    jobs.push(caches.keys().then(function(ks){
+      return Promise.all(ks.map(function(k){ return caches.delete(k); }));
+    }));
+  }
+  if (navigator.serviceWorker) {
+    jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){
+      return Promise.all(rs.map(function(r){ return r.unregister(); }));
+    }));
+  }
+  Promise.all(jobs).then(done, done);
+})();
+
 // ── DISCLAIMER: show every time the app opens ─────────────
 (function(){
   document.getElementById('disclaimer-overlay').style.display='flex';
@@ -4192,7 +4751,7 @@ window.addEventListener('appinstalled', function(){
 
 
 <script>
-(function(){var o=document.getElementById('btnDisclaimerOk');if(o)o.addEventListener('click',function(){document.getElementById('disclaimer-overlay').style.display='none';});var d=document.getElementById('pwa-install-dismiss');if(d)d.addEventListener('click',function(){document.getElementById('pwa-install-banner').style.display='none';});var a=document.getElementById('btnAlreadyInstalledOk');if(a)a.addEventListener('click',function(){document.getElementById('already-installed-overlay').style.display='none';});})();
+(function(){var o=document.getElementById('btnDisclaimerOk');if(o)o.addEventListener('click',function(){document.getElementById('disclaimer-overlay').style.display='none';(window._slaAfterDisclaimer||window._slaShowTrialStartIfFirst||function(){})();});var d=document.getElementById('pwa-install-dismiss');if(d)d.addEventListener('click',function(){document.getElementById('pwa-install-banner').style.display='none';});var a=document.getElementById('btnAlreadyInstalledOk');if(a)a.addEventListener('click',function(){document.getElementById('already-installed-overlay').style.display='none';});})();
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════
@@ -4553,12 +5112,21 @@ if (TRIAL_ENABLED) (function(){
 
   // Trial start timestamp (set once, real users only — simulate_day never touches this)
   let start = localStorage.getItem('sla_trial_start');
-  let isFirstOpen = false;
   if (!start) {
     start = Date.now().toString();
     localStorage.setItem('sla_trial_start', start);
-    isFirstOpen = true;
+    // Arm the one-time welcome popup as its own PERSISTED flag rather than
+    // relying on an in-memory isFirstOpen. The two are not the same thing:
+    // isFirstOpen only survives until the next page load, so anything that
+    // reloaded the tab between this write and the popup actually being seen
+    // (a service-worker takeover, a pull-to-refresh, a tab restore) made the
+    // popup vanish forever. The flag below is cleared only when the crew
+    // member actually taps "Got it", so an interrupted first launch just
+    // shows it again next time. Existing users never get it written, so they
+    // never see the popup.
+    localStorage.setItem('sla_trial_welcome_pending', '1');
   }
+  const welcomePending = localStorage.getItem('sla_trial_welcome_pending') === '1';
 
   // Trial length: prefer the server's authoritative answer for this Staff
   // No (reinstall-proof, keyed off the real StaffTrials First Seen) when
@@ -4574,24 +5142,43 @@ if (TRIAL_ENABLED) (function(){
   const TRIAL_DAYS = serverTrialDays > 0 ? serverTrialDays : _trialDaysFor(parseInt(start, 10));
 
   // First-ever open: show a one-time "trial started" welcome screen
-  if (isFirstOpen) {
+  if (welcomePending) {
     function showTrialStartedOverlay() {
       if (document.getElementById('sla-trial-start-overlay')) return;
+      const _M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const trialEnd = new Date(parseInt(start, 10) + TRIAL_DAYS * 86400000);
+      const trialEndStr = trialEnd.getDate() + ' ' + _M[trialEnd.getMonth()] + ' ' + trialEnd.getFullYear();
       const ov = document.createElement('div');
       ov.id = 'sla-trial-start-overlay';
       ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;';
       ov.innerHTML = `
-        <div style="max-width:380px;width:100%;background:#151a2e;border:1px solid rgba(124,58,237,.3);border-radius:16px;padding:28px 22px;text-align:center;font-family:sans-serif;color:#e2e8f0;max-height:calc(100vh - 48px);overflow-y:auto;">
-          <div style="font-size:2rem;margin-bottom:10px;">🎉</div>
-          <div style="font-size:1.05rem;font-weight:700;margin-bottom:6px;">Your Free Trial Has Started!</div>
-          <div style="font-size:.78rem;color:#94a3b8;margin-bottom:20px;">You now have full access to FlyProfit for the next ${TRIAL_DAYS} days, starting today. Enjoy!</div>
-          <button id="sla-trial-start-ok" style="width:100%;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">Got it!</button>
+        <div style="max-width:400px;width:100%;background:#151a2e;border:1px solid rgba(124,58,237,.35);border-radius:20px;padding:34px 24px;text-align:center;font-family:sans-serif;color:#e2e8f0;max-height:calc(100vh - 48px);overflow-y:auto;box-shadow:0 20px 60px rgba(124,58,237,.18);">
+          <div style="font-size:3rem;margin-bottom:14px;line-height:1;">🎉</div>
+          <div style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:16px;padding:14px 30px;margin-bottom:20px;">
+            <div style="font-size:2.1rem;font-weight:800;color:#fff;font-family:monospace;line-height:1;">${TRIAL_DAYS} DAYS</div>
+            <div style="font-size:.6rem;color:rgba(255,255,255,.85);letter-spacing:.12em;text-transform:uppercase;margin-top:5px;">Free Trial Started</div>
+          </div>
+          <div style="font-size:1.15rem;font-weight:700;margin-bottom:10px;">Your Free Trial Has Started!</div>
+          <div style="font-size:.82rem;color:#94a3b8;line-height:1.65;margin-bottom:20px;">Full access to everything — roster upload, salary calculation, logbook and more. Your trial ends on <b style="color:#e2e8f0;">${trialEndStr}</b>.</div>
+          <div style="background:linear-gradient(135deg,rgba(245,158,11,.18),rgba(245,158,11,.08));border:1.5px solid rgba(245,158,11,.45);border-radius:14px;padding:16px;margin-bottom:22px;text-align:left;">
+            <div style="font-size:.58rem;color:#fbbf24;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">After Your Trial</div>
+            <div style="font-size:1.15rem;font-weight:800;color:#fbbf24;line-height:1.3;">LKR 3,500 — one time only</div>
+            <div style="font-size:.68rem;color:#fcd34d;margin-top:6px;line-height:1.5;">No subscription. No auto-renewal. Pay once, use it for life.</div>
+          </div>
+          <button id="sla-trial-start-ok" style="width:100%;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:12px;padding:15px;font-weight:700;font-size:.92rem;cursor:pointer;">Got it — Let's Go! 🚀</button>
         </div>`;
       document.body.appendChild(ov);
-      document.getElementById('sla-trial-start-ok').addEventListener('click', () => ov.remove());
+      // Cleared here, on the actual tap — not when the popup is built — so a
+      // first launch interrupted before this point shows it again next time.
+      document.getElementById('sla-trial-start-ok').addEventListener('click', () => {
+        localStorage.removeItem('sla_trial_welcome_pending');
+        ov.remove();
+      });
     }
-    if (document.body) showTrialStartedOverlay();
-    else document.addEventListener('DOMContentLoaded', showTrialStartedOverlay);
+    // Exposed instead of called immediately — the disclaimer/category-picker
+    // chain above calls this once the crew member has clicked through both,
+    // so this popup can never appear stacked on top of (or before) them.
+    window._slaShowTrialStartIfFirst = showTrialStartedOverlay;
   }
 
   // Real elapsed days — always the true value, deliberately independent of ?simulate_day
@@ -4652,27 +5239,40 @@ if (TRIAL_ENABLED) (function(){
     ov.innerHTML = `
       <div style="max-width:380px;width:100%;background:#151a2e;border:1px solid rgba(124,58,237,.3);border-radius:16px;padding:28px 22px;text-align:center;font-family:sans-serif;color:#e2e8f0;max-height:calc(100vh - 48px);overflow-y:auto;">
         <div style="font-size:2rem;margin-bottom:10px;">🔒</div>
-        <div style="font-size:1.05rem;font-weight:700;margin-bottom:6px;">Trial Period Ended</div>
-        <div style="font-size:.78rem;color:#94a3b8;margin-bottom:18px;">Your ${TRIAL_DAYS}-day trial has expired.<br>Activate for just LKR 3,500 — lifetime access.</div>
-        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Already Paid? Check By Staff No</div>
-        <input id="sla-staffno-check-input" type="text" placeholder="e.g. 17401" autocomplete="off" inputmode="text" style="width:100%;box-sizing:border-box;background:#0b0e1a;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;padding:11px;color:#e2e8f0;font-family:monospace;font-size:.95rem;text-align:center;letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase;">
-        <button id="sla-staffno-check-btn" style="width:100%;background:rgba(124,58,237,.15);border:1.5px solid rgba(124,58,237,.4);color:#c084fc;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">Check &amp; Activate</button>
-        <div id="sla-staffno-check-msg" style="font-size:.68rem;margin-top:10px;text-align:left;line-height:1.5;display:none;"></div>
-        <div style="height:1px;background:rgba(255,255,255,.08);margin:20px 0;"></div>
-        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">${lockIdLabel}</div>
-        <div id="sla-device-code" style="font-family:monospace;font-size:1.3rem;font-weight:700;letter-spacing:.1em;color:#c084fc;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:16px;">${lockId}</div>
-        <a id="sla-wa-btn" href="#" target="_blank" rel="noopener" style="display:block;background:#25D366;color:#fff;text-decoration:none;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;margin-bottom:14px;">📱 Send via WhatsApp</a>
-        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Bank Transfer Details</div>
+        <div style="font-size:1.05rem;font-weight:700;margin-bottom:4px;">Trial Period Ended</div>
+        <div style="font-size:.72rem;color:#94a3b8;margin-bottom:16px;">Your ${TRIAL_DAYS}-day trial has expired.</div>
+        <div style="background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(245,158,11,.08));border:1.5px solid rgba(245,158,11,.5);border-radius:14px;padding:18px 16px;margin-bottom:20px;">
+          <div style="font-size:.6rem;color:#fbbf24;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-bottom:8px;">⚡ One-Time Payment Only</div>
+          <div style="font-size:1.3rem;font-weight:800;color:#fbbf24;line-height:1.3;">Pay only LKR 3,500<br>to continue using — for life</div>
+          <div style="font-size:.64rem;color:#fcd34d;margin-top:8px;">No subscription. No renewal. Ever.</div>
+        </div>
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">${lockIdLabel} <span style="color:#64748b;text-transform:none;">(use as payment reference)</span></div>
+        <div id="sla-device-code" style="font-family:monospace;font-size:1.3rem;font-weight:700;letter-spacing:.1em;color:#c084fc;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:18px;">${lockId}</div>
+
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Step 1 — Pay To This Bank Account</div>
         <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;margin-bottom:16px;text-align:left;font-size:.75rem;color:#cbd5e1;line-height:1.7;">
           <div>Amana Bank PLC — Dehiwala Branch</div>
           <div>Account Name: <strong style="color:#e2e8f0;">SHAFRAZ FAROOK</strong></div>
           <div>Account No: <strong style="color:#e2e8f0;font-family:monospace;">0100156342010</strong></div>
           <div>Reference: <strong style="color:#c084fc;">${regStaff || '[Your Staff No]'}</strong></div>
         </div>
-        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Enter Activation Key</div>
+
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Step 2 — Send Payment Proof via WhatsApp</div>
+        <a id="sla-wa-btn" href="#" target="_blank" rel="noopener" style="display:block;background:#25D366;color:#fff;text-decoration:none;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;margin-bottom:18px;text-align:center;">📱 Send via WhatsApp</a>
+
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;text-align:left;">Step 3 — Enter Your Activation Key</div>
+        <div style="font-size:.66rem;color:#64748b;margin-bottom:8px;text-align:left;">We'll WhatsApp you this key once your payment is confirmed.</div>
         <input id="sla-key-input" type="text" placeholder="XXXX-XXXX" autocomplete="off" style="width:100%;box-sizing:border-box;background:#0b0e1a;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;padding:11px;color:#e2e8f0;font-family:monospace;font-size:.95rem;text-align:center;letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase;">
         <button id="sla-activate-btn" style="width:100%;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">Activate</button>
         <div id="sla-activate-err" style="font-size:.68rem;color:#f87171;margin-top:10px;display:none;">Invalid key for this device. Please check and try again.</div>
+
+        <div style="height:1px;background:rgba(255,255,255,.08);margin:22px 0;"></div>
+
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;text-align:left;">Already Confirmed By The Owner? Recheck Here</div>
+        <div style="font-size:.66rem;color:#64748b;margin-bottom:8px;text-align:left;">Only works after the owner has confirmed your payment. Typing your Staff No here does not pay or activate on its own — complete Steps 1–3 above first.</div>
+        <input id="sla-staffno-check-input" type="text" placeholder="e.g. 17401" autocomplete="off" inputmode="text" style="width:100%;box-sizing:border-box;background:#0b0e1a;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;padding:11px;color:#e2e8f0;font-family:monospace;font-size:.95rem;text-align:center;letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase;">
+        <button id="sla-staffno-check-btn" style="width:100%;background:rgba(124,58,237,.15);border:1.5px solid rgba(124,58,237,.4);color:#c084fc;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">Recheck My Staff No</button>
+        <div id="sla-staffno-check-msg" style="font-size:.68rem;margin-top:10px;text-align:left;line-height:1.5;display:none;"></div>
       </div>`;
     document.body.appendChild(ov);
     document.body.style.overflow = 'hidden';
@@ -4736,7 +5336,7 @@ if (TRIAL_ENABLED) (function(){
         msg.textContent = 'Could not reach the server — check your internet and try again.';
       } else {
         msg.style.color = '#f59e0b';
-        msg.textContent = 'Not activated yet for this Staff No — pay & send your reference below, or contact the owner.';
+        msg.textContent = 'Not confirmed yet for this Staff No. If you already paid, wait for the owner to confirm — otherwise, follow Steps 1–3 above.';
       }
     }
     document.getElementById('sla-staffno-check-btn').addEventListener('click', checkStaffNoAndActivate);
