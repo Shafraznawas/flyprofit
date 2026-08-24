@@ -1370,6 +1370,21 @@ async function extractRosterLines(file) {
  *  - HTL alone = layover marker, not a flight
  *  - P before flight number = Passengering (still paid, excluded from official BLH)
  */
+// Non-flight duty codes that can appear on a roster (leave, training, ground
+// duty, sick-leave variants, etc.) — confirmed these never appear on the same
+// line as a flight, so any line starting with one of these is skipped as a
+// non-flight duty rather than flagged as an unrecognized line.
+// Note: OFF, ROF, ALP, OTR, S/L, CLV, ALV, CDE, CFD, TOF are handled
+// separately below (kind:'DayOff') and SB* separately as Standby.
+const NON_FLIGHT_DUTY_CODES = new Set([
+  'AWL','GNT','GND','BCT','CSP','CSW','CMP','DLV','F&B','FEL','FSL','GRD','IBC','LSW','LWP','OBT',
+  'GRM','GRW','ISF','LMS','LOC','MCC','MTG','MTL','MTN','MTO','MTP','N/A','NAN','OFG','OFH','ONE','OTD','OVD','OVO',
+  'CRM','CSC','CSE','DFS','DGR','DTL','EAL','EMI','EML','EOQ','ETQ','EVA','F/A','FFD','FDE','FDP',
+  'RLV','SAA','SAC','SAL','SAR','SAS','SBA','SBC','SBR','SOD','SSA','SSC',
+  'A/N','ACL','ADM','ALO','AOF','CNL','CNX','CPH','CLR',
+  'SEP',
+]);
+
 /**
  * POSITION-ANCHORED PARSER
  * ------------------------
@@ -1440,8 +1455,11 @@ function parseRosterText(lines) {
       tokens = tokens.slice(1);
     }
 
-    if (/^(CSC|SEP|DGR|CSE|ISF|CRM|GNT)$/.test(tokens[0])) {
-      // Training/ground duty codes — ignore for pay calculation
+    // Non-flight duty/leave/training codes — never appear on a flight line, so
+    // any of these as the first token means "skip this line, not a flight."
+    // Silently ignored (not counted, no warning) rather than flagged as
+    // unrecognized.
+    if (NON_FLIGHT_DUTY_CODES.has(tokens[0])) {
       seqCounter++;
       continue;
     }
