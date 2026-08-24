@@ -5143,11 +5143,22 @@ if ('serviceWorker' in navigator) {
     t.style.display = 'block';
   }
 
-  // As soon as a new SW takes control of this tab, reload to load the latest app —
-  // this is what makes updates apply automatically instead of needing a manual cache clear.
+  // As soon as a NEW sw takes over from an existing one, reload to load the
+  // latest app — this is what makes updates apply automatically instead of
+  // needing a manual cache clear.
+  //
+  // The _hadController guard matters more than it looks: sw.js calls
+  // clients.claim(), so on a first-ever visit the freshly installed worker
+  // also fires controllerchange. Without this check that got treated as "an
+  // update landed" and reloaded the page ~600ms after load — right on top of
+  // a new crew member's welcome screens. Worse, the reload made the trial
+  // block see an already-written sla_trial_start, so isFirstOpen was false
+  // and the "trial started" popup could never appear on a real new device.
+  // No previous controller means this is the first install, not an update.
+  const _hadController = !!navigator.serviceWorker.controller;
   let _swRefreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (_swRefreshing) return;
+    if (!_hadController || _swRefreshing) return;
     _swRefreshing = true;
     _showUpdateToast('🔄 Updating to the latest version…');
     setTimeout(() => window.location.reload(), 600);
@@ -5183,6 +5194,42 @@ if ('serviceWorker' in navigator) {
 </script>
 
 <script>
+// ── OWNER-ONLY "fresh device" reset ────────────────────────
+// ?owner=<secret>&freshtest=1 wipes this browser's saved state and
+// reloads, so the first-launch sequence (disclaimer -> category picker
+// -> trial started) can be retested on a real phone. Private/incognito
+// windows are NOT a reliable substitute — on both iOS Safari and Chrome
+// they keep storage alive for as long as ANY private tab stays open, so
+// a second "fresh" test in the same private session silently reuses the
+// first one's state. Gated on the owner secret because clearing storage
+// also clears the trial start date.
+(function(){
+  var p = new URLSearchParams(location.search);
+  if (p.get('freshtest') !== '1' || p.get('owner') !== 'Rifniya01') return;
+
+  // The wipe has to be the LAST thing before reloading. The rest of the
+  // page's scripts still run underneath this one during the async cleanup
+  // below, and the trial block would happily write a fresh sla_trial_start
+  // back into storage — clearing only at the end guarantees the reload
+  // really does start from nothing.
+  var done = function(){
+    try { localStorage.clear(); sessionStorage.clear(); } catch(e){}
+    location.replace(location.pathname);
+  };
+  var jobs = [];
+  if (window.caches) {
+    jobs.push(caches.keys().then(function(ks){
+      return Promise.all(ks.map(function(k){ return caches.delete(k); }));
+    }));
+  }
+  if (navigator.serviceWorker) {
+    jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){
+      return Promise.all(rs.map(function(r){ return r.unregister(); }));
+    }));
+  }
+  Promise.all(jobs).then(done, done);
+})();
+
 // ── DISCLAIMER: show every time the app opens ─────────────
 (function(){
   document.getElementById('disclaimer-overlay').style.display='flex';
