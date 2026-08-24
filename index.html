@@ -5053,6 +5053,14 @@ function showConfirm(message) {
   });
 }
 
+// First-launch overlays (disclaimer -> category picker -> trial-started)
+// must appear ONE AT A TIME, not stacked by z-index. This default no-op
+// keeps the chain below safe to call even before the trial script (much
+// further down the page) has replaced it with the real function, or when
+// TRIAL_ENABLED is off / the user is already licensed and no trial-started
+// popup should ever appear.
+window._slaShowTrialStartIfFirst = function(){};
+
 // ---------- Hidden admin reset: tap designation 5x rapidly ----------
 (function() {
   const desig = document.getElementById('topDesig');
@@ -5078,10 +5086,17 @@ function showConfirm(message) {
   const overlay = document.getElementById('category-overlay');
   if (!overlay) return;
 
-  // Show if no category saved yet
-  if (!localStorage.getItem('sla_category')) {
-    overlay.style.display = 'flex';
-  }
+  // Triggered by the disclaimer's "Got it" click (below), not on load — so
+  // this never appears before the crew member has actually dismissed the
+  // disclaimer. If a category is already saved, skip straight to the
+  // trial-started check instead of showing this at all.
+  window._slaAfterDisclaimer = function() {
+    if (!localStorage.getItem('sla_category')) {
+      overlay.style.display = 'flex';
+    } else {
+      window._slaShowTrialStartIfFirst();
+    }
+  };
 
   let pickedCat = null;
   const confirmBtn = document.getElementById('btnCategoryConfirm');
@@ -5108,6 +5123,7 @@ function showConfirm(message) {
     localStorage.setItem('sla_category', pickedCat);
     updateCatUI();
     overlay.style.display = 'none';
+    window._slaShowTrialStartIfFirst();
   });
 })();
 
@@ -5256,7 +5272,7 @@ window.addEventListener('appinstalled', function(){
 
 
 <script>
-(function(){var o=document.getElementById('btnDisclaimerOk');if(o)o.addEventListener('click',function(){document.getElementById('disclaimer-overlay').style.display='none';});var d=document.getElementById('pwa-install-dismiss');if(d)d.addEventListener('click',function(){document.getElementById('pwa-install-banner').style.display='none';});var a=document.getElementById('btnAlreadyInstalledOk');if(a)a.addEventListener('click',function(){document.getElementById('already-installed-overlay').style.display='none';});})();
+(function(){var o=document.getElementById('btnDisclaimerOk');if(o)o.addEventListener('click',function(){document.getElementById('disclaimer-overlay').style.display='none';(window._slaAfterDisclaimer||window._slaShowTrialStartIfFirst||function(){})();});var d=document.getElementById('pwa-install-dismiss');if(d)d.addEventListener('click',function(){document.getElementById('pwa-install-banner').style.display='none';});var a=document.getElementById('btnAlreadyInstalledOk');if(a)a.addEventListener('click',function(){document.getElementById('already-installed-overlay').style.display='none';});})();
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════
@@ -5666,8 +5682,10 @@ if (TRIAL_ENABLED) (function(){
       document.body.appendChild(ov);
       document.getElementById('sla-trial-start-ok').addEventListener('click', () => ov.remove());
     }
-    if (document.body) showTrialStartedOverlay();
-    else document.addEventListener('DOMContentLoaded', showTrialStartedOverlay);
+    // Exposed instead of called immediately — the disclaimer/category-picker
+    // chain above calls this once the crew member has clicked through both,
+    // so this popup can never appear stacked on top of (or before) them.
+    window._slaShowTrialStartIfFirst = showTrialStartedOverlay;
   }
 
   // Real elapsed days — always the true value, deliberately independent of ?simulate_day
