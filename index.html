@@ -4621,23 +4621,27 @@ if ('serviceWorker' in navigator) {
 
 <script>
 // ── OWNER-ONLY "fresh device" reset ────────────────────────
-// ?owner=<secret>&freshtest=1 wipes this browser's saved state and
-// reloads, so the first-launch sequence (disclaimer -> category picker
-// -> trial started) can be retested on a real phone. Private/incognito
-// windows are NOT a reliable substitute — on both iOS Safari and Chrome
-// they keep storage alive for as long as ANY private tab stays open, so
-// a second "fresh" test in the same private session silently reuses the
-// first one's state. Gated on the owner secret because clearing storage
-// also clears the trial start date.
+// ?freshtest=<secret> wipes this browser's saved state and reloads, so
+// the first-launch sequence (disclaimer -> category picker -> trial
+// started) can be retested on a real phone. Private/incognito windows
+// are NOT a reliable substitute — on both iOS Safari and Chrome they
+// keep storage alive for as long as ANY private tab stays open, so a
+// second "fresh" test in the same private session silently reuses the
+// first one's state. Gated because clearing storage also clears the
+// trial start date.
 (function(){
   var p = new URLSearchParams(location.search);
-  // Gated on freshtest's OWN secret value, deliberately NOT on ?owner=.
-  // Putting owner=<secret> in the link was self-defeating: the trial block
-  // treats that param as the permanent owner bypass and writes
-  // sla_owner_whitelisted, which makes the whole trial system early-return
-  // forever — no welcome popup and no lock screen, straight to the
-  // estimator. That is the opposite of a fresh-device test.
-  if (p.get('freshtest') !== 'Rifniya01') return;
+  var SECRET = 'Rifniya01';
+  // Accept BOTH the current ?freshtest=<secret> form and the earlier
+  // ?owner=<secret>&freshtest=1 one. The old link is actively harmful now
+  // that the gate moved: it no longer triggers a reset, yet ?owner= still
+  // makes the trial block write sla_owner_whitelisted, which permanently
+  // early-returns the whole trial system — no welcome popup and no lock
+  // screen, straight to the estimator. Honouring the old spelling here is
+  // what un-sticks a browser that already fell into that state.
+  var asked = p.get('freshtest');
+  if (!asked) return;
+  if (asked !== SECRET && !(asked === '1' && p.get('owner') === SECRET)) return;
 
   // The wipe has to be the LAST thing before reloading. The rest of the
   // page's scripts still run underneath this one during the async cleanup
@@ -4646,7 +4650,10 @@ if ('serviceWorker' in navigator) {
   // really does start from nothing.
   var done = function(){
     try { localStorage.clear(); sessionStorage.clear(); } catch(e){}
-    location.replace(location.pathname);
+    // Reload carrying a marker so the fresh page can say out loud that the
+    // wipe actually happened — without it there is no way to tell a working
+    // reset apart from a link that silently did nothing.
+    location.replace(location.pathname + '?resetdone=1');
   };
   var jobs = [];
   if (window.caches) {
@@ -4660,6 +4667,20 @@ if ('serviceWorker' in navigator) {
     }));
   }
   Promise.all(jobs).then(done, done);
+})();
+
+// Visible proof the reset landed, plus it tidies the marker back out of
+// the address bar so a later refresh is an ordinary open.
+(function(){
+  if (new URLSearchParams(location.search).get('resetdone') !== '1') return;
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+  window.addEventListener('DOMContentLoaded', function(){
+    var b = document.createElement('div');
+    b.textContent = '✅ Fresh start — this browser is now a brand-new user';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#16a34a;color:#fff;font:600 13px sans-serif;text-align:center;padding:9px 12px;';
+    document.body.appendChild(b);
+    setTimeout(function(){ b.remove(); }, 6000);
+  });
 })();
 
 // ── DISCLAIMER: show every time the app opens ─────────────
