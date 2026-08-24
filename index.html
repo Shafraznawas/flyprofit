@@ -5205,7 +5205,13 @@ if ('serviceWorker' in navigator) {
 // also clears the trial start date.
 (function(){
   var p = new URLSearchParams(location.search);
-  if (p.get('freshtest') !== '1' || p.get('owner') !== 'Rifniya01') return;
+  // Gated on freshtest's OWN secret value, deliberately NOT on ?owner=.
+  // Putting owner=<secret> in the link was self-defeating: the trial block
+  // treats that param as the permanent owner bypass and writes
+  // sla_owner_whitelisted, which makes the whole trial system early-return
+  // forever — no welcome popup and no lock screen, straight to the
+  // estimator. That is the opposite of a fresh-device test.
+  if (p.get('freshtest') !== 'Rifniya01') return;
 
   // The wipe has to be the LAST thing before reloading. The rest of the
   // page's scripts still run underneath this one during the async cleanup
@@ -5680,12 +5686,21 @@ if (TRIAL_ENABLED) (function(){
 
   // Trial start timestamp (set once, real users only — simulate_day never touches this)
   let start = localStorage.getItem('sla_trial_start');
-  let isFirstOpen = false;
   if (!start) {
     start = Date.now().toString();
     localStorage.setItem('sla_trial_start', start);
-    isFirstOpen = true;
+    // Arm the one-time welcome popup as its own PERSISTED flag rather than
+    // relying on an in-memory isFirstOpen. The two are not the same thing:
+    // isFirstOpen only survives until the next page load, so anything that
+    // reloaded the tab between this write and the popup actually being seen
+    // (a service-worker takeover, a pull-to-refresh, a tab restore) made the
+    // popup vanish forever. The flag below is cleared only when the crew
+    // member actually taps "Got it", so an interrupted first launch just
+    // shows it again next time. Existing users never get it written, so they
+    // never see the popup.
+    localStorage.setItem('sla_trial_welcome_pending', '1');
   }
+  const welcomePending = localStorage.getItem('sla_trial_welcome_pending') === '1';
 
   // Trial length: prefer the server's authoritative answer for this Staff
   // No (reinstall-proof, keyed off the real StaffTrials First Seen) when
@@ -5701,7 +5716,7 @@ if (TRIAL_ENABLED) (function(){
   const TRIAL_DAYS = serverTrialDays > 0 ? serverTrialDays : _trialDaysFor(parseInt(start, 10));
 
   // First-ever open: show a one-time "trial started" welcome screen
-  if (isFirstOpen) {
+  if (welcomePending) {
     function showTrialStartedOverlay() {
       if (document.getElementById('sla-trial-start-overlay')) return;
       const _M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -5727,7 +5742,12 @@ if (TRIAL_ENABLED) (function(){
           <button id="sla-trial-start-ok" style="width:100%;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:12px;padding:15px;font-weight:700;font-size:.92rem;cursor:pointer;">Got it — Let's Go! 🚀</button>
         </div>`;
       document.body.appendChild(ov);
-      document.getElementById('sla-trial-start-ok').addEventListener('click', () => ov.remove());
+      // Cleared here, on the actual tap — not when the popup is built — so a
+      // first launch interrupted before this point shows it again next time.
+      document.getElementById('sla-trial-start-ok').addEventListener('click', () => {
+        localStorage.removeItem('sla_trial_welcome_pending');
+        ov.remove();
+      });
     }
     // Exposed instead of called immediately — the disclaimer/category-picker
     // chain above calls this once the crew member has clicked through both,
