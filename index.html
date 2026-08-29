@@ -495,7 +495,17 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .nav-btn{position:relative;flex:1;border:none;border-bottom:3px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:6px 4px 5px;color:var(--tx3);font-family:var(--sans);transition:color .15s,border-color .15s;}
 .nav-btn.active{color:var(--purple3);border-bottom-color:var(--purple3);background:rgba(124,58,237,.08);}
 .nav-icon{font-size:17px;line-height:1;}
-.nav-lbl{font-size:.58rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+.nav-lbl{font-size:.58rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;}
+/* Adding the Plan tab took the bar past the width of a 320px phone (old
+   iPhone SE / 5s), where the nav has no room to spare — the overflow was
+   clipped, which quietly made the last tab unreachable rather than just
+   tight. Tightening the label on narrow screens buys the space back; the
+   min-width:0 is what actually lets a flex item shrink below its label. */
+@media (max-width:359px){
+  .nav-btn{padding:6px 2px 5px;min-width:0;}
+  .nav-icon{font-size:15px;}
+  .nav-lbl{font-size:.5rem;letter-spacing:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+}
 .nav-dot{display:none;}
 /* Red pip on the Docs tab when something is expiring / overdue. */
 .nav-dot.on{display:block;position:absolute;top:5px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 6px rgba(248,113,113,.75);}
@@ -512,6 +522,20 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .doc-todo.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber);}
 .doc-todo.urgent{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
 .doc-todo b{color:var(--tx1);}
+.plan-item{border:1px solid var(--b0);border-radius:12px;padding:12px;margin-bottom:10px;background:rgba(255,255,255,.02);}
+.plan-item-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.plan-item-top input.plan-name{flex:1;min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:10px 11px;color:var(--tx1);font-family:var(--sans);font-size:.8rem;font-weight:600;-webkit-appearance:none;}
+.plan-del{flex-shrink:0;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);border-radius:9px;width:38px;height:38px;font-size:.9rem;cursor:pointer;line-height:1;}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.plan-grid.wide{grid-template-columns:1fr;}
+.plan-grid label{display:block;font-size:.55rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px;}
+.plan-grid input,.plan-grid select{width:100%;box-sizing:border-box;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:10px 11px;color:var(--tx1);font-family:var(--mono);font-size:.85rem;-webkit-appearance:none;}
+/* Half the row width has to hold "Every 6 months", the longest option —
+   at the shared .85rem it overflows its own box on a 375px screen. */
+.plan-grid select{font-size:.78rem;padding-left:9px;padding-right:9px;}
+.plan-grid input:focus,.plan-grid select:focus{outline:none;border-color:var(--purple2);}
+.plan-due-wrap{margin-top:8px;}
+.plan-empty{font-size:.74rem;color:var(--tx3);line-height:1.6;text-align:center;padding:18px 6px;}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -674,6 +698,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   <button class="nav-btn" data-page="page-inputs"><span class="nav-icon">✏️</span><span class="nav-lbl">Inputs</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-gauge"><span class="nav-icon">📊</span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-logbook"><span class="nav-icon">📖</span><span class="nav-lbl">Logbook</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-plan"><span class="nav-icon">📆</span><span class="nav-lbl">Plan</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-swap"><span class="nav-icon">🔄</span><span class="nav-lbl">Swap</span><span class="nav-dot"></span></button>
   <button class="nav-btn" data-page="page-docs"><span class="nav-icon">🪪</span><span class="nav-lbl">Docs</span><span class="nav-dot" id="docsNavDot"></span></button>
 </div>
@@ -994,6 +1019,100 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
 
     <div class="action-row">
       <button class="act-btn" id="btnDocsClear" style="color:var(--red);">🗑 Clear All Documents</button>
+    </div>
+  </div>
+
+  <!-- PAGE 8: PLAN (Money Out — the crew member's own outgoings) -->
+  <!-- Same isolation rule as the Docs tab: nothing here feeds the salary
+       calculator and the calculator never reads it. The whole list lives in
+       localStorage on this phone under sla_commitments and is NEVER sent to
+       the monitoring sheet or any server. -->
+  <div class="page" id="page-plan">
+    <div class="card">
+      <div class="card-head">
+        <span class="card-ico">📆</span>
+        <div><div class="card-title">Money Out</div><div class="card-sub">What leaves your account, and when</div></div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:.74rem;color:var(--tx2);line-height:1.65;">
+          Add the things you pay for — loan, rent, insurance, school fees, anything. Enter each one once and it stays here for good.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-head">
+        <span class="card-ico">➕</span>
+        <div><div class="card-title">Add Something</div><div class="card-sub">Your own name for it</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label for="planNewName">Name</label>
+          <input type="text" id="planNewName" placeholder="e.g. Car loan" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="planNewAmount">Amount (LKR)</label>
+          <input type="number" id="planNewAmount" placeholder="0" inputmode="decimal" min="0" step="any">
+        </div>
+        <div class="field">
+          <label for="planNewFreq">How Often</label>
+          <select id="planNewFreq">
+            <option value="monthly">Every month</option>
+            <option value="quarterly">Every 3 months</option>
+            <option value="halfyearly">Every 6 months</option>
+            <option value="yearly">Once a year</option>
+          </select>
+        </div>
+        <div class="field" id="planNewDueWrap" style="display:none;">
+          <label for="planNewDue">Next Due Month</label>
+          <input type="month" id="planNewDue">
+          <div class="hint">Which month is the next payment due?</div>
+        </div>
+        <button class="btn-outline" id="btnPlanAdd">➕ Add To My List</button>
+        <div id="planAddMsg" style="font-size:.68rem;color:var(--red);line-height:1.6;margin-top:9px;display:none;"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-head">
+        <span class="card-ico">📋</span>
+        <div><div class="card-title">My List</div><div class="card-sub">Tap any box to change it</div></div>
+      </div>
+      <div class="card-body">
+        <div id="planList"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-head">
+        <span class="card-ico">🧮</span>
+        <div><div class="card-title">Your Totals</div><div class="card-sub">Worked out from the list above</div></div>
+      </div>
+      <div class="card-body">
+        <div class="summary-row">
+          <span class="lbl">Every month<br><span class="sub">Bills that repeat every single month</span></span>
+          <span class="val" id="planTotalMonthly">LKR 0</span>
+        </div>
+        <div class="summary-row">
+          <span class="lbl">Due this month<br><span class="sub" id="planDueThisSub">Monthly bills plus anything falling due now</span></span>
+          <span class="val" id="planTotalDueThis">LKR 0</span>
+        </div>
+        <div class="summary-row total">
+          <span class="lbl">Put aside monthly<br><span class="sub">Save this much each month so the big yearly bills never surprise you</span></span>
+          <span class="val" id="planTotalSetAside">LKR 0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-body" style="display:flex;gap:9px;align-items:flex-start;">
+        <span style="font-size:.9rem;">🔒</span>
+        <span style="font-size:.7rem;color:var(--tx3);line-height:1.6;">Everything on this page is stored only on this phone. It is never uploaded, never shared, and is not part of any salary calculation.</span>
+      </div>
+    </div>
+
+    <div class="action-row" style="margin-top:12px;">
+      <button class="act-btn" id="btnPlanClear" style="color:var(--red);">🗑 Clear My List</button>
     </div>
   </div>
 
@@ -4259,6 +4378,9 @@ document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('cl
   if(b.dataset.page==='page-logbook') renderLogbook();
   if(b.dataset.page==='page-swap') renderSwapRangePickers();
   if(b.dataset.page==='page-docs') refreshDocsStatus();
+  // Re-roll on open as well as at startup, so a phone left running across a
+  // month boundary still shows the right due month.
+  if(b.dataset.page==='page-plan'){ var _pl=loadPlan(); if(rollPlanDueDates(_pl)) savePlan(_pl); renderPlan(); }
 });});
 
 // ---------- Swap (Mutual Flight Calculator) wiring ----------
@@ -4388,6 +4510,256 @@ function renderSwapRangePickers() {
     }
   });
 }
+
+// ============================================================
+// MONEY OUT — COMMITMENTS PLANNER (Plan tab)
+// ============================================================
+// Same isolation rule as the Docs tab: calculateSalary() never reads any
+// of this, and none of it is ever sent to PING_URL. It is the crew
+// member's own outgoings, so it lives in localStorage on this phone only.
+//
+// The point of the tab is that a yearly insurance bill should never be a
+// shock. Two things make that work without the crew member ever having to
+// maintain it: nextDue rolls itself forward once a due month passes, and
+// the "put aside monthly" figure spreads every non-monthly bill across the
+// months leading up to it.
+const PLAN_KEY = 'sla_commitments';
+
+// Months between payments. Also the divisor for the put-aside figure, so
+// the two can never drift apart.
+const PLAN_INTERVAL = { monthly: 1, quarterly: 3, halfyearly: 6, yearly: 12 };
+const PLAN_FREQ_LABEL = {
+  monthly: 'Every month',
+  quarterly: 'Every 3 months',
+  halfyearly: 'Every 6 months',
+  yearly: 'Once a year'
+};
+
+// 'YYYY-MM' helpers. Everything here is deliberately string/integer month
+// arithmetic rather than Date objects — a Date would drag in timezone and
+// day-of-month clamping problems that mean nothing for a month-only value.
+function _planNowYM() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function _planYMToIndex(ym) {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym || '');
+  if (!m) return null;
+  const mo = parseInt(m[2], 10);
+  if (mo < 1 || mo > 12) return null;
+  return parseInt(m[1], 10) * 12 + (mo - 1);
+}
+function _planIndexToYM(idx) {
+  return Math.floor(idx / 12) + '-' + String((idx % 12) + 1).padStart(2, '0');
+}
+function _planFmtYM(ym) {
+  const i = _planYMToIndex(ym);
+  if (i === null) return '—';
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return M[i % 12] + ' ' + Math.floor(i / 12);
+}
+
+function loadPlan() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PLAN_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch (e) { return []; }
+}
+function savePlan(list) {
+  try { localStorage.setItem(PLAN_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+// Push any non-monthly item whose due month has already gone past forward
+// by its own interval until it lands in the future. Returns true when
+// something actually moved, so the caller only writes storage when needed.
+// Monthly items carry no nextDue at all, so they are skipped entirely.
+function rollPlanDueDates(list) {
+  const now = _planYMToIndex(_planNowYM());
+  let changed = false;
+  list.forEach(it => {
+    const step = PLAN_INTERVAL[it.freq];
+    if (!step || step === 1) return;
+    let idx = _planYMToIndex(it.nextDue);
+    if (idx === null) return;
+    while (idx < now) { idx += step; changed = true; }
+    const ym = _planIndexToYM(idx);
+    if (ym !== it.nextDue) it.nextDue = ym;
+  });
+  return changed;
+}
+
+function planTotals(list) {
+  const nowYM = _planNowYM();
+  let monthly = 0, dueExtra = 0, setAside = 0;
+  list.forEach(it => {
+    const amt = parseFloat(it.amount) || 0;
+    const step = PLAN_INTERVAL[it.freq] || 1;
+    if (step === 1) {
+      monthly += amt;
+    } else {
+      setAside += amt / step;
+      if (it.nextDue === nowYM) dueExtra += amt;
+    }
+  });
+  return { monthly: monthly, dueThis: monthly + dueExtra, setAside: setAside };
+}
+
+function renderPlanTotals(list) {
+  const t = planTotals(list);
+  $('planTotalMonthly').textContent = fmtLKR(t.monthly);
+  $('planTotalDueThis').textContent = fmtLKR(t.dueThis);
+  $('planTotalSetAside').textContent = fmtLKR(t.setAside);
+  $('planDueThisSub').textContent = 'Monthly bills plus anything due in ' + _planFmtYM(_planNowYM());
+}
+
+function renderPlan() {
+  const list = loadPlan();
+  const box = $('planList');
+  if (!list.length) {
+    box.innerHTML = '<div class="plan-empty">Nothing added yet.<br>Use the box above to add your first one.</div>';
+    renderPlanTotals(list);
+    return;
+  }
+  box.innerHTML = list.map(it => {
+    const step = PLAN_INTERVAL[it.freq] || 1;
+    const showDue = step !== 1;
+    const opts = Object.keys(PLAN_FREQ_LABEL).map(f =>
+      `<option value="${f}"${f === it.freq ? ' selected' : ''}>${PLAN_FREQ_LABEL[f]}</option>`).join('');
+    return `
+      <div class="plan-item" data-id="${escapeHtml(it.id)}">
+        <div class="plan-item-top">
+          <input type="text" class="plan-name" data-f="name" value="${escapeHtml(it.name || '')}" placeholder="Name">
+          <button class="plan-del" data-del="1" aria-label="Delete">🗑</button>
+        </div>
+        <div class="plan-grid">
+          <div>
+            <label>Amount (LKR)</label>
+            <input type="number" data-f="amount" value="${escapeHtml(String(it.amount == null ? '' : it.amount))}" inputmode="decimal" min="0" step="any" placeholder="0">
+          </div>
+          <div>
+            <label>How Often</label>
+            <select data-f="freq">${opts}</select>
+          </div>
+        </div>
+        <div class="plan-grid wide plan-due-wrap" style="${showDue ? '' : 'display:none;'}">
+          <div>
+            <label>Next Due Month</label>
+            <input type="month" data-f="nextDue" value="${escapeHtml(it.nextDue || '')}">
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  renderPlanTotals(list);
+}
+
+// Writes one edited field straight back to storage. Deliberately does NOT
+// re-render the list — rebuilding the DOM mid-edit would drop focus and the
+// caret on the box being typed in. Only the totals refresh.
+function updatePlanItem(id, field, value) {
+  const list = loadPlan();
+  const it = list.find(x => x.id === id);
+  if (!it) return;
+  it[field] = value;
+  if (field === 'freq') {
+    const step = PLAN_INTERVAL[value] || 1;
+    // Going non-monthly needs a due month to count against; default it to
+    // this month so the item is never left in a half-defined state.
+    if (step === 1) it.nextDue = '';
+    else if (!_planYMToIndex(it.nextDue)) it.nextDue = _planNowYM();
+  }
+  savePlan(list);
+  renderPlanTotals(list);
+  return it;
+}
+
+(function() {
+  const freqSel = $('planNewFreq');
+  const dueWrap = $('planNewDueWrap');
+  const msg = $('planAddMsg');
+
+  function syncNewDueVisibility() {
+    const step = PLAN_INTERVAL[freqSel.value] || 1;
+    dueWrap.style.display = step === 1 ? 'none' : '';
+    if (step !== 1 && !$('planNewDue').value) $('planNewDue').value = _planNowYM();
+  }
+  freqSel.addEventListener('change', syncNewDueVisibility);
+  syncNewDueVisibility();
+
+  $('btnPlanAdd').addEventListener('click', () => {
+    const name = $('planNewName').value.trim();
+    const amount = parseFloat($('planNewAmount').value);
+    const freq = freqSel.value;
+    const step = PLAN_INTERVAL[freq] || 1;
+    msg.style.display = 'none';
+    if (!name) { msg.textContent = 'Give it a name first.'; msg.style.display = 'block'; return; }
+    if (!isFinite(amount) || amount <= 0) { msg.textContent = 'Enter how much it costs.'; msg.style.display = 'block'; return; }
+    let nextDue = '';
+    if (step !== 1) {
+      nextDue = $('planNewDue').value;
+      if (_planYMToIndex(nextDue) === null) { msg.textContent = 'Pick the next due month.'; msg.style.display = 'block'; return; }
+    }
+    const list = loadPlan();
+    list.push({
+      id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+      name: name, amount: amount, freq: freq, nextDue: nextDue
+    });
+    savePlan(list);
+    $('planNewName').value = '';
+    $('planNewAmount').value = '';
+    freqSel.value = 'monthly';
+    $('planNewDue').value = '';
+    syncNewDueVisibility();
+    renderPlan();
+  });
+
+  // Delegated so rows added later need no per-row wiring.
+  const listBox = $('planList');
+  listBox.addEventListener('input', e => {
+    const f = e.target.dataset ? e.target.dataset.f : null;
+    if (!f) return;
+    const row = e.target.closest('.plan-item');
+    if (!row) return;
+    updatePlanItem(row.dataset.id, f, f === 'amount' ? (parseFloat(e.target.value) || 0) : e.target.value);
+  });
+  listBox.addEventListener('change', e => {
+    if (!e.target.dataset || e.target.dataset.f !== 'freq') return;
+    const row = e.target.closest('.plan-item');
+    if (!row) return;
+    const it = updatePlanItem(row.dataset.id, 'freq', e.target.value);
+    if (!it) return;
+    // Show/hide this row's due-month box in place, and carry over the
+    // default that updatePlanItem just wrote, without a full re-render.
+    const wrap = row.querySelector('.plan-due-wrap');
+    const dueInp = row.querySelector('[data-f="nextDue"]');
+    const step = PLAN_INTERVAL[it.freq] || 1;
+    if (wrap) wrap.style.display = step === 1 ? 'none' : '';
+    if (dueInp) dueInp.value = it.nextDue || '';
+  });
+  listBox.addEventListener('click', async e => {
+    const btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    const row = btn.closest('.plan-item');
+    if (!row) return;
+    const list = loadPlan();
+    const it = list.find(x => x.id === row.dataset.id);
+    if (!await showConfirm('Remove "' + ((it && it.name) || 'this item') + '" from your list?')) return;
+    savePlan(list.filter(x => x.id !== row.dataset.id));
+    renderPlan();
+  });
+
+  $('btnPlanClear').addEventListener('click', async () => {
+    if (!loadPlan().length) return;
+    if (!await showConfirm('Clear your whole Money Out list? This cannot be undone.')) return;
+    savePlan([]);
+    renderPlan();
+  });
+
+  // Roll stale due months forward once at startup, so the list is already
+  // correct the first time the tab is opened.
+  const boot = loadPlan();
+  if (rollPlanDueDates(boot)) savePlan(boot);
+  renderPlan();
+})();
 
 // ============================================================
 // DOCUMENTS & MEDICAL EXPIRY TRACKER (Docs tab)
