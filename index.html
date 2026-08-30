@@ -607,6 +607,19 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-goal-addrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px;}
 .plan-goal-addrow input{min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:9px 11px;color:var(--tx1);font-family:var(--mono);font-size:.82rem;-webkit-appearance:none;}
 .plan-goal-addrow input:focus{outline:none;border-color:var(--purple2);}
+.plan-debt-stats{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--b0);}
+.plan-debt-stat{min-width:0;}
+.plan-debt-stat .k{display:block;font-size:.56rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;}
+.plan-debt-stat .v{font-size:.82rem;font-family:var(--mono);font-weight:700;color:var(--tx1);}
+.plan-debt-stat.right{text-align:right;}
+.plan-debt-rough{font-size:.62rem;color:var(--tx3);font-family:var(--mono);margin-top:7px;line-height:1.5;}
+.plan-debt-msg{font-size:.74rem;line-height:1.6;border-radius:10px;padding:10px 11px;margin-top:10px;}
+.plan-debt-msg.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber);}
+.plan-debt-msg.bad{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
+.plan-debt-msg.done{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.28);color:var(--green);font-weight:700;}
+.plan-debt-msg.flat{background:rgba(255,255,255,.03);border:1px solid var(--b0);color:var(--tx2);}
+.plan-debt-boost{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.24);color:var(--green);font-size:.74rem;line-height:1.6;border-radius:10px;padding:10px 11px;margin-top:9px;}
+.plan-debt-paid{background:rgba(124,58,237,.14);border:1.5px solid rgba(124,58,237,.38);color:var(--purple3);border-radius:9px;padding:10px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:var(--sans);width:100%;margin-top:10px;}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -1265,6 +1278,20 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         </div>
         <div id="planGoalsList"></div>
         <button class="btn-outline" id="btnGoalAdd">➕ Add Goal</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-head">
+        <span class="card-ico">🏦</span>
+        <div><div class="card-title">Loans</div><div class="card-sub">When each one finishes</div></div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:.74rem;color:var(--tx2);line-height:1.65;margin-bottom:12px;">
+          Lease, personal loan, phone instalment — anything you pay off monthly. If you know the interest rate, put it in and the finish date becomes exact.
+        </div>
+        <div id="planDebtsList"></div>
+        <button class="btn-outline" id="btnDebtAdd">➕ Add Loan</button>
       </div>
     </div>
 
@@ -5276,6 +5303,233 @@ function renderPlanIncome() {
   renderPlanMoneyIn(ym);
   renderPlanSmoothing();
   renderGoals();
+  renderDebts();
+}
+
+// ---------- Loans ----------
+// Two questions per loan: when does it actually finish, and how much sooner
+// would it finish if this month's spare money went into it.
+const PLAN_DEBTS_KEY = 'sla_debts';
+
+function loadDebts() {
+  const d = _planReadJSON(PLAN_DEBTS_KEY, []);
+  return Array.isArray(d) ? d : [];
+}
+function saveDebts(list) {
+  try { localStorage.setItem(PLAN_DEBTS_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+// Months to clear `balance` paying `monthly`, at `annualRate` percent a year.
+// Returns a number, or null when the loan never clears at that payment.
+// Every division is guarded — a NaN or an Infinity reaching the screen here
+// would be read as a real answer about someone's debt.
+function debtMonthsLeft(balance, monthly, annualRate) {
+  // isFinite as well as > 0: a non-finite monthly drives the log expression
+  // to -0, which would print as "-0 months".
+  if (!isFinite(balance) || balance <= 0) return 0;
+  if (!isFinite(monthly) || monthly <= 0) return null;
+
+  const rate = parseFloat(annualRate);
+  const r = (isFinite(rate) && rate > 0) ? (rate / 100 / 12) : 0;
+
+  // No rate known: straight division, interest ignored.
+  if (r === 0) return Math.ceil(balance / monthly);
+
+  // The payment has to beat the interest accruing each month, or the balance
+  // never falls. Without this the log below goes to NaN/Infinity.
+  const interestOnly = balance * r;
+  if (monthly <= interestOnly) return null;
+
+  const months = -Math.log(1 - (balance * r / monthly)) / Math.log(1 + r);
+  if (!isFinite(months) || months < 0) return null;
+  return Math.ceil(months);
+}
+
+function debtStatus(debt, safe) {
+  const balance = parseFloat(debt.balance) || 0;
+  const monthly = parseFloat(debt.monthly) || 0;
+  const rate = parseFloat(debt.annualRate);
+  const hasRate = isFinite(rate) && rate > 0;
+  const out = { balance: balance, monthly: monthly, hasRate: hasRate, rate: hasRate ? rate : 0 };
+
+  // An untouched row has an EMPTY balance, not a zero one. Reporting that as
+  // "Cleared" would congratulate someone for a loan they have not entered
+  // yet; only a balance actually typed down to 0 (or paid off) is cleared.
+  const rawBal = debt.balance;
+  const balanceBlank = rawBal === '' || rawBal === null || rawBal === undefined || !isFinite(parseFloat(rawBal));
+  if (balanceBlank) { out.kind = 'nobalance'; return out; }
+  if (balance <= 0) { out.kind = 'cleared'; return out; }
+  if (monthly <= 0) { out.kind = 'nomonthly'; return out; }
+
+  const months = debtMonthsLeft(balance, monthly, hasRate ? rate : 0);
+  if (months === null) { out.kind = 'neverclears'; return out; }
+
+  out.kind = 'ok';
+  out.months = months;
+  const pIdx = _planYMToIndex(getPlanMonth());
+  out.finishYM = pIdx === null ? null : _planIndexToYM(pIdx + months);
+
+  // The whole point of the section: what this month's spare money would buy
+  // in time. Only offered when there genuinely is spare money — a missing
+  // salary or a negative Safe to Spend must not produce a suggestion.
+  if (safe && safe.available && safe.safe > 0) {
+    const boosted = debtMonthsLeft(balance, monthly + safe.safe, hasRate ? rate : 0);
+    if (boosted !== null) {
+      const saved = months - boosted;
+      if (saved >= 1) {
+        out.extra = safe.safe;      // never more than Safe to Spend
+        out.savedMonths = saved;
+        out.boostedMonths = boosted;
+      }
+    }
+  }
+  return out;
+}
+
+function renderDebts() {
+  const box = $('planDebtsList');
+  if (!box) return;
+  const debts = loadDebts();
+  const safe = computeSafeToSpend(getPlanMonth());
+  if (!debts.length) {
+    box.innerHTML = '<div class="plan-empty">No loans added.<br>Add one to see when it finishes.</div>';
+    return;
+  }
+  box.innerHTML = debts.map(d => {
+    const s = debtStatus(d, safe);
+    let bodyHtml = '';
+
+    if (s.kind === 'nobalance') {
+      bodyHtml = '<div class="plan-debt-msg flat">Enter what is left on this loan and what you pay each month.</div>';
+    } else if (s.kind === 'cleared') {
+      bodyHtml = '<div class="plan-debt-msg done">Cleared — nothing left on this one.</div>';
+    } else if (s.kind === 'nomonthly') {
+      bodyHtml = '<div class="plan-debt-msg flat">Enter what you pay each month to see when this finishes.</div>';
+    } else if (s.kind === 'neverclears') {
+      bodyHtml = '<div class="plan-debt-msg bad">This payment does not cover the interest.</div>';
+    } else {
+      bodyHtml =
+        '<div class="plan-debt-stats">' +
+          '<span class="plan-debt-stat"><span class="k">Months left</span><span class="v">' + s.months + '</span></span>' +
+          '<span class="plan-debt-stat right"><span class="k">Finishes</span><span class="v">' +
+            (s.finishYM ? escapeHtml(_planFmtYM(s.finishYM)) : '—') + '</span></span>' +
+        '</div>' +
+        (s.hasRate ? '' : '<div class="plan-debt-rough">rough — does not count interest</div>') +
+        (s.extra
+          ? '<div class="plan-debt-boost">Pay ' + fmtLKR(s.extra) + ' extra this month and you finish ' +
+            s.savedMonths + ' month' + (s.savedMonths === 1 ? '' : 's') + ' earlier.</div>'
+          : '');
+    }
+
+    return `
+      <div class="plan-item" data-id="${escapeHtml(String(d.id))}">
+        <div class="plan-item-top">
+          <input type="text" class="plan-name" data-d="name" value="${escapeHtml(d.name || '')}" placeholder="e.g. Vehicle lease">
+          <button class="plan-del" data-debtdel="1" aria-label="Delete">🗑</button>
+        </div>
+        <div class="plan-grid">
+          <div>
+            <label>Balance Left</label>
+            <input type="number" data-d="balance" value="${escapeHtml(String(d.balance == null ? '' : d.balance))}" inputmode="decimal" min="0" step="any" placeholder="0">
+          </div>
+          <div>
+            <label>Monthly</label>
+            <input type="number" data-d="monthly" value="${escapeHtml(String(d.monthly == null ? '' : d.monthly))}" inputmode="decimal" min="0" step="any" placeholder="0">
+          </div>
+        </div>
+        <div class="plan-grid wide" style="margin-top:8px;">
+          <div>
+            <label>Interest % A Year (optional)</label>
+            <input type="number" data-d="annualRate" value="${escapeHtml(String(d.annualRate == null ? '' : d.annualRate))}" inputmode="decimal" min="0" step="any" placeholder="leave blank if you don't know">
+          </div>
+        </div>
+        ${bodyHtml}
+        ${(s.kind === 'cleared' || s.kind === 'nobalance') ? '' : '<button class="plan-debt-paid" data-debtpaid="1">✓ Paid This Month</button>'}
+      </div>`;
+  }).join('');
+}
+
+(function() {
+  $('btnDebtAdd').addEventListener('click', () => {
+    const debts = loadDebts();
+    debts.push({
+      id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+      name: '', balance: '', monthly: '', annualRate: ''
+    });
+    saveDebts(debts);
+    renderDebts();
+  });
+
+  const box = $('planDebtsList');
+
+  // Saves without re-rendering so typing keeps focus; the derived block is
+  // patched in place afterwards.
+  box.addEventListener('input', e => {
+    const f = e.target.dataset ? e.target.dataset.d : null;
+    if (!f) return;
+    const row = e.target.closest('.plan-item');
+    if (!row) return;
+    const debts = loadDebts();
+    const d = debts.find(x => String(x.id) === row.dataset.id);
+    if (!d) return;
+    d[f] = e.target.value;
+    saveDebts(debts);
+    if (f !== 'name') refreshDebtRow(row, d);
+  });
+
+  box.addEventListener('click', async e => {
+    const paid = e.target.closest('[data-debtpaid]');
+    if (paid) {
+      const row = paid.closest('.plan-item');
+      const debts = loadDebts();
+      const d = debts.find(x => String(x.id) === row.dataset.id);
+      if (!d) return;
+      const bal = parseFloat(d.balance) || 0;
+      const mon = parseFloat(d.monthly) || 0;
+      if (mon <= 0) return;
+      // Floored at zero — a loan cannot go past paid off into negative.
+      d.balance = Math.max(0, bal - mon);
+      saveDebts(debts);
+      renderDebts();
+      return;
+    }
+    const del = e.target.closest('[data-debtdel]');
+    if (!del) return;
+    const row = del.closest('.plan-item');
+    const debts = loadDebts();
+    const d = debts.find(x => String(x.id) === row.dataset.id);
+    if (!await showConfirm('Delete ' + ((d && d.name) ? '"' + d.name + '"' : 'this loan') + '?')) return;
+    saveDebts(debts.filter(x => String(x.id) !== row.dataset.id));
+    renderDebts();
+  });
+})();
+
+// Rebuilds only the derived block of one loan row, so editing a number
+// updates the months/finish/extra lines without the row losing focus.
+function refreshDebtRow(row, debt) {
+  const s = debtStatus(debt, computeSafeToSpend(getPlanMonth()));
+  const old = row.querySelector('.plan-debt-stats, .plan-debt-msg');
+  const rough = row.querySelector('.plan-debt-rough');
+  const boost = row.querySelector('.plan-debt-boost');
+  if (rough) rough.remove();
+  if (boost) boost.remove();
+
+  let html;
+  if (s.kind === 'nobalance') html = '<div class="plan-debt-msg flat">Enter what is left on this loan and what you pay each month.</div>';
+  else if (s.kind === 'cleared') html = '<div class="plan-debt-msg done">Cleared — nothing left on this one.</div>';
+  else if (s.kind === 'nomonthly') html = '<div class="plan-debt-msg flat">Enter what you pay each month to see when this finishes.</div>';
+  else if (s.kind === 'neverclears') html = '<div class="plan-debt-msg bad">This payment does not cover the interest.</div>';
+  else {
+    html = '<div class="plan-debt-stats">' +
+      '<span class="plan-debt-stat"><span class="k">Months left</span><span class="v">' + s.months + '</span></span>' +
+      '<span class="plan-debt-stat right"><span class="k">Finishes</span><span class="v">' +
+        (s.finishYM ? escapeHtml(_planFmtYM(s.finishYM)) : '—') + '</span></span>' +
+    '</div>' +
+    (s.hasRate ? '' : '<div class="plan-debt-rough">rough — does not count interest</div>') +
+    (s.extra ? '<div class="plan-debt-boost">Pay ' + fmtLKR(s.extra) + ' extra this month and you finish ' +
+      s.savedMonths + ' month' + (s.savedMonths === 1 ? '' : 's') + ' earlier.</div>' : '');
+  }
+  if (old) old.outerHTML = html;
 }
 
 // ---------- Goals ----------
