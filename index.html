@@ -590,6 +590,23 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-buf-item .amt.neg{color:var(--amber);}
 .plan-buf-item .when{font-size:.68rem;color:var(--tx3);font-family:var(--mono);flex:1;min-width:0;}
 .plan-buf-item .x{flex-shrink:0;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.22);color:var(--red);border-radius:7px;width:28px;height:28px;font-size:.72rem;cursor:pointer;line-height:1;}
+.plan-goal-money{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:10px;font-family:var(--mono);font-size:.78rem;}
+.plan-goal-money .now{color:var(--tx1);font-weight:700;}
+.plan-goal-money .tgt{color:var(--tx3);}
+.plan-goal-bar{height:8px;border-radius:20px;background:rgba(255,255,255,.07);overflow:hidden;margin-top:7px;}
+.plan-goal-fill{height:100%;border-radius:20px;background:var(--purple3);transition:width .25s;}
+.plan-goal-fill.done{background:var(--green);}
+.plan-goal-meta{display:flex;justify-content:space-between;gap:10px;margin-top:7px;font-size:.66rem;color:var(--tx3);font-family:var(--mono);}
+.plan-goal-verdict{font-size:.74rem;line-height:1.6;border-radius:10px;padding:10px 11px;margin-top:10px;}
+.plan-goal-verdict.ok{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.22);color:var(--green);}
+.plan-goal-verdict.tight{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber);}
+.plan-goal-verdict.no{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
+.plan-goal-verdict.done{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.28);color:var(--green);font-weight:700;}
+.plan-goal-verdict.flat{background:rgba(255,255,255,.03);border:1px solid var(--b0);color:var(--tx2);}
+.plan-goal-add{background:rgba(124,58,237,.14);border:1.5px solid rgba(124,58,237,.38);color:var(--purple3);border-radius:9px;padding:9px 12px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:var(--sans);white-space:nowrap;}
+.plan-goal-addrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px;}
+.plan-goal-addrow input{min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:9px 11px;color:var(--tx1);font-family:var(--mono);font-size:.82rem;-webkit-appearance:none;}
+.plan-goal-addrow input:focus{outline:none;border-color:var(--purple2);}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -1234,6 +1251,20 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <div id="planBufferMsg" style="font-size:.7rem;line-height:1.55;margin-top:9px;display:none;"></div>
 
         <div id="planBufferLog"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-head">
+        <span class="card-ico">🎯</span>
+        <div><div class="card-title">Goals</div><div class="card-sub">Big things you're saving for</div></div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:.74rem;color:var(--tx2);line-height:1.65;margin-bottom:12px;">
+          Hajj, a wedding, a car, a house — whatever you're saving toward. FlyProfit works out whether the date you want is realistic.
+        </div>
+        <div id="planGoalsList"></div>
+        <button class="btn-outline" id="btnGoalAdd">➕ Add Goal</button>
       </div>
     </div>
 
@@ -5155,24 +5186,37 @@ function planWindowDays(ym) {
   return Math.round((end - start) / 86400000) + 1;
 }
 
+// The Safe to Spend figure as DATA, so the Goals section can judge whether a
+// goal is affordable against the exact same number the card shows rather
+// than a second copy of the arithmetic that could drift from it.
+// available:false means there is no trustworthy figure (no salary saved),
+// which callers must treat as "cannot say", never as zero.
+function computeSafeToSpend(ym) {
+  const income = planMoneyInParts(ym);
+  if (!income.salaryFound) return { available: false, safe: 0, income: income };
+  const t = planTotals(loadPlan(), ym);
+  return { available: true, safe: income.total - t.dueThis - t.setAside, income: income, totals: t };
+}
+
 function renderSafeToSpend() {
   const body = $('planSafeBody');
   if (!body) return;
   const ym = getPlanMonth();
-  const income = planMoneyInParts(ym);
+  const s = computeSafeToSpend(ym);
+  const income = s.income;
   $('planSafeSubtitle').textContent = 'For ' + _planFmtYM(ym);
 
   // Without a salary figure the sum would be layover cash minus a full
   // month of bills — a large red number that is an artefact of missing
   // data, not of the crew member's finances. Say what to do instead.
-  if (!income.salaryFound) {
+  if (!s.available) {
     body.innerHTML = '<div class="plan-salary-miss">Add your salary first — calculate the ' +
       escapeHtml(_planFmtYM(income.rosterKey)) + ' roster and tap Save Month.</div>';
     return;
   }
 
-  const t = planTotals(loadPlan(), ym);
-  const safe = income.total - t.dueThis - t.setAside;
+  const t = s.totals;
+  const safe = s.safe;
   const days = planWindowDays(ym);
   const perDay = days > 0 ? safe / days : 0;
   const cls = safe > 0 ? 'pos' : (safe < 0 ? 'neg' : 'zero');
@@ -5231,6 +5275,219 @@ function renderPlanIncome() {
   renderPlanFx();
   renderPlanMoneyIn(ym);
   renderPlanSmoothing();
+  renderGoals();
+}
+
+// ---------- Goals ----------
+// Answers one question per goal: at this person's actual spare money, is the
+// date they picked realistic? Every verdict is measured against the SAME
+// Safe to Spend figure the card above shows, via computeSafeToSpend().
+const PLAN_GOALS_KEY = 'sla_goals';
+
+function loadGoals() {
+  const g = _planReadJSON(PLAN_GOALS_KEY, []);
+  return Array.isArray(g) ? g : [];
+}
+function saveGoals(list) {
+  try { localStorage.setItem(PLAN_GOALS_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+// Returns everything needed to draw one goal. Kept separate from the markup
+// so each edge case is a named, testable outcome rather than a branch buried
+// in a template string.
+function goalStatus(goal, safe) {
+  const target = parseFloat(goal.target) || 0;
+  const saved = parseFloat(goal.saved) || 0;
+  const remaining = Math.max(0, target - saved);
+  const pct = target > 0 ? Math.min(100, Math.max(0, (saved / target) * 100)) : 0;
+  const out = { target: target, saved: saved, remaining: remaining, pct: pct, monthsLeft: null, needPerMonth: 0 };
+
+  if (target > 0 && saved >= target) { out.kind = 'done'; return out; }
+  // No target amount yet — without one the "need per month" is zero, which
+  // would otherwise render as a confident "Comfortable — LKR 0 a month."
+  if (target <= 0) { out.kind = 'notarget'; return out; }
+
+  const tIdx = _planYMToIndex(goal.targetYM);
+  const pIdx = _planYMToIndex(getPlanMonth());
+  if (tIdx === null || pIdx === null) { out.kind = 'nodate'; return out; }
+  const monthsLeft = tIdx - pIdx;
+  out.monthsLeft = monthsLeft;
+  if (monthsLeft <= 0) { out.kind = 'passed'; return out; }
+
+  out.needPerMonth = remaining / monthsLeft;
+
+  // No trustworthy spare-money figure — show the goal, say nothing about
+  // whether it is achievable. Guessing here would be worse than silence.
+  if (!safe.available) { out.kind = 'nosafe'; return out; }
+  if (safe.safe <= 0) { out.kind = 'nofree'; return out; }
+
+  if (out.needPerMonth <= safe.safe * 0.5) out.kind = 'ok';
+  else if (out.needPerMonth <= safe.safe) out.kind = 'tight';
+  else {
+    out.kind = 'no';
+    out.monthsNeeded = Math.ceil(out.remaining / safe.safe);
+    out.realisticYM = _planIndexToYM(pIdx + out.monthsNeeded);
+  }
+  return out;
+}
+
+function goalVerdictHtml(s, safe) {
+  switch (s.kind) {
+    case 'done':
+      return '<div class="plan-goal-verdict done">Done — you have reached this goal.</div>';
+    case 'passed':
+      return '<div class="plan-goal-verdict no">Target month has passed — pick a new date.</div>';
+    case 'notarget':
+      return '<div class="plan-goal-verdict flat">Enter how much you need, and the month you want it by.</div>';
+    case 'nodate':
+      return '<div class="plan-goal-verdict flat">Pick a target month to see if it is realistic.</div>';
+    case 'nosafe':
+      return ''; // deliberately silent
+    case 'nofree':
+      return '<div class="plan-goal-verdict no">No free money this month to put toward this.</div>';
+    case 'ok':
+      return '<div class="plan-goal-verdict ok">Comfortable — ' + fmtLKR(s.needPerMonth) + ' a month.</div>';
+    case 'tight':
+      return '<div class="plan-goal-verdict tight">Tight but possible — ' + fmtLKR(s.needPerMonth) +
+             ' a month, most of your free money.</div>';
+    case 'no':
+      return '<div class="plan-goal-verdict no">Not possible at ' + fmtLKR(s.needPerMonth) +
+             ' a month. Push the date to ' + escapeHtml(_planFmtYM(s.realisticYM)) +
+             ' or save ' + fmtLKR(safe.safe) + ' a month instead.</div>';
+  }
+  return '';
+}
+
+function renderGoals() {
+  const box = $('planGoalsList');
+  if (!box) return;
+  const goals = loadGoals();
+  const safe = computeSafeToSpend(getPlanMonth());
+  if (!goals.length) {
+    box.innerHTML = '<div class="plan-empty">No goals yet.<br>Add the big things you are saving for.</div>';
+    return;
+  }
+  box.innerHTML = goals.map(g => {
+    const s = goalStatus(g, safe);
+    return `
+      <div class="plan-item" data-id="${escapeHtml(String(g.id))}">
+        <div class="plan-item-top">
+          <input type="text" class="plan-name" data-g="name" value="${escapeHtml(g.name || '')}" placeholder="e.g. Hajj">
+          <button class="plan-del" data-goaldel="1" aria-label="Delete">🗑</button>
+        </div>
+        <div class="plan-grid wide">
+          <div>
+            <label>Target (LKR)</label>
+            <input type="number" data-g="target" value="${escapeHtml(String(g.target == null ? '' : g.target))}" inputmode="decimal" min="0" step="any" placeholder="0">
+          </div>
+        </div>
+        <div class="plan-grid wide" style="margin-top:8px;">
+          <div>
+            <label>By Month</label>
+            <input type="month" data-g="targetYM" value="${escapeHtml(g.targetYM || '')}">
+          </div>
+        </div>
+        <div class="plan-goal-money">
+          <span class="now">${escapeHtml(fmtLKR(s.saved))}</span>
+          <span class="tgt">of ${escapeHtml(fmtLKR(s.target))}</span>
+        </div>
+        <div class="plan-goal-bar"><div class="plan-goal-fill${s.kind === 'done' ? ' done' : ''}" style="width:${s.pct.toFixed(1)}%;"></div></div>
+        <div class="plan-goal-meta">
+          <span>${s.pct.toFixed(0)}% saved</span>
+          <span>${s.kind === 'done' ? 'nothing left' : escapeHtml(fmtLKR(s.remaining)) + ' to go'}${
+            s.monthsLeft !== null && s.monthsLeft > 0 ? ' · ' + s.monthsLeft + ' month' + (s.monthsLeft === 1 ? '' : 's') : ''}</span>
+        </div>
+        ${goalVerdictHtml(s, safe)}
+        <div class="plan-goal-addrow">
+          <input type="number" data-g="addamt" inputmode="decimal" min="0" step="any" placeholder="Add money">
+          <button class="plan-goal-add" data-goaladd="1">Add money</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+(function() {
+  $('btnGoalAdd').addEventListener('click', () => {
+    const goals = loadGoals();
+    goals.push({
+      id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+      name: '', target: '', saved: 0, targetYM: ''
+    });
+    saveGoals(goals);
+    renderGoals();
+  });
+
+  const box = $('planGoalsList');
+
+  // Field edits save without re-rendering, so focus and caret survive typing.
+  // Only the derived parts of that one row are patched afterwards.
+  box.addEventListener('input', e => {
+    const f = e.target.dataset ? e.target.dataset.g : null;
+    if (!f || f === 'addamt') return;
+    const row = e.target.closest('.plan-item');
+    if (!row) return;
+    const goals = loadGoals();
+    const g = goals.find(x => String(x.id) === row.dataset.id);
+    if (!g) return;
+    g[f] = e.target.value;
+    saveGoals(goals);
+    if (f !== 'name') refreshGoalRow(row, g);
+  });
+
+  box.addEventListener('change', e => {
+    if (!e.target.dataset || e.target.dataset.g !== 'targetYM') return;
+    const row = e.target.closest('.plan-item');
+    if (row) {
+      const g = loadGoals().find(x => String(x.id) === row.dataset.id);
+      if (g) refreshGoalRow(row, g);
+    }
+  });
+
+  box.addEventListener('click', async e => {
+    const addBtn = e.target.closest('[data-goaladd]');
+    if (addBtn) {
+      const row = addBtn.closest('.plan-item');
+      const inp = row.querySelector('[data-g="addamt"]');
+      const amt = parseFloat(inp.value);
+      if (!isFinite(amt) || amt <= 0) { inp.focus(); return; }
+      const goals = loadGoals();
+      const g = goals.find(x => String(x.id) === row.dataset.id);
+      if (!g) return;
+      g.saved = (parseFloat(g.saved) || 0) + amt;
+      saveGoals(goals);
+      inp.value = '';
+      renderGoals();
+      return;
+    }
+    const delBtn = e.target.closest('[data-goaldel]');
+    if (!delBtn) return;
+    const row = delBtn.closest('.plan-item');
+    const goals = loadGoals();
+    const g = goals.find(x => String(x.id) === row.dataset.id);
+    if (!await showConfirm('Delete ' + ((g && g.name) ? '"' + g.name + '"' : 'this goal') + '?')) return;
+    saveGoals(goals.filter(x => String(x.id) !== row.dataset.id));
+    renderGoals();
+  });
+})();
+
+// Redraws one goal's derived parts in place, so editing the target amount
+// updates the bar and verdict without rebuilding the row and losing focus.
+function refreshGoalRow(row, goal) {
+  const s = goalStatus(goal, computeSafeToSpend(getPlanMonth()));
+  const fill = row.querySelector('.plan-goal-fill');
+  const money = row.querySelector('.plan-goal-money');
+  const meta = row.querySelector('.plan-goal-meta');
+  const verdict = row.querySelector('.plan-goal-verdict');
+  if (fill) { fill.style.width = s.pct.toFixed(1) + '%'; fill.classList.toggle('done', s.kind === 'done'); }
+  if (money) money.innerHTML = '<span class="now">' + escapeHtml(fmtLKR(s.saved)) +
+    '</span><span class="tgt">of ' + escapeHtml(fmtLKR(s.target)) + '</span>';
+  if (meta) meta.innerHTML = '<span>' + s.pct.toFixed(0) + '% saved</span><span>' +
+    (s.kind === 'done' ? 'nothing left' : escapeHtml(fmtLKR(s.remaining)) + ' to go') +
+    (s.monthsLeft !== null && s.monthsLeft > 0 ? ' · ' + s.monthsLeft + ' month' + (s.monthsLeft === 1 ? '' : 's') : '') +
+    '</span>';
+  const html = goalVerdictHtml(s, computeSafeToSpend(getPlanMonth()));
+  if (verdict) verdict.outerHTML = html || '<div class="plan-goal-verdict flat" style="display:none;"></div>';
+  else if (html) row.querySelector('.plan-goal-addrow').insertAdjacentHTML('beforebegin', html);
 }
 
 // ---------- Good month, bad month ----------
