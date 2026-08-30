@@ -550,6 +550,20 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-fx-row input:focus{outline:none;border-color:var(--purple2);}
 .plan-salary-ok{display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
 .plan-salary-miss{font-size:.74rem;color:var(--amber);line-height:1.65;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:10px;padding:11px 12px;}
+.plan-safe-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:8px 0;}
+.plan-safe-row .k{font-size:.78rem;color:var(--tx2);}
+.plan-safe-row .v{font-size:.82rem;font-family:var(--mono);font-weight:600;color:var(--tx1);white-space:nowrap;}
+.plan-safe-rule{border-top:2px solid var(--b1);margin:8px 0 4px;}
+.plan-safe-big{font-size:1.9rem;font-family:var(--mono);font-weight:800;line-height:1.15;letter-spacing:-.01em;word-break:break-word;}
+.plan-safe-big.pos{color:var(--green);}
+.plan-safe-big.zero{color:var(--tx2);}
+.plan-safe-big.neg{color:var(--red);}
+.plan-safe-perday{font-size:.68rem;color:var(--tx3);font-family:var(--mono);margin-top:5px;line-height:1.5;}
+.plan-safe-status{font-size:.8rem;font-weight:700;line-height:1.5;margin-top:12px;}
+.plan-safe-status.pos{color:var(--green);}
+.plan-safe-status.zero{color:var(--tx2);}
+.plan-safe-status.neg{color:var(--red);}
+.plan-safe-note{font-size:.68rem;color:var(--amber);line-height:1.55;margin-top:10px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:9px;padding:9px 11px;}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -1164,6 +1178,14 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           <span class="val" id="planTotalSetAside">LKR 0</span>
         </div>
       </div>
+    </div>
+
+    <div class="card" id="planSafeCard" style="margin-top:12px;">
+      <div class="card-head">
+        <span class="card-ico">🟢</span>
+        <div><div class="card-title">Safe To Spend</div><div class="card-sub" id="planSafeSubtitle">What's actually yours to use</div></div>
+      </div>
+      <div class="card-body" id="planSafeBody"></div>
     </div>
 
     <div class="card" style="margin-top:12px;">
@@ -4587,6 +4609,15 @@ function renderSwapRangePickers() {
 // months leading up to it.
 const PLAN_KEY = 'sla_commitments';
 
+// Declared up here, not down with the Money In section that mainly uses
+// them, because this block's own boot render now reaches Safe to Spend,
+// which reads all of them. A `const` declared further down would still be
+// in its temporal dead zone at that moment and would throw on load.
+const PLAN_MONTH_KEY = 'sla_plan_month';
+const PLAN_INCOME_KEY = 'sla_plan_income';
+const PLAN_FX_KEY = 'sla_fx_rates';
+const PLAN_CURRENCIES = ['USD', 'GBP', 'EUR', 'AED', 'SGD', 'AUD', 'JPY', 'Other'];
+
 // Months between payments. Also the divisor for the put-aside figure, so
 // the two can never drift apart.
 const PLAN_INTERVAL = { monthly: 1, quarterly: 3, halfyearly: 6, yearly: 12 };
@@ -4650,8 +4681,13 @@ function rollPlanDueDates(list) {
   return changed;
 }
 
-function planTotals(list) {
-  const nowYM = _planNowYM();
+// Takes the month to total AGAINST rather than reading the clock itself, so
+// that changing the plan month moves both halves of the tab together. Note
+// this is exactly the opposite of rollPlanDueDates(), which stays anchored
+// on the real current month: rolling a past due date forward is a fact about
+// today, not about whichever month is being planned.
+function planTotals(list, ym) {
+  const target = _planYMToIndex(ym) !== null ? ym : _planNowYM();
   let monthly = 0, dueExtra = 0, setAside = 0;
   list.forEach(it => {
     const amt = parseFloat(it.amount) || 0;
@@ -4660,18 +4696,20 @@ function planTotals(list) {
       monthly += amt;
     } else {
       setAside += amt / step;
-      if (it.nextDue === nowYM) dueExtra += amt;
+      if (it.nextDue === target) dueExtra += amt;
     }
   });
   return { monthly: monthly, dueThis: monthly + dueExtra, setAside: setAside };
 }
 
 function renderPlanTotals(list) {
-  const t = planTotals(list);
+  const ym = getPlanMonth();
+  const t = planTotals(list, ym);
   $('planTotalMonthly').textContent = fmtLKR(t.monthly);
   $('planTotalDueThis').textContent = fmtLKR(t.dueThis);
   $('planTotalSetAside').textContent = fmtLKR(t.setAside);
-  $('planDueThisSub').textContent = 'Monthly bills plus anything due in ' + _planFmtYM(_planNowYM());
+  $('planDueThisSub').textContent = 'Monthly bills plus anything due in ' + _planFmtYM(ym);
+  renderSafeToSpend();
 }
 
 function renderPlan() {
@@ -4836,12 +4874,10 @@ function updatePlanItem(id, field, value) {
 // flying in July. July's roster is calculated in early August and paid on
 // 25 August, which is what you then spend from 25 Aug to 24 Sep. So the
 // salary shown for plan month S is read from roster month S minus 2.
-const PLAN_MONTH_KEY = 'sla_plan_month';
-const PLAN_INCOME_KEY = 'sla_plan_income';
-const PLAN_FX_KEY = 'sla_fx_rates';
-
-// Ordered, so the rates block always lists them the same way.
-const PLAN_CURRENCIES = ['USD', 'GBP', 'EUR', 'AED', 'SGD', 'AUD', 'JPY', 'Other'];
+// PLAN_MONTH_KEY, PLAN_INCOME_KEY, PLAN_FX_KEY and PLAN_CURRENCIES are all
+// declared with the Money Out block above — that block boots first and its
+// Safe to Spend render needs them. PLAN_CURRENCIES is ordered, so the rates
+// block always lists the currencies the same way.
 
 function _planReadJSON(key, fallback) {
   try {
@@ -4877,9 +4913,16 @@ function planDefaultMonth() {
   const idx = d.getFullYear() * 12 + d.getMonth();
   return _planIndexToYM(d.getDate() >= 25 ? idx + 1 : idx);
 }
+// A saved month is only honoured while it is still current or ahead. Someone
+// who planned September and next opens the app in November would otherwise
+// be shown September's figures indefinitely — stale, and silently wrong.
+// Forward-dated choices are kept, so planning ahead still works.
 function getPlanMonth() {
   const saved = localStorage.getItem(PLAN_MONTH_KEY);
-  return _planYMToIndex(saved) !== null ? saved : planDefaultMonth();
+  const savedIdx = _planYMToIndex(saved);
+  if (savedIdx === null) return planDefaultMonth();
+  const def = planDefaultMonth();
+  return savedIdx < _planYMToIndex(def) ? def : saved;
 }
 function setPlanMonth(ym) { try { localStorage.setItem(PLAN_MONTH_KEY, ym); } catch (e) {} }
 
@@ -5014,6 +5057,104 @@ function renderPlanMoneyIn(planYM) {
   bits.push(salary.found ? 'Salary plus layover cash left over' : 'Layover cash only — salary not saved yet');
   if (missing) bits.push(missing + ' layover' + (missing === 1 ? '' : 's') + ' not counted (no rate set)');
   $('planMoneyInSub').textContent = bits.join(' · ');
+  // Every path that changes Money In also changes Safe to Spend, so it is
+  // refreshed here rather than being remembered at each of the six call
+  // sites — one of which would eventually get missed.
+  renderSafeToSpend();
+}
+
+// ---------- Safe to Spend ----------
+// Ties the two halves together: what came in, minus what is already
+// committed this month, minus what has to be held back for the big bills
+// that are not due yet. Whatever survives is genuinely free money.
+
+// Money In split out so Safe to Spend can reuse the exact same arithmetic
+// rather than a second copy that could drift from the section above.
+function planMoneyInParts(planYM) {
+  const salary = planSalaryFor(planYM);
+  const rows = planLayoversFor(planYM);
+  let layoverLkr = 0;
+  const missingCurrencies = [];
+  rows.forEach(row => {
+    const v = planLayoverRupees(row);
+    if (v === null) {
+      const c = row.currency || 'that currency';
+      if (missingCurrencies.indexOf(c) === -1) missingCurrencies.push(c);
+    } else {
+      layoverLkr += v;
+    }
+  });
+  return {
+    salaryFound: salary.found,
+    rosterKey: salary.rosterKey,
+    total: salary.net + layoverLkr,
+    missingCount: rows.filter(r => planLayoverRupees(r) === null).length,
+    missingCurrencies: missingCurrencies
+  };
+}
+
+// Real day count of the spending window: 25th of the previous month through
+// the 24th of the plan month. Never assume 30 — that window is 28 days in a
+// non-leap February and 31 across a long month.
+function planWindowDays(ym) {
+  const i = _planYMToIndex(ym);
+  if (i === null) return 0;
+  const startY = Math.floor((i - 1) / 12), startM = (i - 1) % 12;
+  const endY = Math.floor(i / 12), endM = i % 12;
+  const start = new Date(startY, startM, 25);
+  const end = new Date(endY, endM, 24);
+  return Math.round((end - start) / 86400000) + 1;
+}
+
+function renderSafeToSpend() {
+  const body = $('planSafeBody');
+  if (!body) return;
+  const ym = getPlanMonth();
+  const income = planMoneyInParts(ym);
+  $('planSafeSubtitle').textContent = 'For ' + _planFmtYM(ym);
+
+  // Without a salary figure the sum would be layover cash minus a full
+  // month of bills — a large red number that is an artefact of missing
+  // data, not of the crew member's finances. Say what to do instead.
+  if (!income.salaryFound) {
+    body.innerHTML = '<div class="plan-salary-miss">Add your salary first — calculate the ' +
+      escapeHtml(_planFmtYM(income.rosterKey)) + ' roster and tap Save Month.</div>';
+    return;
+  }
+
+  const t = planTotals(loadPlan(), ym);
+  const safe = income.total - t.dueThis - t.setAside;
+  const days = planWindowDays(ym);
+  const perDay = days > 0 ? safe / days : 0;
+  const cls = safe > 0 ? 'pos' : (safe < 0 ? 'neg' : 'zero');
+
+  let status;
+  if (safe > 0) status = 'You have ' + fmtLKR(safe) + ' free this month.';
+  else if (safe === 0) status = 'Everything is spoken for this month.';
+  // Shortfall is stated as a positive amount — "short by -Rs 4,000" reads
+  // as nonsense, and the word "short" already carries the direction.
+  else status = 'You are short by ' + fmtLKR(Math.abs(safe)) + ' this month.';
+
+  let note = '';
+  if (income.missingCount) {
+    note = '<div class="plan-safe-note">' + income.missingCount + ' layover' +
+      (income.missingCount === 1 ? '' : 's') + ' not counted — set the ' +
+      escapeHtml(income.missingCurrencies.join(' and ')) + ' rate above.</div>';
+  }
+
+  body.innerHTML =
+    '<div class="plan-safe-row"><span class="k">Money in</span><span class="v">' + fmtLKR(income.total) + '</span></div>' +
+    '<div class="plan-safe-row"><span class="k">Bills this month</span><span class="v">− ' + fmtLKR(t.dueThis) + '</span></div>' +
+    '<div class="plan-safe-row"><span class="k">Put aside</span><span class="v">− ' + fmtLKR(t.setAside) + '</span></div>' +
+    '<div class="plan-safe-rule"></div>' +
+    '<div style="padding-top:8px;">' +
+      '<div style="font-size:.6rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;">Safe to spend</div>' +
+      '<div class="plan-safe-big ' + cls + '">' + fmtLKR(safe) + '</div>' +
+      (safe > 0 && days > 0
+        ? '<div class="plan-safe-perday">about ' + fmtLKR(perDay) + ' a day for ' + days + ' days</div>'
+        : '') +
+      '<div class="plan-safe-status ' + cls + '">' + status + '</div>' +
+    '</div>' + note;
 }
 
 // Prefill the USD rate from the Inputs page's dollarRate, but only while no
@@ -5049,6 +5190,9 @@ function renderPlanIncome() {
     if (_planYMToIndex(monthInp.value) === null) { monthInp.value = getPlanMonth(); return; }
     setPlanMonth(monthInp.value);
     renderPlanIncome();
+    // Money Out's "due this month" is keyed off the selected month too, so
+    // both halves have to move together — that is the point of this step.
+    renderPlanTotals(loadPlan());
   });
 
   $('btnPlanAddLayover').addEventListener('click', () => {
