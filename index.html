@@ -536,6 +536,20 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-grid input:focus,.plan-grid select:focus{outline:none;border-color:var(--purple2);}
 .plan-due-wrap{margin-top:8px;}
 .plan-empty{font-size:.74rem;color:var(--tx3);line-height:1.6;text-align:center;padding:18px 6px;}
+.plan-lay-foot{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--b0);}
+.plan-lay-bal{font-size:.72rem;color:var(--tx3);font-family:var(--mono);}
+.plan-lay-bal b{color:var(--tx1);}
+.plan-lay-lkr{font-size:.86rem;font-family:var(--mono);font-weight:700;color:var(--tx1);white-space:nowrap;}
+.plan-lay-lkr.neg{color:var(--red);}
+.plan-lay-warn{font-size:.64rem;color:var(--amber);line-height:1.5;margin-top:7px;}
+.plan-fx-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--b0);}
+.plan-fx-row:last-child{border-bottom:none;}
+.plan-fx-cur{font-family:var(--mono);font-size:.78rem;font-weight:700;color:var(--tx1);width:46px;flex-shrink:0;}
+.plan-fx-eq{font-size:.66rem;color:var(--tx3);flex-shrink:0;}
+.plan-fx-row input{flex:1;min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:9px 11px;color:var(--tx1);font-family:var(--mono);font-size:.85rem;-webkit-appearance:none;}
+.plan-fx-row input:focus{outline:none;border-color:var(--purple2);}
+.plan-salary-ok{display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
+.plan-salary-miss{font-size:.74rem;color:var(--amber);line-height:1.65;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:10px;padding:11px 12px;}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -1029,6 +1043,54 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
        the monitoring sheet or any server. -->
   <div class="page" id="page-plan">
     <div class="card">
+      <div class="card-head">
+        <span class="card-ico">🗓</span>
+        <div><div class="card-title">Planning For</div><div class="card-sub">Which month you're working out</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field" style="margin-bottom:0;">
+          <input type="month" id="planMonth">
+          <div class="hint" id="planWindowHint"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-head">
+        <span class="card-ico">💵</span>
+        <div><div class="card-title">Money In</div><div class="card-sub">Salary plus what's left of your allowances</div></div>
+      </div>
+      <div class="card-body">
+        <div id="planSalaryBox"></div>
+
+        <div class="section-head" style="margin-top:16px;">Layover Cash</div>
+        <div style="font-size:.72rem;color:var(--tx2);line-height:1.6;margin-bottom:10px;">
+          For each layover this month: how much allowance you got, and how much you spent there. What's left is money you bring home.
+        </div>
+        <div id="planLayoverList"></div>
+        <button class="btn-outline" id="btnPlanAddLayover">➕ Add Layover</button>
+
+        <div class="summary-row total" style="margin-top:16px;">
+          <span class="lbl">Money In<br><span class="sub" id="planMoneyInSub">Salary plus layover cash left over</span></span>
+          <span class="val" id="planMoneyInTotal">LKR 0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-head">
+        <span class="card-ico">💱</span>
+        <div><div class="card-title">Exchange Rates</div><div class="card-sub">Set once — reused every month</div></div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:.72rem;color:var(--tx2);line-height:1.6;margin-bottom:11px;">
+          How many rupees you get for 1 of each currency. Only the ones you actually use need a number.
+        </div>
+        <div id="planFxList"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
       <div class="card-head">
         <span class="card-ico">📆</span>
         <div><div class="card-title">Money Out</div><div class="card-sub">What leaves your account, and when</div></div>
@@ -4380,7 +4442,7 @@ document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('cl
   if(b.dataset.page==='page-docs') refreshDocsStatus();
   // Re-roll on open as well as at startup, so a phone left running across a
   // month boundary still shows the right due month.
-  if(b.dataset.page==='page-plan'){ var _pl=loadPlan(); if(rollPlanDueDates(_pl)) savePlan(_pl); renderPlan(); }
+  if(b.dataset.page==='page-plan'){ var _pl=loadPlan(); if(rollPlanDueDates(_pl)) savePlan(_pl); renderPlan(); renderPlanIncome(); }
 });});
 
 // ---------- Swap (Mutual Flight Calculator) wiring ----------
@@ -4759,6 +4821,321 @@ function updatePlanItem(id, field, value) {
   const boot = loadPlan();
   if (rollPlanDueDates(boot)) savePlan(boot);
   renderPlan();
+})();
+
+// ============================================================
+// MONEY IN — SALARY + LAYOVER CASH (Plan tab)
+// ============================================================
+// STRICTLY READ-ONLY over sla_salary_history: this section displays a net
+// figure that was already calculated and saved on the Result page, and must
+// never write that key. Its own data (layover cash, exchange rates) lives in
+// separate keys and, like the rest of the Plan tab, never leaves the phone.
+//
+// The two-month offset below is the whole reason this section exists, so it
+// is worth stating plainly: the money you live on in September was earned
+// flying in July. July's roster is calculated in early August and paid on
+// 25 August, which is what you then spend from 25 Aug to 24 Sep. So the
+// salary shown for plan month S is read from roster month S minus 2.
+const PLAN_MONTH_KEY = 'sla_plan_month';
+const PLAN_INCOME_KEY = 'sla_plan_income';
+const PLAN_FX_KEY = 'sla_fx_rates';
+
+// Ordered, so the rates block always lists them the same way.
+const PLAN_CURRENCIES = ['USD', 'GBP', 'EUR', 'AED', 'SGD', 'AUD', 'JPY', 'Other'];
+
+function _planReadJSON(key, fallback) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || 'null');
+    return (v && typeof v === 'object') ? v : fallback;
+  } catch (e) { return fallback; }
+}
+
+function loadFxRates() { return _planReadJSON(PLAN_FX_KEY, {}); }
+function saveFxRates(o) { try { localStorage.setItem(PLAN_FX_KEY, JSON.stringify(o)); } catch (e) {} }
+
+function loadPlanIncome() { return _planReadJSON(PLAN_INCOME_KEY, {}); }
+function savePlanIncome(o) { try { localStorage.setItem(PLAN_INCOME_KEY, JSON.stringify(o)); } catch (e) {} }
+
+// Layovers are stored per plan month — they differ every month, unlike the
+// commitments list and the exchange rates, which persist.
+function planLayoversFor(ym) {
+  const all = loadPlanIncome();
+  const slot = all[ym];
+  return (slot && Array.isArray(slot.layovers)) ? slot.layovers : [];
+}
+function savePlanLayoversFor(ym, layovers) {
+  const all = loadPlanIncome();
+  if (!all[ym] || typeof all[ym] !== 'object') all[ym] = {};
+  all[ym].layovers = layovers;
+  savePlanIncome(all);
+}
+
+// Default plan month: salary lands on the 25th, so from the 25th onward the
+// month you are actually budgeting for is the next one.
+function planDefaultMonth() {
+  const d = new Date();
+  const idx = d.getFullYear() * 12 + d.getMonth();
+  return _planIndexToYM(d.getDate() >= 25 ? idx + 1 : idx);
+}
+function getPlanMonth() {
+  const saved = localStorage.getItem(PLAN_MONTH_KEY);
+  return _planYMToIndex(saved) !== null ? saved : planDefaultMonth();
+}
+function setPlanMonth(ym) { try { localStorage.setItem(PLAN_MONTH_KEY, ym); } catch (e) {} }
+
+// The spending window: 25th of the previous month through the 24th of this
+// one — the stretch of days one salary actually has to cover.
+function planWindowText(ym) {
+  const i = _planYMToIndex(ym);
+  if (i === null) return '';
+  const startYM = _planIndexToYM(i - 1);
+  const s = _planFmtYM(startYM).split(' ');
+  const e = _planFmtYM(ym).split(' ');
+  return '25 ' + s[0] + ' — 24 ' + e[0] + '  ·  the money you live on this month';
+}
+
+// READ ONLY. Returns {found, net, rosterKey} and never throws, whatever
+// shape (or absence) sla_salary_history happens to have on this device.
+function planSalaryFor(planYM) {
+  const i = _planYMToIndex(planYM);
+  if (i === null) return { found: false, net: 0, rosterKey: null };
+  const rosterKey = _planIndexToYM(i - 2);
+  let hist;
+  try { hist = JSON.parse(localStorage.getItem('sla_salary_history') || '{}'); }
+  catch (e) { return { found: false, net: 0, rosterKey: rosterKey }; }
+  if (!hist || typeof hist !== 'object') return { found: false, net: 0, rosterKey: rosterKey };
+  const entry = hist[rosterKey];
+  if (!entry || typeof entry !== 'object') return { found: false, net: 0, rosterKey: rosterKey };
+  const calc = entry.calculation;
+  if (!calc || typeof calc !== 'object') return { found: false, net: 0, rosterKey: rosterKey };
+  const net = calc.finalNet;
+  if (typeof net !== 'number' || !isFinite(net)) return { found: false, net: 0, rosterKey: rosterKey };
+  return { found: true, net: net, rosterKey: rosterKey };
+}
+
+// A missing rate is deliberately NOT zero — treating it as zero would quietly
+// wipe real money out of the total. rate === null means "not set yet".
+function planFxRate(cur) {
+  const r = loadFxRates()[cur];
+  const n = parseFloat(r);
+  return (isFinite(n) && n > 0) ? n : null;
+}
+
+function planLayoverRupees(row) {
+  const bal = (parseFloat(row.received) || 0) - (parseFloat(row.spent) || 0);
+  const rate = planFxRate(row.currency);
+  return rate === null ? null : bal * rate;
+}
+
+function renderPlanSalary(planYM) {
+  const box = $('planSalaryBox');
+  const r = planSalaryFor(planYM);
+  if (r.found) {
+    const paidIdx = _planYMToIndex(planYM);
+    const paidMon = _planFmtYM(_planIndexToYM(paidIdx - 1)).split(' ')[0];
+    box.innerHTML =
+      '<div class="plan-salary-ok">' +
+        '<span class="lbl">Salary<br><span class="sub">from ' + _planFmtYM(r.rosterKey) +
+          ' roster, paid 25 ' + paidMon + '</span></span>' +
+        '<span class="val">' + fmtLKR(r.net) + '</span>' +
+      '</div>';
+  } else {
+    box.innerHTML =
+      '<div class="plan-salary-miss">' + _planFmtYM(r.rosterKey) +
+      ' roster not calculated yet — open the Result page, calculate it and tap Save Month, then come back.</div>';
+  }
+  return r;
+}
+
+function renderPlanLayovers(planYM) {
+  const rows = planLayoversFor(planYM);
+  const box = $('planLayoverList');
+  if (!rows.length) {
+    box.innerHTML = '<div class="plan-empty">No layovers added for this month yet.</div>';
+    return;
+  }
+  const curOpts = cur => PLAN_CURRENCIES
+    .map(c => `<option value="${c}"${c === cur ? ' selected' : ''}>${c}</option>`).join('');
+  box.innerHTML = rows.map(row => {
+    const bal = (parseFloat(row.received) || 0) - (parseFloat(row.spent) || 0);
+    const rate = planFxRate(row.currency);
+    const lkr = rate === null ? null : bal * rate;
+    return `
+      <div class="plan-item" data-id="${escapeHtml(row.id)}">
+        <div class="plan-item-top">
+          <input type="text" class="plan-name" data-f="name" value="${escapeHtml(row.name || '')}" placeholder="e.g. LHR">
+          <button class="plan-del" data-del="1" aria-label="Delete">🗑</button>
+        </div>
+        <div class="plan-grid">
+          <div>
+            <label>Currency</label>
+            <select data-f="currency">${curOpts(row.currency)}</select>
+          </div>
+          <div>
+            <label>Received</label>
+            <input type="number" data-f="received" value="${escapeHtml(String(row.received == null ? '' : row.received))}" inputmode="decimal" min="0" step="any" placeholder="0">
+          </div>
+        </div>
+        <div class="plan-grid wide" style="margin-top:8px;">
+          <div>
+            <label>Spent There</label>
+            <input type="number" data-f="spent" value="${escapeHtml(String(row.spent == null ? '' : row.spent))}" inputmode="decimal" min="0" step="any" placeholder="0">
+          </div>
+        </div>
+        <div class="plan-lay-foot">
+          <span class="plan-lay-bal">Left: <b>${escapeHtml(row.currency || '')} ${bal.toLocaleString('en-LK', { maximumFractionDigits: 2 })}</b></span>
+          <span class="plan-lay-lkr${lkr !== null && lkr < 0 ? ' neg' : ''}">${lkr === null ? '—' : fmtLKR(lkr)}</span>
+        </div>
+        ${rate === null ? `<div class="plan-lay-warn">Set a rate for ${escapeHtml(row.currency || 'this currency')} below to see this in rupees.</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function renderPlanFx() {
+  const rates = loadFxRates();
+  $('planFxList').innerHTML = PLAN_CURRENCIES.map(c => `
+    <div class="plan-fx-row">
+      <span class="plan-fx-cur">${c}</span>
+      <span class="plan-fx-eq">=</span>
+      <input type="number" data-cur="${c}" value="${escapeHtml(String(rates[c] == null ? '' : rates[c]))}" inputmode="decimal" min="0" step="any" placeholder="rupees">
+    </div>`).join('');
+}
+
+function renderPlanMoneyIn(planYM) {
+  const salary = planSalaryFor(planYM);
+  const rows = planLayoversFor(planYM);
+  let layoverLkr = 0, missing = 0;
+  rows.forEach(row => {
+    const v = planLayoverRupees(row);
+    if (v === null) missing++; else layoverLkr += v;
+  });
+  $('planMoneyInTotal').textContent = fmtLKR(salary.net + layoverLkr);
+  const bits = [];
+  bits.push(salary.found ? 'Salary plus layover cash left over' : 'Layover cash only — salary not saved yet');
+  if (missing) bits.push(missing + ' layover' + (missing === 1 ? '' : 's') + ' not counted (no rate set)');
+  $('planMoneyInSub').textContent = bits.join(' · ');
+}
+
+// Prefill the USD rate from the Inputs page's dollarRate, but only while no
+// USD rate has been set here yet. Deliberately retried on every render, not
+// once at startup: dollarRate is a MONTHLY_VALUE_ID, so it is not restored
+// from storage on load and is empty until the crew member types it this
+// session. A one-shot attempt at boot would therefore almost always find
+// nothing. Strictly read-only on that field — it is never written back.
+function seedUsdRateFromInputs() {
+  const rates = loadFxRates();
+  if (rates.USD != null) return;
+  const el = $('dollarRate');
+  if (!el) return;
+  const n = parseFloat(el.value);
+  if (isFinite(n) && n > 0) { rates.USD = n; saveFxRates(rates); }
+}
+
+function renderPlanIncome() {
+  seedUsdRateFromInputs();
+  const ym = getPlanMonth();
+  $('planMonth').value = ym;
+  $('planWindowHint').textContent = planWindowText(ym);
+  renderPlanSalary(ym);
+  renderPlanLayovers(ym);
+  renderPlanFx();
+  renderPlanMoneyIn(ym);
+}
+
+(function() {
+  const monthInp = $('planMonth');
+
+  monthInp.addEventListener('change', () => {
+    if (_planYMToIndex(monthInp.value) === null) { monthInp.value = getPlanMonth(); return; }
+    setPlanMonth(monthInp.value);
+    renderPlanIncome();
+  });
+
+  $('btnPlanAddLayover').addEventListener('click', () => {
+    const ym = getPlanMonth();
+    const rows = planLayoversFor(ym).slice();
+    rows.push({
+      id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+      name: '', currency: 'USD', received: '', spent: ''
+    });
+    savePlanLayoversFor(ym, rows);
+    renderPlanLayovers(ym);
+    renderPlanMoneyIn(ym);
+  });
+
+  const listBox = $('planLayoverList');
+
+  // Text/number edits: save and update totals WITHOUT re-rendering the list,
+  // which would drop focus and the caret out of the box being typed in. Only
+  // the row's own computed footer is patched in place.
+  listBox.addEventListener('input', e => {
+    const f = e.target.dataset ? e.target.dataset.f : null;
+    if (!f || f === 'currency') return;
+    const row = e.target.closest('.plan-item');
+    if (!row) return;
+    const ym = getPlanMonth();
+    const rows = planLayoversFor(ym).slice();
+    const it = rows.find(x => x.id === row.dataset.id);
+    if (!it) return;
+    it[f] = (f === 'received' || f === 'spent') ? e.target.value : e.target.value;
+    savePlanLayoversFor(ym, rows);
+    const bal = (parseFloat(it.received) || 0) - (parseFloat(it.spent) || 0);
+    const rate = planFxRate(it.currency);
+    const balEl = row.querySelector('.plan-lay-bal b');
+    const lkrEl = row.querySelector('.plan-lay-lkr');
+    if (balEl) balEl.textContent = (it.currency || '') + ' ' + bal.toLocaleString('en-LK', { maximumFractionDigits: 2 });
+    if (lkrEl) {
+      lkrEl.textContent = rate === null ? '—' : fmtLKR(bal * rate);
+      lkrEl.classList.toggle('neg', rate !== null && bal * rate < 0);
+    }
+    renderPlanMoneyIn(ym);
+  });
+
+  // Currency is a dropdown, so a full row re-render is safe here — nothing
+  // is mid-typing — and it is needed to refresh the missing-rate warning.
+  listBox.addEventListener('change', e => {
+    if (!e.target.dataset || e.target.dataset.f !== 'currency') return;
+    const row = e.target.closest('.plan-item');
+    if (!row) return;
+    const ym = getPlanMonth();
+    const rows = planLayoversFor(ym).slice();
+    const it = rows.find(x => x.id === row.dataset.id);
+    if (!it) return;
+    it.currency = e.target.value;
+    savePlanLayoversFor(ym, rows);
+    renderPlanLayovers(ym);
+    renderPlanMoneyIn(ym);
+  });
+
+  listBox.addEventListener('click', async e => {
+    const btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    const row = btn.closest('.plan-item');
+    if (!row) return;
+    const ym = getPlanMonth();
+    const rows = planLayoversFor(ym);
+    const it = rows.find(x => x.id === row.dataset.id);
+    if (!await showConfirm('Remove ' + ((it && it.name) ? '"' + it.name + '"' : 'this layover') + '?')) return;
+    savePlanLayoversFor(ym, rows.filter(x => x.id !== row.dataset.id));
+    renderPlanLayovers(ym);
+    renderPlanMoneyIn(ym);
+  });
+
+  $('planFxList').addEventListener('input', e => {
+    const cur = e.target.dataset ? e.target.dataset.cur : null;
+    if (!cur) return;
+    const rates = loadFxRates();
+    const n = parseFloat(e.target.value);
+    if (isFinite(n) && n > 0) rates[cur] = n; else delete rates[cur];
+    saveFxRates(rates);
+    // Rates change what every row is worth, so the list has to be rebuilt —
+    // safe here because the focus is in the rates block, not in the list.
+    const ym = getPlanMonth();
+    renderPlanLayovers(ym);
+    renderPlanMoneyIn(ym);
+  });
+
+  renderPlanIncome();
 })();
 
 // ============================================================
