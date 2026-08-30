@@ -564,6 +564,32 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-safe-status.zero{color:var(--tx2);}
 .plan-safe-status.neg{color:var(--red);}
 .plan-safe-note{font-size:.68rem;color:var(--amber);line-height:1.55;margin-top:10px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:9px;padding:9px 11px;}
+.plan-cmp-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:8px 0;}
+.plan-cmp-row .k{font-size:.78rem;color:var(--tx2);}
+.plan-cmp-row .v{font-size:.82rem;font-family:var(--mono);font-weight:600;color:var(--tx1);white-space:nowrap;}
+.plan-cmp-diff{font-size:.86rem;font-weight:700;margin-top:8px;padding-top:10px;border-top:1px solid var(--b0);}
+.plan-cmp-diff.up{color:var(--green);}
+.plan-cmp-diff.down{color:var(--amber);}
+.plan-cmp-diff.same{color:var(--tx2);}
+.plan-suggest{font-size:.78rem;line-height:1.6;margin-top:11px;border-radius:10px;padding:11px 12px;}
+.plan-suggest.up{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.22);color:var(--green);}
+.plan-suggest.down{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber);}
+.plan-suggest.short{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
+.plan-buf-bal{font-size:1.5rem;font-family:var(--mono);font-weight:800;color:var(--tx1);line-height:1.2;}
+.plan-buf-note{font-size:.66rem;color:var(--tx3);line-height:1.55;margin-top:5px;}
+.plan-buf-controls{display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-top:12px;align-items:stretch;}
+.plan-buf-controls input{min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:10px 11px;color:var(--tx1);font-family:var(--mono);font-size:.85rem;-webkit-appearance:none;}
+.plan-buf-controls input:focus{outline:none;border-color:var(--purple2);}
+.plan-buf-btn{border-radius:9px;padding:10px 13px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:var(--sans);white-space:nowrap;}
+.plan-buf-btn.in{background:rgba(74,222,128,.12);border:1.5px solid rgba(74,222,128,.35);color:var(--green);}
+.plan-buf-btn.out{background:rgba(245,158,11,.12);border:1.5px solid rgba(245,158,11,.35);color:var(--amber);}
+.plan-buf-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--b0);}
+.plan-buf-item:last-child{border-bottom:none;}
+.plan-buf-item .amt{font-family:var(--mono);font-size:.78rem;font-weight:700;white-space:nowrap;}
+.plan-buf-item .amt.pos{color:var(--green);}
+.plan-buf-item .amt.neg{color:var(--amber);}
+.plan-buf-item .when{font-size:.68rem;color:var(--tx3);font-family:var(--mono);flex:1;min-width:0;}
+.plan-buf-item .x{flex-shrink:0;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.22);color:var(--red);border-radius:7px;width:28px;height:28px;font-size:.72rem;cursor:pointer;line-height:1;}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -1186,6 +1212,29 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <div><div class="card-title">Safe To Spend</div><div class="card-sub" id="planSafeSubtitle">What's actually yours to use</div></div>
       </div>
       <div class="card-body" id="planSafeBody"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="card-head">
+        <span class="card-ico">⚖️</span>
+        <div><div class="card-title">Good Month, Bad Month</div><div class="card-sub">Use a big month to cover a small one</div></div>
+      </div>
+      <div class="card-body">
+        <div id="planCompareBox"></div>
+
+        <div class="section-head" style="margin-top:16px;">My Buffer</div>
+        <div class="plan-buf-bal" id="planBufferBalance">LKR 0</div>
+        <div class="plan-buf-note">This is only a note of what you actually put aside in your own bank. FlyProfit does not move any money.</div>
+
+        <div class="plan-buf-controls">
+          <input type="number" id="planBufferAmount" inputmode="decimal" min="0" step="any" placeholder="Amount">
+          <button class="plan-buf-btn in" id="btnBufferIn">Put in</button>
+          <button class="plan-buf-btn out" id="btnBufferOut">Take out</button>
+        </div>
+        <div id="planBufferMsg" style="font-size:.7rem;line-height:1.55;margin-top:9px;display:none;"></div>
+
+        <div id="planBufferLog"></div>
+      </div>
     </div>
 
     <div class="card" style="margin-top:12px;">
@@ -5181,7 +5230,201 @@ function renderPlanIncome() {
   renderPlanLayovers(ym);
   renderPlanFx();
   renderPlanMoneyIn(ym);
+  renderPlanSmoothing();
 }
+
+// ---------- Good month, bad month ----------
+// Cabin crew pay swings with the roster, so a single month tells you very
+// little. This compares the month being planned against what this person
+// normally earns, and tracks a buffer they keep in their OWN bank — the app
+// never moves money, it only remembers what they say they moved.
+const PLAN_BUFFER_KEY = 'sla_buffer';
+
+// Averaging one or two months would just be noise dressed up as a baseline,
+// so below this many saved months the section refuses to draw a conclusion.
+const PLAN_TYPICAL_MIN = 3;
+const PLAN_TYPICAL_WINDOW = 6;
+
+// READ ONLY over sla_salary_history, same as planSalaryFor().
+function planTypicalSalary() {
+  let hist;
+  try { hist = JSON.parse(localStorage.getItem('sla_salary_history') || '{}'); }
+  catch (e) { return { count: 0, average: 0 }; }
+  if (!hist || typeof hist !== 'object' || Array.isArray(hist)) return { count: 0, average: 0 };
+  const nets = Object.keys(hist)
+    .filter(k => _planYMToIndex(k) !== null)
+    .sort()
+    .map(k => {
+      const entry = hist[k];
+      if (!entry || typeof entry !== 'object') return null;
+      const calc = entry.calculation;
+      if (!calc || typeof calc !== 'object') return null;
+      const n = calc.finalNet;
+      return (typeof n === 'number' && isFinite(n)) ? n : null;
+    })
+    .filter(n => n !== null)
+    .slice(-PLAN_TYPICAL_WINDOW);
+  if (!nets.length) return { count: 0, average: 0 };
+  return { count: nets.length, average: nets.reduce((a, b) => a + b, 0) / nets.length };
+}
+
+function loadBuffer() {
+  const b = _planReadJSON(PLAN_BUFFER_KEY, null);
+  if (!b) return { balance: 0, log: [] };
+  const bal = parseFloat(b.balance);
+  return {
+    balance: (isFinite(bal) && bal > 0) ? bal : 0,
+    log: Array.isArray(b.log) ? b.log : []
+  };
+}
+function saveBuffer(b) {
+  try { localStorage.setItem(PLAN_BUFFER_KEY, JSON.stringify(b)); } catch (e) {}
+}
+
+// Suggestions land on round numbers a person can actually act on — nobody
+// transfers Rs 24,317 into savings.
+function _planRound500(n) { return Math.round(n / 500) * 500; }
+
+function renderBuffer() {
+  const b = loadBuffer();
+  $('planBufferBalance').textContent = fmtLKR(b.balance);
+  const box = $('planBufferLog');
+  const recent = b.log.slice(-6).reverse();
+  if (!recent.length) {
+    box.innerHTML = '<div class="plan-empty" style="padding:12px 6px;">Nothing put aside yet.</div>';
+    return;
+  }
+  box.innerHTML = '<div class="section-head" style="margin-top:14px;">Last Few Moves</div>' +
+    recent.map(e => {
+      const amt = parseFloat(e.amount) || 0;
+      return `
+        <div class="plan-buf-item" data-id="${escapeHtml(String(e.id))}">
+          <span class="amt ${amt < 0 ? 'neg' : 'pos'}">${amt < 0 ? '−' : '+'} ${escapeHtml(fmtLKR(Math.abs(amt)))}</span>
+          <span class="when">${escapeHtml(e.note || _planFmtYM(e.ym) || '')}</span>
+          <button class="x" data-bufdel="1" aria-label="Delete">✕</button>
+        </div>`;
+    }).join('');
+}
+
+function renderPlanSmoothing() {
+  const box = $('planCompareBox');
+  if (!box) return;
+  const ym = getPlanMonth();
+  const typical = planTypicalSalary();
+  const thisMonth = planSalaryFor(ym);
+  renderBuffer();
+
+  if (typical.count < PLAN_TYPICAL_MIN) {
+    box.innerHTML = '<div class="plan-salary-miss">Save at least ' + PLAN_TYPICAL_MIN +
+      ' months to see this.</div>';
+    return;
+  }
+  // The comparison needs BOTH sides. Without this month's own figure there
+  // is nothing to compare the average against.
+  if (!thisMonth.found) {
+    box.innerHTML = '<div class="plan-salary-miss">Add this month\'s salary first — calculate the ' +
+      escapeHtml(_planFmtYM(thisMonth.rosterKey)) + ' roster and tap Save Month.</div>';
+    return;
+  }
+
+  const diff = thisMonth.net - typical.average;
+  const buffer = loadBuffer().balance;
+  let diffCls, diffLine, suggest = '', suggestCls = '';
+
+  if (diff > 0) {
+    diffCls = 'up';
+    diffLine = 'Above usual by ' + fmtLKR(diff);
+    const put = _planRound500(diff);
+    if (put > 0) {
+      suggestCls = 'up';
+      suggest = 'Good month. Put ' + fmtLKR(put) +
+        ' into your buffer and this month still feels normal.';
+    }
+  } else if (diff < 0) {
+    const gap = Math.abs(diff);
+    diffCls = 'down';
+    diffLine = 'Below usual by ' + fmtLKR(gap);
+    const need = _planRound500(gap);
+    if (buffer >= need && need > 0) {
+      suggestCls = 'down';
+      suggest = 'Short month. Take ' + fmtLKR(need) +
+        ' from your buffer and you are back to normal.';
+    } else if (need > 0) {
+      suggestCls = 'short';
+      suggest = 'Short month. Your buffer covers ' + fmtLKR(buffer) +
+        ' of the ' + fmtLKR(need) + ' gap.';
+    }
+  } else {
+    diffCls = 'same';
+    diffLine = 'Exactly your usual month.';
+  }
+
+  box.innerHTML =
+    '<div class="plan-cmp-row"><span class="k">This month</span><span class="v">' + fmtLKR(thisMonth.net) + '</span></div>' +
+    '<div class="plan-cmp-row"><span class="k">Your usual<br><span class="sub">average of your last ' + typical.count + ' saved month' + (typical.count === 1 ? '' : 's') + '</span></span><span class="v">' + fmtLKR(typical.average) + '</span></div>' +
+    '<div class="plan-cmp-diff ' + diffCls + '">' + diffLine + '</div>' +
+    (suggest ? '<div class="plan-suggest ' + suggestCls + '">' + suggest + '</div>' : '');
+}
+
+(function() {
+  const amtInp = $('planBufferAmount');
+  const msg = $('planBufferMsg');
+
+  function say(text, colour) {
+    msg.textContent = text;
+    msg.style.color = colour;
+    msg.style.display = 'block';
+  }
+
+  function move(sign) {
+    const raw = parseFloat(amtInp.value);
+    msg.style.display = 'none';
+    if (!isFinite(raw) || raw <= 0) { say('Enter an amount first.', 'var(--red)'); return; }
+    const b = loadBuffer();
+    let amount = sign * raw;
+    // The balance is a record of real savings, so it can never go negative.
+    // Asking for more than there is takes out everything and says so, rather
+    // than silently doing something different from what was typed.
+    if (sign < 0 && raw > b.balance) {
+      amount = -b.balance;
+      if (b.balance <= 0) { say('Your buffer is empty — there is nothing to take out.', 'var(--amber)'); return; }
+      say('You only have ' + fmtLKR(b.balance) + ' in your buffer, so that is what was taken out.', 'var(--amber)');
+    } else {
+      say(sign > 0 ? 'Added ' + fmtLKR(raw) + ' to your buffer.' : 'Took ' + fmtLKR(raw) + ' out of your buffer.', 'var(--tx3)');
+    }
+    b.balance = Math.max(0, b.balance + amount);
+    b.log.push({
+      id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+      ym: getPlanMonth(),
+      amount: amount,
+      note: (amount < 0 ? 'Taken out' : 'Put in') + ' · ' + _planFmtYM(getPlanMonth())
+    });
+    saveBuffer(b);
+    amtInp.value = '';
+    renderPlanSmoothing();
+  }
+
+  $('btnBufferIn').addEventListener('click', () => move(1));
+  $('btnBufferOut').addEventListener('click', () => move(-1));
+
+  $('planBufferLog').addEventListener('click', async e => {
+    const btn = e.target.closest('[data-bufdel]');
+    if (!btn) return;
+    const row = btn.closest('.plan-buf-item');
+    if (!row) return;
+    const b = loadBuffer();
+    const entry = b.log.find(x => String(x.id) === row.dataset.id);
+    if (!entry) return;
+    const amt = parseFloat(entry.amount) || 0;
+    if (!await showConfirm('Remove this ' + (amt < 0 ? 'take out' : 'put in') + ' of ' + fmtLKR(Math.abs(amt)) + '?')) return;
+    // Undoing an entry reverses its effect on the balance, still floored at 0.
+    b.balance = Math.max(0, b.balance - amt);
+    b.log = b.log.filter(x => String(x.id) !== row.dataset.id);
+    saveBuffer(b);
+    msg.style.display = 'none';
+    renderPlanSmoothing();
+  });
+})();
 
 (function() {
   const monthInp = $('planMonth');
@@ -5189,6 +5432,11 @@ function renderPlanIncome() {
   monthInp.addEventListener('change', () => {
     if (_planYMToIndex(monthInp.value) === null) { monthInp.value = getPlanMonth(); return; }
     setPlanMonth(monthInp.value);
+    // A buffer confirmation like "Added LKR 1,000" refers to the month it
+    // was done in, so it must not sit there contradicting the figures after
+    // switching to a different month.
+    const bufMsg = $('planBufferMsg');
+    if (bufMsg) bufMsg.style.display = 'none';
     renderPlanIncome();
     // Money Out's "due this month" is keyed off the selected month too, so
     // both halves have to move together — that is the point of this step.
