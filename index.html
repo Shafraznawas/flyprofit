@@ -528,7 +528,14 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .doc-todo.urgent{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
 .doc-todo b{color:var(--tx1);}
 /* Plan tab: three inner tabs, so the page stops being one long scroll */
+/* The three inner tabs ride along at the top of the screen while you scroll,
+   so you can jump between Month / Bills / Saving without scrolling back up.
+   The wrapper is the sticky part: it bleeds out to the scroll edges and
+   carries an opaque page-colour background so nothing shows through behind
+   the pill as content slides under it. */
+.plan-tabs-sticky{position:sticky;top:0;z-index:20;margin:-14px -14px 0;padding:14px 14px 0;background:var(--bg);}
 .plan-tabs{display:flex;gap:5px;background:var(--card2);border:1px solid var(--b0);border-radius:13px;padding:4px;margin-bottom:12px;}
+.plan-tabs-sticky .plan-tabs{margin-bottom:0;}
 .plan-tab{flex:1;min-width:0;padding:11px 3px;border-radius:10px;border:none;background:transparent;color:var(--tx3);font-family:var(--sans);font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .plan-tab.active{background:var(--purple2);color:#fff;}
 .plan-pane{display:none;}
@@ -1167,10 +1174,12 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
        the monitoring sheet or any server. -->
   <div class="page" id="page-plan">
 
-    <div class="plan-tabs">
-      <button type="button" class="plan-tab active" data-plantab="month">Month</button>
-      <button type="button" class="plan-tab" data-plantab="bills">Bills</button>
-      <button type="button" class="plan-tab" data-plantab="saving">Saving</button>
+    <div class="plan-tabs-sticky">
+      <div class="plan-tabs">
+        <button type="button" class="plan-tab active" data-plantab="month">Month</button>
+        <button type="button" class="plan-tab" data-plantab="bills">Bills</button>
+        <button type="button" class="plan-tab" data-plantab="saving">Saving</button>
+      </div>
     </div>
 
     <!-- MONTH: the answers first, the typing folded away below them -->
