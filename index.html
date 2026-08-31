@@ -691,6 +691,14 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-goal-verdict.no{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
 .plan-goal-verdict.done{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.28);color:var(--green);font-weight:700;}
 .plan-goal-verdict.flat{background:rgba(255,255,255,.03);border:1px solid var(--b0);color:var(--tx2);}
+/* Removable list of saves under the Put in / Take out row */
+.plan-goal-log:not(:empty){margin-top:8px;}
+.plan-goal-logrow{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px dashed var(--b0);}
+.plan-goal-logrow .a{font-family:var(--mono);font-size:.72rem;font-weight:700;white-space:nowrap;}
+.plan-goal-logrow .a.pos{color:var(--green);}
+.plan-goal-logrow .a.neg{color:var(--amber);}
+.plan-goal-logrow .w{flex:1;min-width:0;font-family:var(--mono);font-size:.62rem;color:var(--tx3);}
+.plan-goal-logrow .x{flex-shrink:0;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.22);color:var(--red);border-radius:7px;width:26px;height:26px;font-size:.7rem;line-height:1;cursor:pointer;}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -5871,13 +5879,28 @@ function loadGoals() {
 function saveGoals(list) {
   try { localStorage.setItem(PLAN_GOALS_KEY, JSON.stringify(list)); } catch (e) {}
 }
+function _goalSaveId() {
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+}
+// Each goal keeps a list of saves: { id, ym, amount } — amount signed, a
+// take-out is a negative one. Older goals stored a single `saved` number;
+// that is read as one undated entry until the first Put in seeds the list.
+function goalSaves(goal) {
+  return Array.isArray(goal.saves) ? goal.saves : [];
+}
+function goalSavedTotal(goal) {
+  if (Array.isArray(goal.saves)) {
+    return Math.max(0, goal.saves.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0));
+  }
+  return Math.max(0, parseFloat(goal.saved) || 0);
+}
 
 // Returns everything needed to draw one goal. Kept separate from the markup
 // so each edge case is a named, testable outcome rather than a branch buried
 // in a template string.
 function goalStatus(goal, safe) {
   const target = parseFloat(goal.target) || 0;
-  const saved = parseFloat(goal.saved) || 0;
+  const saved = goalSavedTotal(goal);
   const remaining = Math.max(0, target - saved);
   const pct = target > 0 ? Math.min(100, Math.max(0, (saved / target) * 100)) : 0;
   const out = { target: target, saved: saved, remaining: remaining, pct: pct, monthsLeft: null, needPerMonth: 0 };
@@ -5895,20 +5918,46 @@ function goalStatus(goal, safe) {
   if (monthsLeft <= 0) { out.kind = 'passed'; return out; }
   out.targetLabel = _planFmtYM(goal.targetYM);
 
-  // The plan figure is always "from next month on". This month is handled by
-  // the crew member with whatever they can spare right now (the free-cash
-  // line below) and by editing "Saved so far" — so it is never counted twice.
-  const effMonths = monthsLeft - 1;
-  out.finalStretch = effMonths <= 0;               // target is next month
+  // Everything saved (or taken back) FOR the month being planned. If any
+  // money has gone in this month, this month's share is done — the "how much
+  // a month" figure then spreads what is left over the months AFTER this one.
+  // Several saves in the same month just add up.
+  const planYM = getPlanMonth();
+  const netThisMonth = goalSaves(goal)
+    .filter(e => e.ym === planYM)
+    .reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+  out.addedThisMonth = Math.max(0, netThisMonth);
+  const contributed = out.addedThisMonth > 0;
+  const effMonths = contributed ? monthsLeft - 1 : monthsLeft;
+  out.fromNextMonth = contributed && effMonths > 0;
+  out.finalStretch = contributed && effMonths <= 0;
   out.needPerMonth = effMonths > 0 ? remaining / effMonths : remaining;
 
-  // What this month can spare, shown only as a "this month" line — never a
+  // What this month can spare, and what is left of it after money already put
+  // toward this goal this month. Shown only as a "this month" line — never a
   // pass/fail on the whole goal, since crew pay swings every roster. null
   // means no salary saved yet, so say nothing about spare cash.
   out.safeThisMonth = (safe && safe.available) ? safe.safe : null;
+  out.safeLeftThisMonth = out.safeThisMonth === null ? null : (out.safeThisMonth - out.addedThisMonth);
 
   out.kind = 'plan';
   return out;
+}
+
+// The small list of saves under the Put in / Take out row, newest first,
+// each removable — so a mistaken entry is a one-tap fix, not a reverse sum.
+function goalLogHtml(goal) {
+  const saves = goalSaves(goal);
+  if (!saves.length) return '';
+  return saves.slice().reverse().map(e => {
+    const amt = parseFloat(e.amount) || 0;
+    return '<div class="plan-goal-logrow" data-sid="' + escapeHtml(String(e.id)) + '">' +
+      '<span class="a ' + (amt < 0 ? 'neg' : 'pos') + '">' + (amt < 0 ? '−' : '+') + ' ' +
+        escapeHtml(fmtLKR(Math.abs(amt))) + '</span>' +
+      '<span class="w">' + escapeHtml(e.ym ? _planFmtYM(e.ym) : 'earlier') + '</span>' +
+      '<button class="x" data-savedel="1" aria-label="Remove">&times;</button>' +
+    '</div>';
+  }).join('');
 }
 
 function goalVerdictHtml(s, safe) {
@@ -5922,33 +5971,37 @@ function goalVerdictHtml(s, safe) {
     case 'nodate':
       return '<div class="plan-goal-verdict flat">Pick a target month to see if it is realistic.</div>';
     case 'plan': {
-      // Line 1 — how much a month from next month on (this month is handled
-      // separately, so it is never in the divisor).
+      // Line 1 — how much a month, and from when.
       let line1;
       if (s.finalStretch) {
         line1 = '<b>' + escapeHtml(s.targetLabel) + '</b> is next month — <b>' + fmtLKR(s.remaining) +
                 '</b> still to find. Put in what you can this month.';
-      } else {
+      } else if (s.fromNextMonth) {
         line1 = '<b>From next month</b>, save about <b>' + fmtLKR(s.needPerMonth) +
                 '</b> a month to reach this by ' + escapeHtml(s.targetLabel) + '.';
+      } else {
+        line1 = 'Save about <b>' + fmtLKR(s.needPerMonth) + '</b> a month to reach this by ' +
+                escapeHtml(s.targetLabel) + '.';
       }
 
-      // Line 2 — what this month can spare toward it.
+      // Line 2 — this month's spare cash, less anything already put in.
       let line2;
       if (s.safeThisMonth === null) {
         line2 = 'Add your salary above to see what you can spare this month.';
+      } else if (s.addedThisMonth > 0) {
+        const left = Math.max(0, s.safeLeftThisMonth);
+        line2 = 'Put in <b>' + fmtLKR(s.addedThisMonth) + '</b> this month — <b>' +
+                fmtLKR(left) + '</b> of this month’s free money still spare.';
       } else if (s.safeThisMonth <= 0) {
         line2 = 'Nothing spare this month — put in more on a better month.';
-      } else if (s.finalStretch) {
-        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free toward it.';
       } else if (s.safeThisMonth >= s.needPerMonth) {
-        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free — more than a month’s worth.';
+        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free — that covers a month.';
       } else {
         line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free toward it.';
       }
 
       return '<div class="plan-goal-verdict flat">' + line1 + '<br>' + line2 + '<br>' +
-             '<span style="color:var(--tx3);">Pay changes every month, so this is a guide. Keep &ldquo;Saved so far&rdquo; up to date and it re-works itself.</span>' +
+             '<span style="color:var(--tx3);">Pay changes every month, so this is a guide — it re-works itself as you save.</span>' +
              '</div>';
     }
   }
@@ -5978,14 +6031,10 @@ function renderGoals() {
             <input type="number" data-g="target" value="${escapeHtml(String(g.target == null ? '' : g.target))}" inputmode="decimal" min="0" step="any" placeholder="0">
           </div>
         </div>
-        <div class="plan-grid" style="margin-top:8px;">
+        <div class="plan-grid wide" style="margin-top:8px;">
           <div>
             <label>By Month</label>
             <input type="month" data-g="targetYM" value="${escapeHtml(g.targetYM || '')}">
-          </div>
-          <div>
-            <label>Saved so far (LKR)</label>
-            <input type="number" data-g="saved" value="${escapeHtml(String(g.saved == null || g.saved === 0 ? '' : g.saved))}" inputmode="decimal" min="0" step="any" placeholder="0">
           </div>
         </div>
         <div class="plan-goal-money">
@@ -5999,6 +6048,12 @@ function renderGoals() {
             s.monthsLeft !== null && s.monthsLeft > 0 ? ' · ' + s.monthsLeft + ' month' + (s.monthsLeft === 1 ? '' : 's') + ' left' : ''}</span>
         </div>
         ${goalVerdictHtml(s, safe)}
+        <div class="plan-buf-controls" style="margin-top:11px;">
+          <input type="number" data-g="addamt" inputmode="decimal" min="0" step="any" placeholder="Amount">
+          <button class="plan-buf-btn in" data-goaladd="1">Put in</button>
+          <button class="plan-buf-btn out" data-goalout="1">Take out</button>
+        </div>
+        <div class="plan-goal-log">${goalLogHtml(g)}</div>
       </div>`;
   }).join('');
 }
@@ -6007,8 +6062,8 @@ function renderGoals() {
   $('btnGoalAdd').addEventListener('click', () => {
     const goals = loadGoals();
     goals.push({
-      id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
-      name: '', target: '', saved: '', targetYM: ''
+      id: _goalSaveId(),
+      name: '', target: '', saves: [], targetYM: ''
     });
     saveGoals(goals);
     renderGoals();
@@ -6017,10 +6072,11 @@ function renderGoals() {
   const box = $('planGoalsList');
 
   // Field edits save without re-rendering, so focus and caret survive typing.
-  // Only the derived parts of that one row are patched afterwards.
+  // Only the derived parts of that one row are patched afterwards. The
+  // Put in / Take out amount box also carries data-g, so it is skipped here.
   box.addEventListener('input', e => {
     const f = e.target.dataset ? e.target.dataset.g : null;
-    if (!f) return;
+    if (!f || f === 'addamt') return;
     const row = e.target.closest('.plan-item');
     if (!row) return;
     const goals = loadGoals();
@@ -6041,6 +6097,50 @@ function renderGoals() {
   });
 
   box.addEventListener('click', async e => {
+    // Put in / Take out — records one dated entry against this goal. Several
+    // in the same month are fine; goalStatus adds up the month's entries.
+    const moveBtn = e.target.closest('[data-goaladd],[data-goalout]');
+    if (moveBtn) {
+      const dir = moveBtn.hasAttribute('data-goalout') ? -1 : 1;
+      const row = moveBtn.closest('.plan-item');
+      const inp = row.querySelector('[data-g="addamt"]');
+      const amt = parseFloat(inp.value);
+      if (!isFinite(amt) || amt <= 0) { inp.focus(); return; }
+      const goals = loadGoals();
+      const g = goals.find(x => String(x.id) === row.dataset.id);
+      if (!g) return;
+      if (!Array.isArray(g.saves)) {
+        const legacy = parseFloat(g.saved) || 0;
+        g.saves = legacy > 0 ? [{ id: _goalSaveId(), ym: '', amount: legacy }] : [];
+      }
+      const total = g.saves.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+      // Taking out more than is in the goal just clears what is there.
+      let signed = dir < 0 ? -Math.min(amt, total) : amt;
+      if (signed === 0) { inp.focus(); return; }
+      g.saves.push({ id: _goalSaveId(), ym: getPlanMonth(), amount: signed });
+      delete g.saved;                       // list is the source of truth now
+      saveGoals(goals);
+      inp.value = '';
+      renderGoals();
+      return;
+    }
+    // Remove one save from the list — reverses just that entry, nothing else.
+    const saveDelBtn = e.target.closest('[data-savedel]');
+    if (saveDelBtn) {
+      const logrow = saveDelBtn.closest('.plan-goal-logrow');
+      const row = saveDelBtn.closest('.plan-item');
+      const goals = loadGoals();
+      const g = goals.find(x => String(x.id) === row.dataset.id);
+      if (!g || !Array.isArray(g.saves)) return;
+      const entry = g.saves.find(x => String(x.id) === logrow.dataset.sid);
+      if (!entry) return;
+      const a = parseFloat(entry.amount) || 0;
+      if (!await showConfirm('Remove this ' + (a < 0 ? 'take-out' : 'save') + ' of ' + fmtLKR(Math.abs(a)) + '?')) return;
+      g.saves = g.saves.filter(x => String(x.id) !== logrow.dataset.sid);
+      saveGoals(goals);
+      renderGoals();
+      return;
+    }
     const delBtn = e.target.closest('[data-goaldel]');
     if (!delBtn) return;
     const row = delBtn.closest('.plan-item');
