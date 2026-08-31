@@ -1228,12 +1228,12 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <div id="planAddMsg" style="font-size:.68rem;color:var(--red);line-height:1.6;margin-top:9px;display:none;"></div>
 
         <div class="plan-paste" id="planPasteWrap" style="display:none;">
-          <label for="planPasteBox">One Per Line — Name, Amount, How Often</label>
-          <textarea id="planPasteBox" rows="6" spellcheck="false" autocomplete="off" placeholder="House rent, 45000, monthly
-Bike loan, 12000, monthly
-Insurance, 18000, yearly
-Phone bill, 3500, monthly"></textarea>
-          <div class="hint">Leave out the last part and it counts as every month.</div>
+          <label for="planPasteBox">One Per Line — A Name And An Amount</label>
+          <textarea id="planPasteBox" rows="6" spellcheck="false" autocomplete="off" placeholder="Parents Rent - 35,000
+Water Bill - 2300
+House rent, 45000
+Insurance - 18,000, yearly"></textarea>
+          <div class="hint">Paste your list as you already write it. A dash, a comma or just a space between the name and the amount — all of them work.<br>Everything counts as every month unless you put yearly, quarterly or 6 months at the end of the line.</div>
           <div class="plan-paste-btns">
             <button class="btn-outline" id="btnPlanPasteAdd">➕ Add All</button>
             <button class="btn-outline" id="btnPlanPasteCancel">Close</button>
@@ -4849,29 +4849,51 @@ function planParseFreq(word) {
 // comma-piece, but only when it actually contains a letter — that test is
 // what stops "House rent, 45,000, monthly" from reading as Rs 45, because
 // the "000" piece is kept as part of the number instead.
+// A frequency, when there is one, is a word at the END of the line. It is
+// pulled off before the amount is looked for, so "Vehicle tax, 9500,
+// 6 months" doesn't lose its "6" to the number search.
+const PLAN_TAIL_FREQ = /[,\-–—:=\s]*((?:every\s+)?(?:\d+\s*months?|monthly|month|mo|quarterly|quarter|half\s*-?\s*yearly|half\s*-?\s*year|yearly|year|annually|annual|biannually|biannual|per\s+month|per\s+year|a\s+month|a\s+year|p\/m))\s*$/i;
+
 function planParseLine(line) {
-  const raw = String(line);
-  const firstC = raw.indexOf(',');
-  if (firstC < 0) return null;                       // no comma at all
-  const name = raw.slice(0, firstC).trim();
-  if (!name) return null;                            // nothing to call it
-  const rest = raw.slice(firstC + 1).split(',');
+  let text = String(line).trim();
+  if (!text) return null;
+
   let freq = 'monthly';
-  if (rest.length > 1) {
-    if (/[a-z]/i.test(rest[rest.length - 1])) freq = planParseFreq(rest.pop());
-  } else if (/[a-z]/i.test(rest[0])) {
-    // Amount and word sharing one piece: "Rent, 45000 monthly".
-    const m = /^([^a-z]*)(.+)$/i.exec(rest[0].trim());
-    if (m) { freq = planParseFreq(m[2]); rest[0] = m[1]; }
-  }
-  const amountRaw = rest.join('');
-  // Stripping punctuation below would silently turn "-500" into 500, so a
-  // negative is caught here and the line skipped instead.
-  if (/-\s*[\d.]/.test(amountRaw)) return null;
-  // Leading dots are dropped so a stray "Rs." prefix can't turn 45000 into 0.45.
-  const digits = amountRaw.replace(/[^\d.]/g, '').replace(/^\.+/, '');
-  const amount = parseFloat(digits);
+  const fm = text.match(PLAN_TAIL_FREQ);
+  if (fm) { freq = planParseFreq(fm[1]); text = text.slice(0, fm.index); }
+
+  // The amount is the LAST number on the line, and the name is whatever sits
+  // in front of it. Working backwards from the number like this — rather
+  // than splitting on a separator — is what makes every way a list actually
+  // gets written work, without anyone having to learn a format:
+  //   "Parents Rent - 35,000"   "House rent, 45000"
+  //   "Water Bill 2300"         "Insurance: 18,000"
+  // An earlier version split on the first comma, which read "35,000" as the
+  // separator and turned Rs 35,000 into Rs 35 — then skipped the line for
+  // having no amount. Whole lists were rejected.
+  const nums = text.match(/\d[\d,\s]*(?:\.\d+)?/g);
+  if (!nums) return null;                             // no number: not an item
+  const last = nums[nums.length - 1];
+  const at = text.lastIndexOf(last);
+
+  // A dash TOUCHING the digits is a minus sign; a dash with a space before
+  // the number is a separator ("Parents Rent - 35,000"). Only the first is
+  // treated as negative, and negatives are skipped.
+  if (at > 0 && text.charAt(at - 1) === '-') return null;
+
+  const amount = parseFloat(last.replace(/[,\s]/g, ''));
   if (!isFinite(amount) || amount <= 0) return null;
+
+  const tidy = s => s
+    .replace(/[\s,\-–—:=.]+$/, '')
+    .replace(/\s*(?:rs|lkr|usd|gbp|eur)\.?$/i, '')   // "Rent, Rs. 45000"
+    .replace(/[\s,\-–—:=.]+$/, '')
+    .trim();
+  let name = tidy(text.slice(0, at));
+  // Falls back to whatever follows the amount, for "35,000 - Parents Rent".
+  if (!name) name = text.slice(at + last.length).replace(/^[\s,\-–—:=]+/, '').trim();
+  if (!name) return null;                             // nothing to call it
+
   return { name: name, amount: amount, freq: freq };
 }
 
@@ -5119,7 +5141,7 @@ function clearPlanFlagUI(row) {
       html = '<span class="ok">Added ' + nItem(added.length) + '.</span>';
     } else {
       html = '<span class="bad">Couldn\'t read ' + (skipped.length === 1 ? 'that line' : 'any of those ' + skipped.length + ' lines') +
-             '.</span> Each one needs a name and an amount, like: House rent, 45000, monthly';
+             '.</span> Each line needs a name and an amount, like: House Rent - 35,000';
     }
     if (flagged) {
       html += '<br>' + (flagged === 1
