@@ -621,6 +621,11 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-fx-eq{font-size:.66rem;color:var(--tx3);flex-shrink:0;}
 .plan-fx-row input{flex:1;min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:9px 11px;color:var(--tx1);font-family:var(--mono);font-size:.85rem;-webkit-appearance:none;}
 .plan-fx-row input:focus{outline:none;border-color:var(--purple2);}
+.plan-fx-del{flex-shrink:0;width:32px;height:32px;border-radius:8px;border:1px solid rgba(248,113,113,.25);background:rgba(248,113,113,.08);color:var(--red);font-size:.95rem;line-height:1;cursor:pointer;}
+.plan-fx-add{display:flex;gap:8px;margin-top:12px;padding-top:11px;border-top:1px dashed var(--b0);}
+.plan-fx-add input{flex:1;min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:9px 11px;color:var(--tx1);font-family:var(--mono);font-size:.82rem;text-transform:uppercase;-webkit-appearance:none;}
+.plan-fx-add input:focus{outline:none;border-color:var(--purple2);}
+.plan-fx-add .btn-outline{width:auto;margin-top:0;flex-shrink:0;padding:9px 12px;}
 .plan-salary-ok{display:flex;justify-content:space-between;align-items:baseline;gap:12px;}
 .plan-salary-miss{font-size:.74rem;color:var(--amber);line-height:1.65;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:10px;padding:11px 12px;}
 .plan-safe-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:8px 0;}
@@ -1266,9 +1271,14 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         </summary>
         <div class="plan-fold-body">
           <div style="font-size:.68rem;color:var(--tx3);line-height:1.6;margin-bottom:10px;">
-            Rupees for 1 of each. You only need the ones you actually get paid in &mdash; the rest can stay empty.
+            Rupees for 1 of each. You only need the ones you actually get paid in &mdash; the rest can stay empty.<br>
+            Got your layover cash straight in rupees? Pick <b>LKR</b> on the layover and skip the rate.
           </div>
           <div id="planFxList"></div>
+          <div class="plan-fx-add">
+            <input type="text" id="planFxNewCur" maxlength="4" placeholder="e.g. CAD, THB, INR" autocomplete="off" spellcheck="false" autocapitalize="characters">
+            <button class="btn-outline" id="btnPlanFxAddCur">&#10133; Add currency</button>
+          </div>
         </div>
       </details>
 
@@ -4868,7 +4878,22 @@ const PLAN_KEY = 'sla_commitments';
 const PLAN_MONTH_KEY = 'sla_plan_month';
 const PLAN_INCOME_KEY = 'sla_plan_income';
 const PLAN_FX_KEY = 'sla_fx_rates';
-const PLAN_CURRENCIES = ['USD', 'GBP', 'EUR', 'AED', 'SGD', 'AUD', 'JPY', 'Other'];
+const PLAN_CUSTOM_CUR_KEY = 'sla_fx_custom';
+// LKR first: a layover already taken in rupees needs no rate at all. The rest
+// are the common layover currencies; a crew member can add any other code in
+// the Exchange Rates section. 'Other' is kept as a catch-all for old data.
+const PLAN_BASE_CURRENCIES = ['LKR', 'USD', 'GBP', 'EUR', 'AED', 'SGD', 'AUD', 'JPY'];
+function loadCustomCurrencies() {
+  const v = _planReadJSON(PLAN_CUSTOM_CUR_KEY, []);
+  return Array.isArray(v) ? v.filter(c => typeof c === 'string' && /^[A-Z]{2,4}$/.test(c)) : [];
+}
+function saveCustomCurrencies(list) {
+  try { localStorage.setItem(PLAN_CUSTOM_CUR_KEY, JSON.stringify(list)); } catch (e) {}
+}
+// The full ordered list the dropdowns and the rates section share.
+function planCurrencyList() {
+  return PLAN_BASE_CURRENCIES.concat(loadCustomCurrencies()).concat(['Other']);
+}
 
 // Months between payments. Also the divisor for the put-aside figure, so
 // the two can never drift apart.
@@ -5325,10 +5350,10 @@ function clearPlanFlagUI(row) {
 // flying in July. July's roster is calculated in early August and paid on
 // 25 August, which is what you then spend from 25 Aug to 24 Sep. So the
 // salary shown for plan month S is read from roster month S minus 2.
-// PLAN_MONTH_KEY, PLAN_INCOME_KEY, PLAN_FX_KEY and PLAN_CURRENCIES are all
-// declared with the Money Out block above — that block boots first and its
-// Safe to Spend render needs them. PLAN_CURRENCIES is ordered, so the rates
-// block always lists the currencies the same way.
+// PLAN_MONTH_KEY, PLAN_INCOME_KEY, PLAN_FX_KEY and the currency helpers are
+// all declared with the Money Out block above — that block boots first and
+// its Safe to Spend render needs them. planCurrencyList() is ordered, so the
+// rates block always lists the currencies the same way.
 
 function _planReadJSON(key, fallback) {
   try {
@@ -5426,6 +5451,8 @@ function planSalaryFor(planYM) {
 // A missing rate is deliberately NOT zero — treating it as zero would quietly
 // wipe real money out of the total. rate === null means "not set yet".
 function planFxRate(cur) {
+  // Rupees are already rupees — no rate to set, never "missing".
+  if (cur === 'LKR') return 1;
   const r = loadFxRates()[cur];
   const n = parseFloat(r);
   return (isFinite(n) && n > 0) ? n : null;
@@ -5464,8 +5491,12 @@ function renderPlanLayovers(planYM) {
     box.innerHTML = '<div class="plan-empty">No layovers added for this month yet.</div>';
     return;
   }
-  const curOpts = cur => PLAN_CURRENCIES
-    .map(c => `<option value="${c}"${c === cur ? ' selected' : ''}>${c}</option>`).join('');
+  const curOpts = cur => {
+    const list = planCurrencyList().slice();
+    // A row set to a currency that has since been removed keeps its own value.
+    if (cur && list.indexOf(cur) === -1) list.unshift(cur);
+    return list.map(c => `<option value="${escapeHtml(c)}"${c === cur ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('');
+  };
   box.innerHTML = rows.map(row => {
     const bal = (parseFloat(row.received) || 0) - (parseFloat(row.spent) || 0);
     const rate = planFxRate(row.currency);
@@ -5496,7 +5527,7 @@ function renderPlanLayovers(planYM) {
         </div>
         <div class="plan-lay-foot">
           <span class="plan-lay-bal">Left: <b>${escapeHtml(row.currency || '')} ${bal.toLocaleString('en-LK', { maximumFractionDigits: 2 })}</b></span>
-          <span class="plan-lay-lkr${lkr !== null && lkr < 0 ? ' neg' : ''}">${lkr === null ? '—' : fmtLKR(lkr)}</span>
+          <span class="plan-lay-lkr${lkr !== null && lkr < 0 ? ' neg' : ''}">${row.currency === 'LKR' ? 'already in rupees' : (lkr === null ? '—' : fmtLKR(lkr))}</span>
         </div>
         ${rate === null ? `
         <div class="plan-lay-rate">
@@ -5509,11 +5540,14 @@ function renderPlanLayovers(planYM) {
 
 function renderPlanFx() {
   const rates = loadFxRates();
-  $('planFxList').innerHTML = PLAN_CURRENCIES.map(c => `
+  const custom = loadCustomCurrencies();
+  // LKR needs no rate (it is 1 by definition), so it is not listed here.
+  $('planFxList').innerHTML = planCurrencyList().filter(c => c !== 'LKR').map(c => `
     <div class="plan-fx-row">
-      <span class="plan-fx-cur">${c}</span>
+      <span class="plan-fx-cur">${escapeHtml(c)}</span>
       <span class="plan-fx-eq">=</span>
-      <input type="number" data-cur="${c}" value="${escapeHtml(String(rates[c] == null ? '' : rates[c]))}" inputmode="decimal" min="0" step="any" placeholder="rupees">
+      <input type="number" data-cur="${escapeHtml(c)}" value="${escapeHtml(String(rates[c] == null ? '' : rates[c]))}" inputmode="decimal" min="0" step="any" placeholder="rupees">
+      ${custom.indexOf(c) !== -1 ? `<button class="plan-fx-del" data-delcur="${escapeHtml(c)}" aria-label="Remove ${escapeHtml(c)}">&times;</button>` : ''}
     </div>`).join('');
 }
 
@@ -6380,8 +6414,8 @@ function renderPlanSmoothing() {
     const lkrEl = row.querySelector('.plan-lay-lkr');
     if (balEl) balEl.textContent = (it.currency || '') + ' ' + bal.toLocaleString('en-LK', { maximumFractionDigits: 2 });
     if (lkrEl) {
-      lkrEl.textContent = rate === null ? '—' : fmtLKR(bal * rate);
-      lkrEl.classList.toggle('neg', rate !== null && bal * rate < 0);
+      lkrEl.textContent = it.currency === 'LKR' ? 'already in rupees' : (rate === null ? '—' : fmtLKR(bal * rate));
+      lkrEl.classList.toggle('neg', it.currency !== 'LKR' && rate !== null && bal * rate < 0);
     }
     renderPlanMoneyIn(ym);
   });
@@ -6436,6 +6470,40 @@ function renderPlanSmoothing() {
     const ym = getPlanMonth();
     renderPlanLayovers(ym);
     renderPlanMoneyIn(ym);
+  });
+
+  // Remove a currency the crew member added themselves (the built-in ones
+  // have no ✕). Its rate goes with it; any layover still on it falls back to
+  // "rate not set" until changed.
+  $('planFxList').addEventListener('click', e => {
+    const del = e.target.closest('[data-delcur]');
+    if (!del) return;
+    const c = del.getAttribute('data-delcur');
+    saveCustomCurrencies(loadCustomCurrencies().filter(x => x !== c));
+    const rates = loadFxRates();
+    delete rates[c];
+    saveFxRates(rates);
+    const ym = getPlanMonth();
+    renderPlanFx();
+    renderPlanLayovers(ym);
+    renderPlanMoneyIn(ym);
+    renderPlanFoldSums();
+  });
+
+  $('btnPlanFxAddCur').addEventListener('click', () => {
+    const inp = $('planFxNewCur');
+    const code = (inp.value || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+    if (code.length < 2 || code.length > 4) { inp.focus(); return; }
+    const known = planCurrencyList().map(c => c.toUpperCase());
+    if (known.indexOf(code) === -1) {
+      const list = loadCustomCurrencies();
+      list.push(code);
+      saveCustomCurrencies(list);
+    }
+    inp.value = '';
+    const ym = getPlanMonth();
+    renderPlanFx();
+    renderPlanLayovers(ym);
   });
 
   renderPlanIncome();
@@ -7236,7 +7304,8 @@ function renderPlanFoldSums() {
   set('planFoldInSum', income.salaryFound ? fmtLKR(income.total) : 'no salary yet');
 
   const rates = loadFxRates();
-  const n = PLAN_CURRENCIES.filter(c => {
+  const n = planCurrencyList().filter(c => {
+    if (c === 'LKR') return false;
     const v = parseFloat(rates[c]);
     return isFinite(v) && v > 0;
   }).length;
