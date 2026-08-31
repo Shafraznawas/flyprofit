@@ -601,6 +601,13 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-paste-msg .bad{color:var(--amber);font-weight:700;}
 .plan-paste-skip{font-family:var(--mono);font-size:.66rem;color:var(--tx2);background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:8px;padding:8px 10px;margin-top:7px;white-space:pre-wrap;word-break:break-word;line-height:1.7;}
 .plan-flag{flex-shrink:0;width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,.16);cursor:help;}
+/* Per-item "how the put-aside is worked out" list, under the totals */
+.plan-setaside-break{margin-top:8px;}
+.plan-setaside-break:empty{display:none;}
+.plan-setaside-break .row{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:.64rem;color:var(--tx3);line-height:1.5;padding:5px 0;border-top:1px dashed var(--b0);}
+.plan-setaside-break .row .nm{color:var(--tx2);flex:1;min-width:0;}
+.plan-setaside-break .row .pm{white-space:nowrap;flex-shrink:0;}
+.plan-setaside-break .row b{color:var(--tx1);font-weight:700;}
 .plan-flag-note{font-size:.6rem;color:var(--amber);font-family:var(--mono);line-height:1.5;margin-top:5px;}
 .plan-lay-foot{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--b0);}
 .plan-lay-bal{font-size:.72rem;color:var(--tx3);font-family:var(--mono);}
@@ -1285,9 +1292,10 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           <span class="val" id="planTotalDueThis">LKR 0</span>
         </div>
         <div class="summary-row total">
-          <span class="lbl">Put aside monthly<br><span class="sub">Save this much each month so the big yearly bills never surprise you</span></span>
+          <span class="lbl">Put aside monthly<br><span class="sub">For bills that don't come every month. Split each one across the months so the big one never lands all at once.</span></span>
           <span class="val" id="planTotalSetAside">LKR 0</span>
         </div>
+        <div id="planSetAsideBreak" class="plan-setaside-break"></div>
         </div>
       </div>
 
@@ -5036,6 +5044,22 @@ function renderPlanTotals(list) {
   $('planTotalDueThis').textContent = fmtLKR(t.dueThis);
   $('planTotalSetAside').textContent = fmtLKR(t.setAside);
   $('planDueThisSub').textContent = 'Monthly bills plus anything due in ' + _planFmtYM(ym);
+
+  // Show, item by item, where the put-aside figure comes from: each bill
+  // that is not monthly, its full amount, and that amount split per month.
+  const brk = $('planSetAsideBreak');
+  if (brk) {
+    brk.innerHTML = list
+      .filter(it => (PLAN_INTERVAL[it.freq] || 1) > 1 && (parseFloat(it.amount) || 0) > 0)
+      .map(it => {
+        const step = PLAN_INTERVAL[it.freq];
+        const amt = parseFloat(it.amount) || 0;
+        return '<div class="row"><span class="nm">' + escapeHtml(it.name || 'Unnamed') + ' — ' +
+               fmtLKR(amt) + ' ' + (PLAN_FREQ_LABEL[it.freq] || '').toLowerCase() +
+               '</span><span class="pm"><b>' + fmtLKR(amt / step) + '</b> /mo</span></div>';
+      }).join('');
+  }
+
   renderSafeToSpend();
 }
 
@@ -5840,15 +5864,18 @@ function goalStatus(goal, safe) {
   out.monthsLeft = monthsLeft;
   if (monthsLeft <= 0) { out.kind = 'passed'; return out; }
 
+  // remaining / monthsLeft — recomputed every render, so as real money goes
+  // in (Put in / Take out below) the "per month from now" figure moves with
+  // it. This is the number that actually tells someone where they stand.
   out.needPerMonth = remaining / monthsLeft;
   out.targetLabel = _planFmtYM(goal.targetYM);
 
-  // Deliberately NOT judged against this month's Safe to Spend. Cabin-crew
-  // pay swings with every roster, so one thin month is no reason to tell
-  // someone their goal is "not possible" or to push the date out by years.
-  // State the monthly amount the goal needs and leave the month-by-month
-  // reality to the Safe to Spend card above. `safe` stays in the signature
-  // for the callers that still pass it.
+  // What this ONE month can spare — shown only as "this month you have X
+  // free", never turned into a verdict on the whole goal. Cabin-crew pay
+  // swings with every roster, so a thin month is no reason to call a goal
+  // impossible. null means no salary saved yet — say nothing about spare cash.
+  out.safeThisMonth = (safe && safe.available) ? safe.safe : null;
+
   out.kind = 'plan';
   return out;
 }
@@ -5863,10 +5890,24 @@ function goalVerdictHtml(s, safe) {
       return '<div class="plan-goal-verdict flat">Enter how much you need, and the month you want it by.</div>';
     case 'nodate':
       return '<div class="plan-goal-verdict flat">Pick a target month to see if it is realistic.</div>';
-    case 'plan':
-      return '<div class="plan-goal-verdict flat">Put aside about <b>' + fmtLKR(s.needPerMonth) +
-             '</b> a month to reach this by ' + escapeHtml(s.targetLabel) + '.<br>' +
-             'Your pay changes every month, so treat this as a guide — put in more when the roster is good, less when it is thin.</div>';
+    case 'plan': {
+      let line2;
+      if (s.safeThisMonth === null) {
+        line2 = 'Add your salary above to see what you can spare this month.';
+      } else if (s.safeThisMonth <= 0) {
+        line2 = 'Nothing spare this month — put in more on a better month.';
+      } else if (s.safeThisMonth >= s.needPerMonth) {
+        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free — that covers it.';
+      } else {
+        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free — ' +
+                fmtLKR(s.needPerMonth - s.safeThisMonth) + ' under that.';
+      }
+      return '<div class="plan-goal-verdict flat">' +
+             'Save about <b>' + fmtLKR(s.needPerMonth) + '</b> a month from now to reach this by ' +
+             escapeHtml(s.targetLabel) + '.<br>' + line2 + '<br>' +
+             '<span style="color:var(--tx3);">Pay changes every month, so this is a guide — the amount updates as you put money in.</span>' +
+             '</div>';
+    }
   }
   return '';
 }
@@ -5908,12 +5949,13 @@ function renderGoals() {
         <div class="plan-goal-meta">
           <span>${s.pct.toFixed(0)}% saved</span>
           <span>${s.kind === 'done' ? 'nothing left' : escapeHtml(fmtLKR(s.remaining)) + ' to go'}${
-            s.monthsLeft !== null && s.monthsLeft > 0 ? ' · ' + s.monthsLeft + ' month' + (s.monthsLeft === 1 ? '' : 's') : ''}</span>
+            s.monthsLeft !== null && s.monthsLeft > 0 ? ' · ' + s.monthsLeft + ' month' + (s.monthsLeft === 1 ? '' : 's') + ' left' : ''}</span>
         </div>
         ${goalVerdictHtml(s, safe)}
-        <div class="plan-goal-addrow">
-          <input type="number" data-g="addamt" inputmode="decimal" min="0" step="any" placeholder="Add money">
-          <button class="plan-goal-add" data-goaladd="1">Add money</button>
+        <div class="plan-buf-controls" style="margin-top:11px;">
+          <input type="number" data-g="addamt" inputmode="decimal" min="0" step="any" placeholder="Amount">
+          <button class="plan-buf-btn in" data-goaladd="1">Put in</button>
+          <button class="plan-buf-btn out" data-goalout="1">Take out</button>
         </div>
       </div>`;
   }).join('');
@@ -5957,16 +5999,19 @@ function renderGoals() {
   });
 
   box.addEventListener('click', async e => {
-    const addBtn = e.target.closest('[data-goaladd]');
-    if (addBtn) {
-      const row = addBtn.closest('.plan-item');
+    // Put in / Take out — the same "note what you actually moved" idea as My
+    // Buffer, but pointed at one goal. Take out never drops below zero.
+    const moveBtn = e.target.closest('[data-goaladd],[data-goalout]');
+    if (moveBtn) {
+      const dir = moveBtn.hasAttribute('data-goalout') ? -1 : 1;
+      const row = moveBtn.closest('.plan-item');
       const inp = row.querySelector('[data-g="addamt"]');
       const amt = parseFloat(inp.value);
       if (!isFinite(amt) || amt <= 0) { inp.focus(); return; }
       const goals = loadGoals();
       const g = goals.find(x => String(x.id) === row.dataset.id);
       if (!g) return;
-      g.saved = (parseFloat(g.saved) || 0) + amt;
+      g.saved = Math.max(0, (parseFloat(g.saved) || 0) + dir * amt);
       saveGoals(goals);
       inp.value = '';
       renderGoals();
@@ -5996,11 +6041,11 @@ function refreshGoalRow(row, goal) {
     '</span><span class="tgt">of ' + escapeHtml(fmtLKR(s.target)) + '</span>';
   if (meta) meta.innerHTML = '<span>' + s.pct.toFixed(0) + '% saved</span><span>' +
     (s.kind === 'done' ? 'nothing left' : escapeHtml(fmtLKR(s.remaining)) + ' to go') +
-    (s.monthsLeft !== null && s.monthsLeft > 0 ? ' · ' + s.monthsLeft + ' month' + (s.monthsLeft === 1 ? '' : 's') : '') +
+    (s.monthsLeft !== null && s.monthsLeft > 0 ? ' · ' + s.monthsLeft + ' month' + (s.monthsLeft === 1 ? '' : 's') + ' left' : '') +
     '</span>';
   const html = goalVerdictHtml(s, computeSafeToSpend(getPlanMonth()));
   if (verdict) verdict.outerHTML = html || '<div class="plan-goal-verdict flat" style="display:none;"></div>';
-  else if (html) row.querySelector('.plan-goal-addrow').insertAdjacentHTML('beforebegin', html);
+  else if (html) row.querySelector('.plan-buf-controls').insertAdjacentHTML('beforebegin', html);
 }
 
 // ---------- Good month, bad month ----------
