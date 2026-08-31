@@ -787,7 +787,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-grid select{font-size:.78rem;padding-left:9px;padding-right:9px;}
 .plan-grid input:focus,.plan-grid select:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px var(--b2);}
 .plan-due-wrap{margin-top:8px;}
-.plan-empty{font-size:.74rem;color:var(--tx3);line-height:1.6;text-align:center;padding:18px 6px;}
+.plan-empty{font-size:.78rem;color:var(--tx3);line-height:1.6;text-align:center;padding:20px 14px;border:1px dashed var(--b1);border-radius:var(--r-md);background:var(--card2);}
 .plan-btn-row{display:flex;gap:8px;margin-top:12px;}
 .plan-btn-row .btn-outline{flex:1;min-width:0;width:auto;margin-top:0;padding:13px 8px;}
 .plan-paste{margin-top:11px;border:1px solid var(--b1);border-radius:11px;padding:12px;background:var(--card2);}
@@ -966,6 +966,15 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .upload-zone.uploaded{border-color:var(--green);background:rgba(34,197,94,.08);}
 .upload-zone.uploaded .uz-icon{background:rgba(34,197,94,.15);border-color:var(--green);}
 .upload-zone.uploaded .uz-title{color:var(--green);}
+.upload-zone.busy{pointer-events:none;border-style:solid;border-color:rgba(var(--accent-rgb),.4);}
+.upload-zone.busy .uz-icon{animation:fp-pulse 1.1s ease-in-out infinite;}
+@keyframes fp-pulse{0%,100%{opacity:.45;transform:scale(.96);}50%{opacity:1;transform:scale(1);}}
+@keyframes fp-shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+/* Empty states — quiet, structured, with a next step */
+.empty-state{text-align:center;color:var(--tx3);font-size:.78rem;line-height:1.6;padding:22px 16px;border:1px dashed var(--b1);border-radius:var(--r-md);background:var(--card2);}
+.empty-state b{display:block;color:var(--tx2);font-weight:600;font-size:.82rem;margin-bottom:3px;}
+/* Skeleton shimmer for anything still loading */
+.skeleton{background:linear-gradient(90deg,var(--card2) 25%,var(--b1) 37%,var(--card2) 63%);background-size:400% 100%;animation:fp-shimmer 1.4s ease infinite;border-radius:8px;color:transparent!important;}
 .btn-outline{background:var(--card2);border:1px solid var(--border);color:var(--tx1);border-radius:var(--r-sm);padding:13px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:var(--sans);width:100%;margin-top:var(--sp3);min-height:48px;transition:transform .12s ease,border-color .15s;}
 .btn-outline:active{transform:scale(.985);}
 
@@ -1266,7 +1275,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     </div>
     <div class="card">
       <div class="card-head"><span class="card-ico">🧳</span><div><div class="card-title">Layover Allowance</div><div class="card-sub">Meals + nights away, check-in to CMB return · informational only</div></div></div>
-      <div class="card-body" id="layoverAllowanceArea"><div style="color:var(--tx3);font-size:.8rem;">Calculate to see breakdown</div></div>
+      <div class="card-body" id="layoverAllowanceArea"><div class="empty-state">Run Calculate to see the breakdown.</div></div>
     </div>
     <div class="card">
       <div class="card-head" id="apitBandsHead" style="cursor:pointer;"><span class="card-ico">💡</span><div><div class="card-title">APIT Tax Bands</div><div class="card-sub">Monthly reference · tap to view</div></div><span id="apitBandsChevron" style="margin-left:auto;color:var(--tx3);font-size:.8rem;">▸</span></div>
@@ -4280,7 +4289,7 @@ function renderHistoryPanel() {
   if (!panel) return;
   const keys = Object.keys(allHistory);
   if (!keys.length) {
-    panel.innerHTML = '<div style="color:var(--tx3); font-size:.85rem;margin-top:8px;">No saved months yet.</div>';
+    panel.innerHTML = '<div class="empty-state" style="margin-top:8px;"><b>No saved months yet</b>Calculate a month, then tap “Save This Month” to build your history.</div>';
     return;
   }
   const sortedKeys = [...keys].sort();
@@ -4453,7 +4462,7 @@ function renderLogbook() {
 
   if (!years.length) {
     sel.innerHTML = '';
-    $('logbookSummary').innerHTML = '<div style="color:var(--tx3);font-size:.85rem;">No flights logged yet. Calculate a month with a roster month set and it appears here automatically.</div>';
+    $('logbookSummary').innerHTML = '<div class="empty-state"><b>No flights logged yet</b>Calculate a month with its roster month set — your flights appear here automatically.</div>';
     $('logbookLongStays').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
     $('logbookLayovers1').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
     $('logbookDestinations').innerHTML = '<div style="color:var(--tx3);font-size:.8rem;">—</div>';
@@ -4720,6 +4729,15 @@ function setUploadStatus(text,cls,fileName){
   }
   const zone=$('uploadZone'), icon=$('uzIcon'), title=$('uzTitle'), sub=$('uzSub');
   if(!zone) return;
+  const busy = !cls && !fileName && /^(Reading|Importing|Verifying|Processing)/i.test(text);
+  zone.classList.toggle('busy', busy);
+  if(busy){
+    zone.classList.remove('uploaded');
+    if(icon) icon.textContent='📄';
+    if(title) title.textContent=text;
+    if(sub) sub.textContent='Just a moment';
+    return;
+  }
   if(fileName && (cls==='ok'||cls==='err')){
     zone.classList.add('uploaded');
     if(icon) icon.textContent=cls==='ok'?'✅':'⚠️';
@@ -4758,7 +4776,7 @@ function updateStatCards(){
 // Returns true only when a roster was actually imported.
 async function importRosterFile(file, source){
   const fromShare = source === 'share';
-  const INVALID_MSG = 'This file is not a valid roster PDF.';
+  const INVALID_MSG = "This doesn't look like a roster. Upload the original PDF from the Crew Web Portal.";
   if(!file) return false;
   // PDF-only guard — a share sheet can hand us any file type
   if(!(file.type==='application/pdf' || /\.pdf$/i.test(file.name||''))){
@@ -4827,7 +4845,7 @@ async function importRosterFile(file, source){
   }catch(err){
     // pdf.js throws here on an unreadable/non-PDF file, so a shared file that
     // isn't a roster reports the same plain message rather than a raw error.
-    setUploadStatus(fromShare?INVALID_MSG:('Failed: '+err.message),'err');
+    setUploadStatus(fromShare?INVALID_MSG:"We couldn't read this roster. Try the original PDF from the Crew Web Portal.",'err');
     console.error(err);
     return false;
   }
@@ -4866,7 +4884,7 @@ $('rosterFile').addEventListener('change',async(e)=>{
   const SHARE_CACHE = 'sla-share-inbox';   // must match sw.js
   const SHARE_PATH  = 'share-target';      // must match sw.js
   const SEEN_KEY    = 'sla_share_consumed';
-  const INVALID_MSG = 'This file is not a valid roster PDF.';
+  const INVALID_MSG = "This doesn't look like a roster. Share the original PDF from the Crew Web Portal.";
 
   // Strip the one-shot param immediately, so a manual reload — or Android
   // restoring the tab later — can never replay the same import.
@@ -4955,7 +4973,7 @@ $('btnReset').addEventListener('click',()=>{
   setUploadStatus('No roster loaded','');
   $('flightTableWrap').style.display='none';
   $('parseWarnings').innerHTML='';
-  $('resultsArea').innerHTML='<div style="text-align:center;color:var(--tx3);font-size:.74rem;padding:12px 0;">Calculate to see breakdown</div>';
+  $('resultsArea').innerHTML='<div class="empty-state">Run Calculate to see your full salary breakdown.</div>';
   if($('resultsStub')) $('resultsStub').innerHTML='<div style="text-align:center;color:var(--tx3);font-size:.68rem;font-family:var(--mono);padding:14px 0;">&middot; &middot; &middot; &middot; &middot; &middot; &middot; &middot; &middot;</div>';
   const n=$('netSalaryDisplay'); if(n){n.textContent='LKR —';n.className='nh-amt';}
   if($('netOvernightDisplay')) $('netOvernightDisplay').textContent='LKR —';
