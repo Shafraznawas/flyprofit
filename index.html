@@ -541,6 +541,22 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-grid input:focus,.plan-grid select:focus{outline:none;border-color:var(--purple2);}
 .plan-due-wrap{margin-top:8px;}
 .plan-empty{font-size:.74rem;color:var(--tx3);line-height:1.6;text-align:center;padding:18px 6px;}
+.plan-btn-row{display:flex;gap:8px;margin-top:12px;}
+.plan-btn-row .btn-outline{flex:1;min-width:0;width:auto;margin-top:0;padding:13px 8px;}
+.plan-paste{margin-top:11px;border:1px solid var(--b1);border-radius:11px;padding:12px;background:rgba(255,255,255,.02);}
+.plan-paste label{display:block;font-size:.55rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px;}
+.plan-paste textarea{width:100%;box-sizing:border-box;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:10px 11px;color:var(--tx1);font-family:var(--mono);font-size:.78rem;line-height:1.7;resize:vertical;min-height:118px;-webkit-appearance:none;}
+.plan-paste textarea:focus{outline:none;border-color:var(--purple2);}
+.plan-paste textarea::placeholder{color:var(--tx3);opacity:.7;}
+.plan-paste .hint{font-size:.6rem;color:var(--tx3);font-family:var(--mono);margin-top:6px;line-height:1.6;}
+.plan-paste-btns{display:flex;gap:8px;margin-top:10px;}
+.plan-paste-btns .btn-outline{flex:1;min-width:0;width:auto;margin-top:0;}
+.plan-paste-msg{font-size:.72rem;line-height:1.6;margin-top:10px;}
+.plan-paste-msg .ok{color:var(--green);font-weight:700;}
+.plan-paste-msg .bad{color:var(--amber);font-weight:700;}
+.plan-paste-skip{font-family:var(--mono);font-size:.66rem;color:var(--tx2);background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:8px;padding:8px 10px;margin-top:7px;white-space:pre-wrap;word-break:break-word;line-height:1.7;}
+.plan-flag{flex-shrink:0;width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,.16);cursor:help;}
+.plan-flag-note{font-size:.6rem;color:var(--amber);font-family:var(--mono);line-height:1.5;margin-top:5px;}
 .plan-lay-foot{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--b0);}
 .plan-lay-bal{font-size:.72rem;color:var(--tx3);font-family:var(--mono);}
 .plan-lay-bal b{color:var(--tx1);}
@@ -1205,8 +1221,25 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           <input type="month" id="planNewDue">
           <div class="hint">Which month is the next payment due?</div>
         </div>
-        <button class="btn-outline" id="btnPlanAdd">➕ Add To My List</button>
+        <div class="plan-btn-row">
+          <button class="btn-outline" id="btnPlanAdd">➕ Add To My List</button>
+          <button class="btn-outline" id="btnPlanPasteToggle">📋 Paste A List</button>
+        </div>
         <div id="planAddMsg" style="font-size:.68rem;color:var(--red);line-height:1.6;margin-top:9px;display:none;"></div>
+
+        <div class="plan-paste" id="planPasteWrap" style="display:none;">
+          <label for="planPasteBox">One Per Line — Name, Amount, How Often</label>
+          <textarea id="planPasteBox" rows="6" spellcheck="false" autocomplete="off" placeholder="House rent, 45000, monthly
+Bike loan, 12000, monthly
+Insurance, 18000, yearly
+Phone bill, 3500, monthly"></textarea>
+          <div class="hint">Leave out the last part and it counts as every month.</div>
+          <div class="plan-paste-btns">
+            <button class="btn-outline" id="btnPlanPasteAdd">➕ Add All</button>
+            <button class="btn-outline" id="btnPlanPasteCancel">Close</button>
+          </div>
+          <div id="planPasteMsg" class="plan-paste-msg" style="display:none;"></div>
+        </div>
       </div>
     </div>
 
@@ -4785,6 +4818,67 @@ function _planFmtYM(ym) {
   return M[i % 12] + ' ' + Math.floor(i / 12);
 }
 
+// ── Pasted-list parsing ──────────────────────────────────────
+// Most crew already keep their commitments in a note on their phone, so
+// retyping each one into the form is the slow part. A pasted block is read
+// line by line and APPENDED — nothing in here can replace or clear what is
+// already saved.
+const PLAN_FREQ_WORDS = [
+  [/^(monthly|month|mo|per month|a month|p\/m)$/, 'monthly'],
+  [/^(quarterly|quarter|3 months?)$/, 'quarterly'],
+  [/^(half ?yearly|half ?year|6 months?|biannual(ly)?)$/, 'halfyearly'],
+  [/^(yearly|year|annual|annually|per year|a year|12 months?)$/, 'yearly']
+];
+
+// Missing or unrecognised becomes monthly rather than an error. That is the
+// safe direction to be wrong in: a monthly item is counted in full every
+// month, so a bad guess overstates what is going out, never understates it.
+function planParseFreq(word) {
+  const w = String(word == null ? '' : word).trim().toLowerCase()
+    .replace(/[.\-_]/g, ' ').replace(/\s+/g, ' ').replace(/^every /, '');
+  if (!w) return 'monthly';
+  for (let i = 0; i < PLAN_FREQ_WORDS.length; i++) {
+    if (PLAN_FREQ_WORDS[i][0].test(w)) return PLAN_FREQ_WORDS[i][1];
+  }
+  return 'monthly';
+}
+
+// One pasted line -> {name, amount, freq}, or null when it can't be read.
+//
+// The name is everything before the FIRST comma. The frequency is the LAST
+// comma-piece, but only when it actually contains a letter — that test is
+// what stops "House rent, 45,000, monthly" from reading as Rs 45, because
+// the "000" piece is kept as part of the number instead.
+function planParseLine(line) {
+  const raw = String(line);
+  const firstC = raw.indexOf(',');
+  if (firstC < 0) return null;                       // no comma at all
+  const name = raw.slice(0, firstC).trim();
+  if (!name) return null;                            // nothing to call it
+  const rest = raw.slice(firstC + 1).split(',');
+  let freq = 'monthly';
+  if (rest.length > 1) {
+    if (/[a-z]/i.test(rest[rest.length - 1])) freq = planParseFreq(rest.pop());
+  } else if (/[a-z]/i.test(rest[0])) {
+    // Amount and word sharing one piece: "Rent, 45000 monthly".
+    const m = /^([^a-z]*)(.+)$/i.exec(rest[0].trim());
+    if (m) { freq = planParseFreq(m[2]); rest[0] = m[1]; }
+  }
+  const amountRaw = rest.join('');
+  // Stripping punctuation below would silently turn "-500" into 500, so a
+  // negative is caught here and the line skipped instead.
+  if (/-\s*[\d.]/.test(amountRaw)) return null;
+  // Leading dots are dropped so a stray "Rs." prefix can't turn 45000 into 0.45.
+  const digits = amountRaw.replace(/[^\d.]/g, '').replace(/^\.+/, '');
+  const amount = parseFloat(digits);
+  if (!isFinite(amount) || amount <= 0) return null;
+  return { name: name, amount: amount, freq: freq };
+}
+
+function planNextMonthYM() {
+  return _planIndexToYM(_planYMToIndex(_planNowYM()) + 1);
+}
+
 function loadPlan() {
   try {
     const raw = JSON.parse(localStorage.getItem(PLAN_KEY) || '[]');
@@ -4862,6 +4956,7 @@ function renderPlan() {
       <div class="plan-item" data-id="${escapeHtml(it.id)}">
         <div class="plan-item-top">
           <input type="text" class="plan-name" data-f="name" value="${escapeHtml(it.name || '')}" placeholder="Name">
+          ${it.checkDue ? '<span class="plan-flag" title="Check this due date"></span>' : ''}
           <button class="plan-del" data-del="1" aria-label="Delete">🗑</button>
         </div>
         <div class="plan-grid">
@@ -4878,6 +4973,7 @@ function renderPlan() {
           <div>
             <label>Next Due Month</label>
             <input type="month" data-f="nextDue" value="${escapeHtml(it.nextDue || '')}">
+            ${it.checkDue ? '<div class="plan-flag-note">Check this due date — we guessed it</div>' : ''}
           </div>
         </div>
       </div>`;
@@ -4900,9 +4996,25 @@ function updatePlanItem(id, field, value) {
     if (step === 1) it.nextDue = '';
     else if (!_planYMToIndex(it.nextDue)) it.nextDue = _planNowYM();
   }
+  // A pasted non-monthly item carries a guessed due month flagged with an
+  // amber dot. Once he sets the month himself — or makes the item monthly,
+  // which has no due month at all — the guess is gone and so is the flag.
+  if ((field === 'nextDue' && _planYMToIndex(value) !== null) ||
+      (field === 'freq' && (PLAN_INTERVAL[value] || 1) === 1)) {
+    delete it.checkDue;
+  }
   savePlan(list);
   renderPlanTotals(list);
   return it;
+}
+
+// Removes the amber marks from one row without re-rendering the list — a
+// re-render mid-edit would drop focus and the caret on the box in use.
+function clearPlanFlagUI(row) {
+  const dot = row.querySelector('.plan-flag');
+  if (dot) dot.remove();
+  const note = row.querySelector('.plan-flag-note');
+  if (note) note.remove();
 }
 
 (function() {
@@ -4945,6 +5057,86 @@ function updatePlanItem(id, field, value) {
     renderPlan();
   });
 
+  // ── Paste a whole list at once ──────────────────────────────
+  const pasteWrap = $('planPasteWrap');
+  const pasteBox = $('planPasteBox');
+  const pasteMsg = $('planPasteMsg');
+
+  $('btnPlanPasteToggle').addEventListener('click', () => {
+    const open = pasteWrap.style.display !== 'none';
+    pasteWrap.style.display = open ? 'none' : '';
+    if (!open) pasteBox.focus();
+  });
+  $('btnPlanPasteCancel').addEventListener('click', () => {
+    pasteWrap.style.display = 'none';
+    pasteMsg.style.display = 'none';
+  });
+
+  $('btnPlanPasteAdd').addEventListener('click', () => {
+    const added = [];
+    const skipped = [];
+    let flagged = 0;
+
+    pasteBox.value.split('\n').forEach(line => {
+      if (!line.trim()) return;                    // blank lines aren't mistakes
+      const p = planParseLine(line);
+      if (!p) { skipped.push(line.trim()); return; }
+      const item = {
+        id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+        name: p.name, amount: p.amount, freq: p.freq, nextDue: ''
+      };
+      if ((PLAN_INTERVAL[p.freq] || 1) !== 1) {
+        // A pasted line carries no due month. Next month keeps the item
+        // counted straight away, but it IS a guess — so it gets flagged for
+        // him to correct rather than quietly trusted.
+        item.nextDue = planNextMonthYM();
+        item.checkDue = true;
+        flagged++;
+      }
+      added.push(item);
+    });
+
+    if (!added.length && !skipped.length) {
+      pasteMsg.innerHTML = '<span class="bad">Nothing to add.</span> Paste your list in the box first.';
+      pasteMsg.style.display = 'block';
+      return;
+    }
+
+    if (added.length) {
+      const list = loadPlan();                     // APPEND — never replace
+      added.forEach(it => list.push(it));
+      savePlan(list);
+      renderPlan();
+    }
+
+    const nItem = n => n + (n === 1 ? ' item' : ' items');
+    const nLine = n => n + (n === 1 ? ' line' : ' lines');
+    let html;
+    if (added.length && skipped.length) {
+      html = '<span class="ok">Added ' + nItem(added.length) + ',</span> skipped ' + nLine(skipped.length) +
+             ' — couldn\'t read ' + (skipped.length === 1 ? 'it' : 'them') + '.';
+    } else if (added.length) {
+      html = '<span class="ok">Added ' + nItem(added.length) + '.</span>';
+    } else {
+      html = '<span class="bad">Couldn\'t read ' + (skipped.length === 1 ? 'that line' : 'any of those ' + skipped.length + ' lines') +
+             '.</span> Each one needs a name and an amount, like: House rent, 45000, monthly';
+    }
+    if (flagged) {
+      html += '<br>' + (flagged === 1
+        ? '1 item has an amber dot — check its due month.'
+        : flagged + ' items have an amber dot — check their due months.');
+    }
+    if (skipped.length) {
+      html += '<div class="plan-paste-skip">' + skipped.map(escapeHtml).join('\n') + '</div>';
+    }
+    pasteMsg.innerHTML = html;
+    pasteMsg.style.display = 'block';
+
+    // Only clear once something actually landed. If every line failed,
+    // wiping the box would throw away what he pasted.
+    if (added.length) pasteBox.value = '';
+  });
+
   // Delegated so rows added later need no per-row wiring.
   const listBox = $('planList');
   listBox.addEventListener('input', e => {
@@ -4952,7 +5144,8 @@ function updatePlanItem(id, field, value) {
     if (!f) return;
     const row = e.target.closest('.plan-item');
     if (!row) return;
-    updatePlanItem(row.dataset.id, f, f === 'amount' ? (parseFloat(e.target.value) || 0) : e.target.value);
+    const it = updatePlanItem(row.dataset.id, f, f === 'amount' ? (parseFloat(e.target.value) || 0) : e.target.value);
+    if (it && !it.checkDue) clearPlanFlagUI(row);
   });
   listBox.addEventListener('change', e => {
     if (!e.target.dataset || e.target.dataset.f !== 'freq') return;
@@ -4967,6 +5160,7 @@ function updatePlanItem(id, field, value) {
     const step = PLAN_INTERVAL[it.freq] || 1;
     if (wrap) wrap.style.display = step === 1 ? 'none' : '';
     if (dueInp) dueInp.value = it.nextDue || '';
+    if (!it.checkDue) clearPlanFlagUI(row);
   });
   listBox.addEventListener('click', async e => {
     const btn = e.target.closest('[data-del]');
