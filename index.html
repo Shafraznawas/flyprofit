@@ -533,10 +533,12 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
    The wrapper is the sticky part: it bleeds out to the scroll edges and
    carries an opaque page-colour background so nothing shows through behind
    the pill as content slides under it. */
-.plan-tabs-sticky{position:sticky;top:0;z-index:20;margin:-14px -14px 0;padding:14px 14px 0;background:var(--bg);}
+/* Sits right under the main nav — only a hair of breathing room above it,
+   so a small phone keeps more of the screen for the actual content. */
+.plan-tabs-sticky{position:sticky;top:0;z-index:20;margin:-14px -14px 0;padding:4px 14px 0;background:var(--bg);}
 .plan-tabs{display:flex;gap:5px;background:var(--card2);border:1px solid var(--b0);border-radius:13px;padding:4px;margin-bottom:12px;}
 .plan-tabs-sticky .plan-tabs{margin-bottom:0;}
-.plan-tab{flex:1;min-width:0;padding:11px 3px;border-radius:10px;border:none;background:transparent;color:var(--tx3);font-family:var(--sans);font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.plan-tab{flex:1;min-width:0;padding:9px 3px;border-radius:10px;border:none;background:transparent;color:var(--tx3);font-family:var(--sans);font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .plan-tab.active{background:var(--purple2);color:#fff;}
 .plan-pane{display:none;}
 .plan-pane.active{display:block;}
@@ -1232,6 +1234,14 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           </div>
           <div id="planLayoverList"></div>
           <button class="btn-outline" id="btnPlanAddLayover">&#10133; Add Layover</button>
+
+          <div class="section-head" style="margin-top:14px;">Other Money In</div>
+          <div style="font-size:.68rem;color:var(--tx3);line-height:1.6;margin-bottom:9px;">
+            Anything else that came in this month &mdash; a bonus, a refund, cash from a side job. Leave it empty if there is none.
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <input type="number" id="planOtherIncome" placeholder="0" inputmode="decimal" min="0" step="any" autocomplete="off">
+          </div>
 
           <div class="summary-row total" style="margin-top:14px;">
             <span class="lbl">Money In<br><span class="sub" id="planMoneyInSub">Salary plus layover cash left over</span></span>
@@ -5323,6 +5333,22 @@ function savePlanLayoversFor(ym, layovers) {
   savePlanIncome(all);
 }
 
+// Other income — a bonus, a refund, side-job cash. Stored per plan month in
+// the same slot as the layovers, since it too changes every month. Only a
+// positive number is kept; anything else clears it.
+function planOtherIncomeFor(ym) {
+  const slot = loadPlanIncome()[ym];
+  const n = slot ? parseFloat(slot.other) : NaN;
+  return isFinite(n) && n > 0 ? n : 0;
+}
+function savePlanOtherIncomeFor(ym, val) {
+  const all = loadPlanIncome();
+  if (!all[ym] || typeof all[ym] !== 'object') all[ym] = {};
+  const n = parseFloat(val);
+  if (isFinite(n) && n > 0) all[ym].other = n; else delete all[ym].other;
+  savePlanIncome(all);
+}
+
 // Default plan month: salary lands on the 25th, so from the 25th onward the
 // month you are actually budgeting for is the next one.
 function planDefaultMonth() {
@@ -5470,14 +5496,16 @@ function renderPlanFx() {
 function renderPlanMoneyIn(planYM) {
   const salary = planSalaryFor(planYM);
   const rows = planLayoversFor(planYM);
+  const other = planOtherIncomeFor(planYM);
   let layoverLkr = 0, missing = 0;
   rows.forEach(row => {
     const v = planLayoverRupees(row);
     if (v === null) missing++; else layoverLkr += v;
   });
-  $('planMoneyInTotal').textContent = fmtLKR(salary.net + layoverLkr);
+  $('planMoneyInTotal').textContent = fmtLKR(salary.net + layoverLkr + other);
   const bits = [];
   bits.push(salary.found ? 'Salary plus layover cash left over' : 'Layover cash only — salary not saved yet');
+  if (other > 0) bits.push(fmtLKR(other) + ' other income');
   if (missing) bits.push(missing + ' layover' + (missing === 1 ? '' : 's') + ' not counted (no rate set)');
   $('planMoneyInSub').textContent = bits.join(' · ');
   // Every path that changes Money In also changes Safe to Spend, so it is
@@ -5498,6 +5526,7 @@ function renderPlanMoneyIn(planYM) {
 function planMoneyInParts(planYM) {
   const salary = planSalaryFor(planYM);
   const rows = planLayoversFor(planYM);
+  const other = planOtherIncomeFor(planYM);
   let layoverLkr = 0;
   const missingCurrencies = [];
   rows.forEach(row => {
@@ -5512,7 +5541,8 @@ function planMoneyInParts(planYM) {
   return {
     salaryFound: salary.found,
     rosterKey: salary.rosterKey,
-    total: salary.net + layoverLkr,
+    other: other,
+    total: salary.net + layoverLkr + other,
     missingCount: rows.filter(r => planLayoverRupees(r) === null).length,
     missingCurrencies: missingCurrencies
   };
@@ -5617,6 +5647,8 @@ function renderPlanIncome() {
   $('planWindowHint').textContent = planWindowText(ym);
   renderPlanSalary(ym);
   renderPlanLayovers(ym);
+  const oi = $('planOtherIncome');
+  if (oi) { const v = planOtherIncomeFor(ym); oi.value = v > 0 ? v : ''; }
   renderPlanFx();
   renderPlanMoneyIn(ym);
   renderPlanSmoothing();
@@ -5809,19 +5841,15 @@ function goalStatus(goal, safe) {
   if (monthsLeft <= 0) { out.kind = 'passed'; return out; }
 
   out.needPerMonth = remaining / monthsLeft;
+  out.targetLabel = _planFmtYM(goal.targetYM);
 
-  // No trustworthy spare-money figure — show the goal, say nothing about
-  // whether it is achievable. Guessing here would be worse than silence.
-  if (!safe.available) { out.kind = 'nosafe'; return out; }
-  if (safe.safe <= 0) { out.kind = 'nofree'; return out; }
-
-  if (out.needPerMonth <= safe.safe * 0.5) out.kind = 'ok';
-  else if (out.needPerMonth <= safe.safe) out.kind = 'tight';
-  else {
-    out.kind = 'no';
-    out.monthsNeeded = Math.ceil(out.remaining / safe.safe);
-    out.realisticYM = _planIndexToYM(pIdx + out.monthsNeeded);
-  }
+  // Deliberately NOT judged against this month's Safe to Spend. Cabin-crew
+  // pay swings with every roster, so one thin month is no reason to tell
+  // someone their goal is "not possible" or to push the date out by years.
+  // State the monthly amount the goal needs and leave the month-by-month
+  // reality to the Safe to Spend card above. `safe` stays in the signature
+  // for the callers that still pass it.
+  out.kind = 'plan';
   return out;
 }
 
@@ -5835,19 +5863,10 @@ function goalVerdictHtml(s, safe) {
       return '<div class="plan-goal-verdict flat">Enter how much you need, and the month you want it by.</div>';
     case 'nodate':
       return '<div class="plan-goal-verdict flat">Pick a target month to see if it is realistic.</div>';
-    case 'nosafe':
-      return ''; // deliberately silent
-    case 'nofree':
-      return '<div class="plan-goal-verdict no">No free money this month to put toward this.</div>';
-    case 'ok':
-      return '<div class="plan-goal-verdict ok">Comfortable — ' + fmtLKR(s.needPerMonth) + ' a month.</div>';
-    case 'tight':
-      return '<div class="plan-goal-verdict tight">Tight but possible — ' + fmtLKR(s.needPerMonth) +
-             ' a month, most of your free money.</div>';
-    case 'no':
-      return '<div class="plan-goal-verdict no">Not possible at ' + fmtLKR(s.needPerMonth) +
-             ' a month. Push the date to ' + escapeHtml(_planFmtYM(s.realisticYM)) +
-             ' or save ' + fmtLKR(safe.safe) + ' a month instead.</div>';
+    case 'plan':
+      return '<div class="plan-goal-verdict flat">Put aside about <b>' + fmtLKR(s.needPerMonth) +
+             '</b> a month to reach this by ' + escapeHtml(s.targetLabel) + '.<br>' +
+             'Your pay changes every month, so treat this as a guide — put in more when the roster is good, less when it is thin.</div>';
   }
   return '';
 }
@@ -6312,6 +6331,14 @@ function renderPlanSmoothing() {
     if (!await showConfirm('Remove ' + ((it && it.name) ? '"' + it.name + '"' : 'this layover') + '?')) return;
     savePlanLayoversFor(ym, rows.filter(x => x.id !== row.dataset.id));
     renderPlanLayovers(ym);
+    renderPlanMoneyIn(ym);
+  });
+
+  // Other income: save as typed and refresh the totals, but never re-render
+  // the box itself or the caret jumps to the end after the first digit.
+  $('planOtherIncome').addEventListener('input', e => {
+    const ym = getPlanMonth();
+    savePlanOtherIncomeFor(ym, e.target.value);
     renderPlanMoneyIn(ym);
   });
 
@@ -6826,7 +6853,9 @@ $('apitBandsHead').addEventListener('click', () => {
 function updateCatUI() {
   const cat = state.category;
   const labels = { CM: 'Cabin Manager · C5', CS: 'Cabin Supervisor · C4', FA_SENIOR: 'Flight Attendant · C3', FA_JUNIOR: 'Flight Attendant · C2', FA_JUNIOR_OLD: 'Flight Attendant · C2 (Old)', FA_C1: 'Flight Attendant · C1', FA_C1_OLD: 'Flight Attendant · C1 (Old)', FA_C: 'Flight Attendant · C', FA_C_OLD: 'Flight Attendant · C (Old)' };
-  const label = labels[cat] || cat;
+  // Never let a missing/blank category paint the literal word "undefined"
+  // in the top bar — fall back to a plain description until one is picked.
+  const label = labels[cat] || (typeof cat === 'string' && cat ? cat : 'SriLankan Cabin Crew');
   const desig = document.getElementById('topDesig');
   if (desig) desig.textContent = label;
   // re-render gauge so acting label reflects current category immediately
