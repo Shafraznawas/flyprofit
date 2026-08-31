@@ -527,6 +527,42 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .doc-todo.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber);}
 .doc-todo.urgent{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
 .doc-todo b{color:var(--tx1);}
+/* Plan tab: three inner tabs, so the page stops being one long scroll */
+.plan-tabs{display:flex;gap:5px;background:var(--card2);border:1px solid var(--b0);border-radius:13px;padding:4px;margin-bottom:12px;}
+.plan-tab{flex:1;min-width:0;padding:11px 3px;border-radius:10px;border:none;background:transparent;color:var(--tx3);font-family:var(--sans);font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.plan-tab.active{background:var(--purple2);color:#fff;}
+.plan-pane{display:none;}
+.plan-pane.active{display:block;}
+/* Fold-away section. Native <details> so it works with no JS behind it. */
+.plan-fold{border:1px solid var(--b0);border-radius:14px;background:var(--card);margin-top:12px;overflow:hidden;}
+.plan-fold>summary{list-style:none;cursor:pointer;padding:13px 14px;display:flex;align-items:center;gap:10px;}
+.plan-fold>summary::-webkit-details-marker{display:none;}
+.plan-fold-ico{font-size:.95rem;flex-shrink:0;}
+.plan-fold-t{flex:1;min-width:0;}
+.plan-fold-t b{display:block;font-size:.8rem;font-weight:700;color:var(--tx1);}
+.plan-fold-t i{display:block;font-style:normal;font-size:.58rem;font-family:var(--mono);color:var(--tx3);margin-top:2px;}
+.plan-fold-sum{font-size:.64rem;font-family:var(--mono);color:var(--tx2);text-align:right;white-space:nowrap;flex-shrink:0;}
+.plan-fold-arw{flex-shrink:0;color:var(--tx3);font-size:.62rem;transition:transform .15s;}
+.plan-fold[open] .plan-fold-arw{transform:rotate(90deg);}
+.plan-fold-body{padding:0 14px 14px;}
+/* Compact layover row: place, then currency/got/spent on one line */
+.plan-lay-grid{display:grid;grid-template-columns:78px 1fr 1fr;gap:7px;}
+.plan-lay-grid label{display:block;font-size:.53rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;}
+.plan-lay-grid input,.plan-lay-grid select{width:100%;box-sizing:border-box;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:9px 8px;color:var(--tx1);font-family:var(--mono);font-size:.8rem;-webkit-appearance:none;}
+.plan-lay-grid select{font-size:.74rem;padding-left:6px;padding-right:4px;}
+.plan-lay-grid input:focus,.plan-lay-grid select:focus{outline:none;border-color:var(--purple2);}
+.plan-lay-rate{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--b0);}
+.plan-lay-rate span{font-size:.62rem;font-family:var(--mono);color:var(--tx3);flex-shrink:0;}
+.plan-lay-rate input{flex:1;min-width:0;background:var(--inp);border:1.5px solid rgba(245,158,11,.35);border-radius:9px;padding:8px 10px;color:var(--tx1);font-family:var(--mono);font-size:.8rem;-webkit-appearance:none;}
+.plan-lay-rate input:focus{outline:none;border-color:var(--purple2);}
+/* Loans, cut back to what you pay and how long is left */
+.plan-loan-foot{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:9px;padding-top:8px;border-top:1px dashed var(--b0);}
+.plan-loan-tot{font-size:.72rem;font-family:var(--mono);color:var(--tx1);font-weight:700;}
+.plan-loan-when{font-size:.62rem;font-family:var(--mono);color:var(--tx3);text-align:right;}
+.plan-loan-msg{font-size:.66rem;color:var(--tx3);line-height:1.55;margin-top:9px;padding-top:8px;border-top:1px dashed var(--b0);}
+.plan-loan-all{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:12px;padding:11px 12px;border-radius:10px;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.22);}
+.plan-loan-all .k{font-size:.74rem;font-weight:700;color:var(--tx1);}
+.plan-loan-all .v{font-size:.86rem;font-family:var(--mono);font-weight:700;color:var(--tx1);white-space:nowrap;}
 .plan-item{border:1px solid var(--b0);border-radius:12px;padding:12px;margin-bottom:10px;background:rgba(255,255,255,.02);}
 .plan-item-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .plan-item-top input.plan-name{flex:1;min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:10px 11px;color:var(--tx1);font-family:var(--sans);font-size:.8rem;font-weight:600;-webkit-appearance:none;}
@@ -638,19 +674,6 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-goal-addrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px;}
 .plan-goal-addrow input{min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:9px 11px;color:var(--tx1);font-family:var(--mono);font-size:.82rem;-webkit-appearance:none;}
 .plan-goal-addrow input:focus{outline:none;border-color:var(--purple2);}
-.plan-debt-stats{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--b0);}
-.plan-debt-stat{min-width:0;}
-.plan-debt-stat .k{display:block;font-size:.56rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;}
-.plan-debt-stat .v{font-size:.82rem;font-family:var(--mono);font-weight:700;color:var(--tx1);}
-.plan-debt-stat.right{text-align:right;}
-.plan-debt-rough{font-size:.62rem;color:var(--tx3);font-family:var(--mono);margin-top:7px;line-height:1.5;}
-.plan-debt-msg{font-size:.74rem;line-height:1.6;border-radius:10px;padding:10px 11px;margin-top:10px;}
-.plan-debt-msg.warn{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber);}
-.plan-debt-msg.bad{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
-.plan-debt-msg.done{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.28);color:var(--green);font-weight:700;}
-.plan-debt-msg.flat{background:rgba(255,255,255,.03);border:1px solid var(--b0);color:var(--tx2);}
-.plan-debt-boost{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.24);color:var(--green);font-size:.74rem;line-height:1.6;border-radius:10px;padding:10px 11px;margin-top:9px;}
-.plan-debt-paid{background:rgba(124,58,237,.14);border:1.5px solid rgba(124,58,237,.38);color:var(--purple3);border-radius:9px;padding:10px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:var(--sans);width:100%;margin-top:10px;}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -1143,72 +1166,129 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
        localStorage on this phone under sla_commitments and is NEVER sent to
        the monitoring sheet or any server. -->
   <div class="page" id="page-plan">
-    <div class="card">
-      <div class="card-head">
-        <span class="card-ico">🗓</span>
-        <div><div class="card-title">Planning For</div><div class="card-sub">Which month you're working out</div></div>
-      </div>
-      <div class="card-body">
-        <div class="field" style="margin-bottom:0;">
-          <input type="month" id="planMonth">
-          <div class="hint" id="planWindowHint"></div>
-        </div>
-      </div>
+
+    <div class="plan-tabs">
+      <button type="button" class="plan-tab active" data-plantab="month">Month</button>
+      <button type="button" class="plan-tab" data-plantab="bills">Bills</button>
+      <button type="button" class="plan-tab" data-plantab="saving">Saving</button>
     </div>
 
-    <div class="card" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">💵</span>
-        <div><div class="card-title">Money In</div><div class="card-sub">Salary plus what's left of your allowances</div></div>
-      </div>
-      <div class="card-body">
-        <div id="planSalaryBox"></div>
+    <!-- MONTH: the answers first, the typing folded away below them -->
+    <div class="plan-pane active" id="planPane-month">
 
-        <div class="section-head" style="margin-top:16px;">Layover Cash</div>
-        <div style="font-size:.72rem;color:var(--tx2);line-height:1.6;margin-bottom:10px;">
-          For each layover this month: how much allowance you got, and how much you spent there. What's left is money you bring home.
+      <div class="card">
+        <div class="card-head">
+          <span class="card-ico">&#128197;</span>
+          <div><div class="card-title">Planning For</div><div class="card-sub">Which month you're working out</div></div>
         </div>
-        <div id="planLayoverList"></div>
-        <button class="btn-outline" id="btnPlanAddLayover">➕ Add Layover</button>
-
-        <div class="summary-row total" style="margin-top:16px;">
-          <span class="lbl">Money In<br><span class="sub" id="planMoneyInSub">Salary plus layover cash left over</span></span>
-          <span class="val" id="planMoneyInTotal">LKR 0</span>
+        <div class="card-body">
+          <div class="field" style="margin-bottom:0;">
+            <input type="month" id="planMonth">
+            <div class="hint" id="planWindowHint"></div>
+          </div>
         </div>
       </div>
+
+      <div class="card" id="planSafeCard" style="margin-top:12px;">
+        <div class="card-head">
+          <span class="card-ico">&#128994;</span>
+          <div><div class="card-title">Safe To Spend</div><div class="card-sub" id="planSafeSubtitle">What's actually yours to use</div></div>
+        </div>
+        <div class="card-body" id="planSafeBody"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <div class="card-head">
+          <span class="card-ico">&#128198;</span>
+          <div><div class="card-title">Your Next Few Months</div><div class="card-sub">You already know this money &mdash; it's flown</div></div>
+        </div>
+        <div class="card-body">
+          <div id="planCompareBox"></div>
+        </div>
+      </div>
+
+      <details class="plan-fold" id="planFoldIn">
+        <summary>
+          <span class="plan-fold-ico">&#128181;</span>
+          <span class="plan-fold-t"><b>Money In</b><i>Salary and layover cash</i></span>
+          <span class="plan-fold-sum" id="planFoldInSum"></span>
+          <span class="plan-fold-arw">&#9654;</span>
+        </summary>
+        <div class="plan-fold-body">
+          <div id="planSalaryBox"></div>
+
+          <div class="section-head" style="margin-top:14px;">Layover Cash</div>
+          <div style="font-size:.68rem;color:var(--tx3);line-height:1.6;margin-bottom:9px;">
+            What you were given, minus what you spent there. The rest comes home with you.
+          </div>
+          <div id="planLayoverList"></div>
+          <button class="btn-outline" id="btnPlanAddLayover">&#10133; Add Layover</button>
+
+          <div class="summary-row total" style="margin-top:14px;">
+            <span class="lbl">Money In<br><span class="sub" id="planMoneyInSub">Salary plus layover cash left over</span></span>
+            <span class="val" id="planMoneyInTotal">LKR 0</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="plan-fold" id="planFoldFx">
+        <summary>
+          <span class="plan-fold-ico">&#128177;</span>
+          <span class="plan-fold-t"><b>Exchange Rates</b><i>Set once, reused every month</i></span>
+          <span class="plan-fold-sum" id="planFoldFxSum"></span>
+          <span class="plan-fold-arw">&#9654;</span>
+        </summary>
+        <div class="plan-fold-body">
+          <div style="font-size:.68rem;color:var(--tx3);line-height:1.6;margin-bottom:10px;">
+            Rupees for 1 of each. You only need the ones you actually get paid in &mdash; the rest can stay empty.
+          </div>
+          <div id="planFxList"></div>
+        </div>
+      </details>
+
     </div>
 
-    <div class="card" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">💱</span>
-        <div><div class="card-title">Exchange Rates</div><div class="card-sub">Set once — reused every month</div></div>
-      </div>
-      <div class="card-body">
-        <div style="font-size:.72rem;color:var(--tx2);line-height:1.6;margin-bottom:11px;">
-          How many rupees you get for 1 of each currency. Only the ones you actually use need a number.
-        </div>
-        <div id="planFxList"></div>
-      </div>
-    </div>
+    <!-- BILLS: the totals, then the list, then adding to it -->
+    <div class="plan-pane" id="planPane-bills">
 
-    <div class="card" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">📆</span>
-        <div><div class="card-title">Money Out</div><div class="card-sub">What leaves your account, and when</div></div>
-      </div>
-      <div class="card-body">
-        <div style="font-size:.74rem;color:var(--tx2);line-height:1.65;">
-          Add the things you pay for — loan, rent, insurance, school fees, anything. Enter each one once and it stays here for good.
+      <div class="card">
+        <div class="card-head">
+          <span class="card-ico">&#129518;</span>
+          <div><div class="card-title">Your Totals</div><div class="card-sub">Worked out from the list below</div></div>
+        </div>
+        <div class="card-body">
+        <div class="summary-row">
+          <span class="lbl">Every month<br><span class="sub">Bills that repeat every single month</span></span>
+          <span class="val" id="planTotalMonthly">LKR 0</span>
+        </div>
+        <div class="summary-row">
+          <span class="lbl">Due this month<br><span class="sub" id="planDueThisSub">Monthly bills plus anything falling due now</span></span>
+          <span class="val" id="planTotalDueThis">LKR 0</span>
+        </div>
+        <div class="summary-row total">
+          <span class="lbl">Put aside monthly<br><span class="sub">Save this much each month so the big yearly bills never surprise you</span></span>
+          <span class="val" id="planTotalSetAside">LKR 0</span>
+        </div>
         </div>
       </div>
-    </div>
 
-    <div class="card" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">➕</span>
-        <div><div class="card-title">Add Something</div><div class="card-sub">Your own name for it</div></div>
+      <div class="card" style="margin-top:12px;">
+        <div class="card-head">
+          <span class="card-ico">&#128203;</span>
+          <div><div class="card-title">My List</div><div class="card-sub">Tap any box to change it</div></div>
+        </div>
+        <div class="card-body">
+          <div id="planList"></div>
+        </div>
       </div>
-      <div class="card-body">
+
+      <details class="plan-fold" id="planFoldAdd">
+        <summary>
+          <span class="plan-fold-ico">&#10133;</span>
+          <span class="plan-fold-t"><b>Add Something</b><i>One at a time, or paste a whole list</i></span>
+          <span class="plan-fold-arw">&#9654;</span>
+        </summary>
+        <div class="plan-fold-body">
         <div class="field">
           <label for="planNewName">Name</label>
           <input type="text" id="planNewName" placeholder="e.g. Car loan" autocomplete="off">
@@ -1250,108 +1330,77 @@ Insurance - 18,000, yearly"></textarea>
           </div>
           <div id="planPasteMsg" class="plan-paste-msg" style="display:none;"></div>
         </div>
+        </div>
+      </details>
+
+      <div class="action-row" style="margin-top:12px;">
+        <button class="act-btn" id="btnPlanClear" style="color:var(--red);">&#128465; Clear My List</button>
       </div>
+
     </div>
 
-    <div class="card" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">📋</span>
-        <div><div class="card-title">My List</div><div class="card-sub">Tap any box to change it</div></div>
-      </div>
-      <div class="card-body">
-        <div id="planList"></div>
-      </div>
-    </div>
+    <!-- SAVING: buffer, goals, loans -->
+    <div class="plan-pane" id="planPane-saving">
 
-    <div class="card" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">🧮</span>
-        <div><div class="card-title">Your Totals</div><div class="card-sub">Worked out from the list above</div></div>
-      </div>
-      <div class="card-body">
-        <div class="summary-row">
-          <span class="lbl">Every month<br><span class="sub">Bills that repeat every single month</span></span>
-          <span class="val" id="planTotalMonthly">LKR 0</span>
+      <div class="card">
+        <div class="card-head">
+          <span class="card-ico">&#129689;</span>
+          <div><div class="card-title">My Buffer</div><div class="card-sub">What you keep back for a thin month</div></div>
         </div>
-        <div class="summary-row">
-          <span class="lbl">Due this month<br><span class="sub" id="planDueThisSub">Monthly bills plus anything falling due now</span></span>
-          <span class="val" id="planTotalDueThis">LKR 0</span>
-        </div>
-        <div class="summary-row total">
-          <span class="lbl">Put aside monthly<br><span class="sub">Save this much each month so the big yearly bills never surprise you</span></span>
-          <span class="val" id="planTotalSetAside">LKR 0</span>
+        <div class="card-body">
+          <div class="plan-buf-bal" id="planBufferBalance">LKR 0</div>
+          <div class="plan-buf-note">This is only a note of what you actually put aside in your own bank. FlyProfit does not move any money.</div>
+
+          <div class="plan-buf-controls">
+            <input type="number" id="planBufferAmount" inputmode="decimal" min="0" step="any" placeholder="Amount">
+            <button class="plan-buf-btn in" id="btnBufferIn">Put in</button>
+            <button class="plan-buf-btn out" id="btnBufferOut">Take out</button>
+          </div>
+          <div id="planBufferMsg" style="font-size:.7rem;line-height:1.55;margin-top:9px;display:none;"></div>
+
+          <div id="planBufferLog"></div>
         </div>
       </div>
-    </div>
 
-    <div class="card" id="planSafeCard" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">🟢</span>
-        <div><div class="card-title">Safe To Spend</div><div class="card-sub" id="planSafeSubtitle">What's actually yours to use</div></div>
-      </div>
-      <div class="card-body" id="planSafeBody"></div>
-    </div>
-
-    <div class="card" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">🗓️</span>
-        <div><div class="card-title">Your Next Few Months</div><div class="card-sub">You already know this money — it's flown</div></div>
-      </div>
-      <div class="card-body">
-        <div id="planCompareBox"></div>
-
-        <div class="section-head" style="margin-top:16px;">My Buffer</div>
-        <div class="plan-buf-bal" id="planBufferBalance">LKR 0</div>
-        <div class="plan-buf-note">This is only a note of what you actually put aside in your own bank. FlyProfit does not move any money.</div>
-
-        <div class="plan-buf-controls">
-          <input type="number" id="planBufferAmount" inputmode="decimal" min="0" step="any" placeholder="Amount">
-          <button class="plan-buf-btn in" id="btnBufferIn">Put in</button>
-          <button class="plan-buf-btn out" id="btnBufferOut">Take out</button>
+      <details class="plan-fold" id="planFoldGoals">
+        <summary>
+          <span class="plan-fold-ico">&#127919;</span>
+          <span class="plan-fold-t"><b>Goals</b><i>Things you're putting money aside for</i></span>
+          <span class="plan-fold-sum" id="planFoldGoalsSum"></span>
+          <span class="plan-fold-arw">&#9654;</span>
+        </summary>
+        <div class="plan-fold-body">
+          <div style="font-size:.68rem;color:var(--tx3);line-height:1.6;margin-bottom:10px;">
+            A trip, a new phone, a car, a house &mdash; whatever you're saving toward. FlyProfit works out whether the date you want is realistic.
+          </div>
+          <div id="planGoalsList"></div>
+          <button class="btn-outline" id="btnGoalAdd">&#10133; Add Goal</button>
         </div>
-        <div id="planBufferMsg" style="font-size:.7rem;line-height:1.55;margin-top:9px;display:none;"></div>
+      </details>
 
-        <div id="planBufferLog"></div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">🎯</span>
-        <div><div class="card-title">Goals</div><div class="card-sub">Big things you're saving for</div></div>
-      </div>
-      <div class="card-body">
-        <div style="font-size:.74rem;color:var(--tx2);line-height:1.65;margin-bottom:12px;">
-          Hajj, a wedding, a car, a house — whatever you're saving toward. FlyProfit works out whether the date you want is realistic.
+      <details class="plan-fold" id="planFoldLoans">
+        <summary>
+          <span class="plan-fold-ico">&#127974;</span>
+          <span class="plan-fold-t"><b>Loans</b><i>What is still left to pay</i></span>
+          <span class="plan-fold-sum" id="planFoldLoansSum"></span>
+          <span class="plan-fold-arw">&#9654;</span>
+        </summary>
+        <div class="plan-fold-body">
+          <div style="font-size:.68rem;color:var(--tx3);line-height:1.6;margin-bottom:10px;">
+            What you pay each month, and how many months are left. That is all it needs &mdash; it works out the rest.
+          </div>
+          <div id="planDebtsList"></div>
+          <button class="btn-outline" id="btnDebtAdd">&#10133; Add Loan</button>
         </div>
-        <div id="planGoalsList"></div>
-        <button class="btn-outline" id="btnGoalAdd">➕ Add Goal</button>
-      </div>
-    </div>
+      </details>
 
-    <div class="card" style="margin-top:12px;">
-      <div class="card-head">
-        <span class="card-ico">🏦</span>
-        <div><div class="card-title">Loans</div><div class="card-sub">When each one finishes</div></div>
-      </div>
-      <div class="card-body">
-        <div style="font-size:.74rem;color:var(--tx2);line-height:1.65;margin-bottom:12px;">
-          Lease, personal loan, phone instalment — anything you pay off monthly. If you know the interest rate, put it in and the finish date becomes exact.
-        </div>
-        <div id="planDebtsList"></div>
-        <button class="btn-outline" id="btnDebtAdd">➕ Add Loan</button>
-      </div>
     </div>
 
     <div class="card" style="margin-top:12px;">
       <div class="card-body" style="display:flex;gap:9px;align-items:flex-start;">
-        <span style="font-size:.9rem;">🔒</span>
+        <span style="font-size:.9rem;">&#128274;</span>
         <span style="font-size:.7rem;color:var(--tx3);line-height:1.6;">Everything on this page is stored only on this phone. It is never uploaded, never shared, and is not part of any salary calculation.</span>
       </div>
-    </div>
-
-    <div class="action-row" style="margin-top:12px;">
-      <button class="act-btn" id="btnPlanClear" style="color:var(--red);">🗑 Clear My List</button>
     </div>
   </div>
 
@@ -4640,7 +4689,7 @@ document.querySelectorAll('.nav-btn').forEach(function(b){b.addEventListener('cl
   if(b.dataset.page==='page-docs') refreshDocsStatus();
   // Re-roll on open as well as at startup, so a phone left running across a
   // month boundary still shows the right due month.
-  if(b.dataset.page==='page-plan'){ var _pl=loadPlan(); if(rollPlanDueDates(_pl)) savePlan(_pl); renderPlan(); renderPlanIncome(); }
+  if(b.dataset.page==='page-plan'){ var _pl=loadPlan(); if(rollPlanDueDates(_pl)) savePlan(_pl); renderPlan(); renderPlanIncome(); if(typeof renderPlanFoldSums==='function') renderPlanFoldSums(); }
 });});
 
 // ---------- Swap (Mutual Flight Calculator) wiring ----------
@@ -4975,7 +5024,7 @@ function renderPlan() {
   const list = loadPlan();
   const box = $('planList');
   if (!list.length) {
-    box.innerHTML = '<div class="plan-empty">Nothing added yet.<br>Use the box above to add your first one.</div>';
+    box.innerHTML = '<div class="plan-empty">Nothing added yet.<br>Open ‘Add Something’ below to put your first one in.</div>';
     renderPlanTotals(list);
     return;
   }
@@ -5362,25 +5411,27 @@ function renderPlanLayovers(planYM) {
     const bal = (parseFloat(row.received) || 0) - (parseFloat(row.spent) || 0);
     const rate = planFxRate(row.currency);
     const lkr = rate === null ? null : bal * rate;
+    // Currency, got and spent share one line — this used to be three
+    // stacked rows per layover, which made a normal month scroll for ages.
+    // When the rate for that currency is missing the box for it appears on
+    // the row itself, instead of sending you off to the rates section.
     return `
       <div class="plan-item" data-id="${escapeHtml(row.id)}">
         <div class="plan-item-top">
           <input type="text" class="plan-name" data-f="name" value="${escapeHtml(row.name || '')}" placeholder="e.g. LHR">
           <button class="plan-del" data-del="1" aria-label="Delete">🗑</button>
         </div>
-        <div class="plan-grid">
+        <div class="plan-lay-grid">
           <div>
-            <label>Currency</label>
+            <label>Cur</label>
             <select data-f="currency">${curOpts(row.currency)}</select>
           </div>
           <div>
-            <label>Received</label>
+            <label>Got</label>
             <input type="number" data-f="received" value="${escapeHtml(String(row.received == null ? '' : row.received))}" inputmode="decimal" min="0" step="any" placeholder="0">
           </div>
-        </div>
-        <div class="plan-grid wide" style="margin-top:8px;">
           <div>
-            <label>Spent There</label>
+            <label>Spent</label>
             <input type="number" data-f="spent" value="${escapeHtml(String(row.spent == null ? '' : row.spent))}" inputmode="decimal" min="0" step="any" placeholder="0">
           </div>
         </div>
@@ -5388,7 +5439,11 @@ function renderPlanLayovers(planYM) {
           <span class="plan-lay-bal">Left: <b>${escapeHtml(row.currency || '')} ${bal.toLocaleString('en-LK', { maximumFractionDigits: 2 })}</b></span>
           <span class="plan-lay-lkr${lkr !== null && lkr < 0 ? ' neg' : ''}">${lkr === null ? '—' : fmtLKR(lkr)}</span>
         </div>
-        ${rate === null ? `<div class="plan-lay-warn">Set a rate for ${escapeHtml(row.currency || 'this currency')} below to see this in rupees.</div>` : ''}
+        ${rate === null ? `
+        <div class="plan-lay-rate">
+          <span>1 ${escapeHtml(row.currency || '?')} =</span>
+          <input type="number" data-rateforc="${escapeHtml(row.currency || '')}" inputmode="decimal" min="0" step="any" placeholder="rupees">
+        </div>` : ''}
       </div>`;
   }).join('');
 }
@@ -5418,8 +5473,10 @@ function renderPlanMoneyIn(planYM) {
   $('planMoneyInSub').textContent = bits.join(' · ');
   // Every path that changes Money In also changes Safe to Spend, so it is
   // refreshed here rather than being remembered at each of the six call
-  // sites — one of which would eventually get missed.
+  // sites — one of which would eventually get missed. The folded headers
+  // carry the Money In figure too, so they come along for the same reason.
   renderSafeToSpend();
+  if (typeof renderPlanFoldSums === 'function') renderPlanFoldSums();
 }
 
 // ---------- Safe to Spend ----------
@@ -5571,108 +5628,57 @@ function saveDebts(list) {
   try { localStorage.setItem(PLAN_DEBTS_KEY, JSON.stringify(list)); } catch (e) {}
 }
 
-// Months to clear `balance` paying `monthly`, at `annualRate` percent a year.
-// Returns a number, or null when the loan never clears at that payment.
-// Every division is guarded — a NaN or an Infinity reaching the screen here
-// would be read as a real answer about someone's debt.
-function debtMonthsLeft(balance, monthly, annualRate) {
-  // isFinite as well as > 0: a non-finite monthly drives the log expression
-  // to -0, which would print as "-0 months".
-  if (!isFinite(balance) || balance <= 0) return 0;
-  if (!isFinite(monthly) || monthly <= 0) return null;
-
-  const rate = parseFloat(annualRate);
-  const r = (isFinite(rate) && rate > 0) ? (rate / 100 / 12) : 0;
-
-  // No rate known: straight division, interest ignored.
-  if (r === 0) return Math.ceil(balance / monthly);
-
-  // The payment has to beat the interest accruing each month, or the balance
-  // never falls. Without this the log below goes to NaN/Infinity.
-  const interestOnly = balance * r;
-  if (monthly <= interestOnly) return null;
-
-  const months = -Math.log(1 - (balance * r / monthly)) / Math.log(1 + r);
-  if (!isFinite(months) || months < 0) return null;
-  return Math.ceil(months);
+// Loans, cut back to the two things worth typing: what you pay each month,
+// and how many months are still left. The total still owed and the month it
+// ends both fall out of those two.
+//
+// The old version asked for the outstanding balance and an interest rate and
+// ran a proper amortisation. That meant typing the same loan twice — it is
+// already a line in Money Out — for a precision nobody was using, and the
+// card stopped feeling worth its space. Two boxes and a total is the part
+// that actually helps someone plan.
+function debtMonthlyOf(d) {
+  const v = parseFloat(d && d.monthly);
+  return (isFinite(v) && v > 0) ? v : 0;
 }
-
-function debtStatus(debt, safe) {
-  const balance = parseFloat(debt.balance) || 0;
-  const monthly = parseFloat(debt.monthly) || 0;
-  const rate = parseFloat(debt.annualRate);
-  const hasRate = isFinite(rate) && rate > 0;
-  const out = { balance: balance, monthly: monthly, hasRate: hasRate, rate: hasRate ? rate : 0 };
-
-  // An untouched row has an EMPTY balance, not a zero one. Reporting that as
-  // "Cleared" would congratulate someone for a loan they have not entered
-  // yet; only a balance actually typed down to 0 (or paid off) is cleared.
-  const rawBal = debt.balance;
-  const balanceBlank = rawBal === '' || rawBal === null || rawBal === undefined || !isFinite(parseFloat(rawBal));
-  if (balanceBlank) { out.kind = 'nobalance'; return out; }
-  if (balance <= 0) { out.kind = 'cleared'; return out; }
-  if (monthly <= 0) { out.kind = 'nomonthly'; return out; }
-
-  const months = debtMonthsLeft(balance, monthly, hasRate ? rate : 0);
-  if (months === null) { out.kind = 'neverclears'; return out; }
-
-  out.kind = 'ok';
-  out.months = months;
-  const pIdx = _planYMToIndex(getPlanMonth());
-  out.finishYM = pIdx === null ? null : _planIndexToYM(pIdx + months);
-
-  // The whole point of the section: what this month's spare money would buy
-  // in time. Only offered when there genuinely is spare money — a missing
-  // salary or a negative Safe to Spend must not produce a suggestion.
-  if (safe && safe.available && safe.safe > 0) {
-    const boosted = debtMonthsLeft(balance, monthly + safe.safe, hasRate ? rate : 0);
-    if (boosted !== null) {
-      const saved = months - boosted;
-      if (saved >= 1) {
-        out.extra = safe.safe;      // never more than Safe to Spend
-        out.savedMonths = saved;
-        out.boostedMonths = boosted;
-      }
-    }
-  }
-  return out;
+function debtMonthsLeftOf(d) {
+  const n = parseInt(d && d.months, 10);
+  return (isFinite(n) && n > 0) ? n : 0;
+}
+function debtTotalLeft(d) {
+  return debtMonthlyOf(d) * debtMonthsLeftOf(d);
+}
+// The last month a payment is made, counting this month as the first.
+function debtFinishYM(d) {
+  const n = debtMonthsLeftOf(d);
+  if (!n) return null;
+  const i = _planYMToIndex(_planNowYM());
+  if (i === null) return null;
+  return _planIndexToYM(i + n - 1);
 }
 
 function renderDebts() {
   const box = $('planDebtsList');
   if (!box) return;
   const debts = loadDebts();
-  const safe = computeSafeToSpend(getPlanMonth());
   if (!debts.length) {
-    box.innerHTML = '<div class="plan-empty">No loans added.<br>Add one to see when it finishes.</div>';
+    box.innerHTML = '<div class="plan-empty">No loans added yet.<br>Add one to see what is still left to pay.</div>';
+    renderPlanFoldSums();
     return;
   }
-  box.innerHTML = debts.map(d => {
-    const s = debtStatus(d, safe);
-    let bodyHtml = '';
 
-    if (s.kind === 'nobalance') {
-      bodyHtml = '<div class="plan-debt-msg flat">Enter what is left on this loan and what you pay each month.</div>';
-    } else if (s.kind === 'cleared') {
-      bodyHtml = '<div class="plan-debt-msg done">Cleared — nothing left on this one.</div>';
-    } else if (s.kind === 'nomonthly') {
-      bodyHtml = '<div class="plan-debt-msg flat">Enter what you pay each month to see when this finishes.</div>';
-    } else if (s.kind === 'neverclears') {
-      bodyHtml = '<div class="plan-debt-msg bad">This payment does not cover the interest.</div>';
-    } else {
-      bodyHtml =
-        '<div class="plan-debt-stats">' +
-          '<span class="plan-debt-stat"><span class="k">Months left</span><span class="v">' + s.months + '</span></span>' +
-          '<span class="plan-debt-stat right"><span class="k">Finishes</span><span class="v">' +
-            (s.finishYM ? escapeHtml(_planFmtYM(s.finishYM)) : '—') + '</span></span>' +
-        '</div>' +
-        (s.hasRate ? '' : '<div class="plan-debt-rough">rough — does not count interest</div>') +
-        (s.extra
-          ? '<div class="plan-debt-boost">Pay ' + fmtLKR(s.extra) + ' extra this month and you finish ' +
-            s.savedMonths + ' month' + (s.savedMonths === 1 ? '' : 's') + ' earlier.</div>'
-          : '');
-    }
-
+  let allLeft = 0, perMonth = 0;
+  const rows = debts.map(d => {
+    const monthly = debtMonthlyOf(d);
+    const months = debtMonthsLeftOf(d);
+    const total = monthly * months;
+    allLeft += total;
+    perMonth += monthly;
+    const fin = debtFinishYM(d);
+    const foot = (monthly > 0 && months > 0)
+      ? '<div class="plan-loan-foot"><span class="plan-loan-tot">' + fmtLKR(total) + ' left</span>' +
+        '<span class="plan-loan-when">last payment<br>' + escapeHtml(_planFmtYM(fin)) + '</span></div>'
+      : '<div class="plan-loan-msg">Fill in both boxes and the total appears here.</div>';
     return `
       <div class="plan-item" data-id="${escapeHtml(String(d.id))}">
         <div class="plan-item-top">
@@ -5681,24 +5687,42 @@ function renderDebts() {
         </div>
         <div class="plan-grid">
           <div>
-            <label>Balance Left</label>
-            <input type="number" data-d="balance" value="${escapeHtml(String(d.balance == null ? '' : d.balance))}" inputmode="decimal" min="0" step="any" placeholder="0">
-          </div>
-          <div>
-            <label>Monthly</label>
+            <label>Paying A Month</label>
             <input type="number" data-d="monthly" value="${escapeHtml(String(d.monthly == null ? '' : d.monthly))}" inputmode="decimal" min="0" step="any" placeholder="0">
           </div>
-        </div>
-        <div class="plan-grid wide" style="margin-top:8px;">
           <div>
-            <label>Interest % A Year (optional)</label>
-            <input type="number" data-d="annualRate" value="${escapeHtml(String(d.annualRate == null ? '' : d.annualRate))}" inputmode="decimal" min="0" step="any" placeholder="leave blank if you don't know">
+            <label>Months Left</label>
+            <input type="number" data-d="months" value="${escapeHtml(String(d.months == null ? '' : d.months))}" inputmode="numeric" min="0" step="1" placeholder="0">
           </div>
         </div>
-        ${bodyHtml}
-        ${(s.kind === 'cleared' || s.kind === 'nobalance') ? '' : '<button class="plan-debt-paid" data-debtpaid="1">✓ Paid This Month</button>'}
+        ${foot}
       </div>`;
   }).join('');
+
+  box.innerHTML = rows + (allLeft > 0
+    ? '<div class="plan-loan-all"><span class="k">All loans, still to pay</span><span class="v">' + fmtLKR(allLeft) + '</span></div>' +
+      '<div class="plan-loan-msg" style="border-top:none;padding-top:7px;">' + fmtLKR(perMonth) +
+      ' a month of what goes out is loans. When they finish, that is what comes back to you.</div>'
+    : '');
+  renderPlanFoldSums();
+}
+
+// Rebuilds only one row's total line, so editing a number does not re-render
+// the list and steal the caret from the box being typed in.
+function refreshDebtRow(row, d) {
+  const monthly = debtMonthlyOf(d);
+  const months = debtMonthsLeftOf(d);
+  const foot = row.querySelector('.plan-loan-foot, .plan-loan-msg');
+  if (!foot) return;
+  if (monthly > 0 && months > 0) {
+    foot.className = 'plan-loan-foot';
+    foot.innerHTML = '<span class="plan-loan-tot">' + fmtLKR(monthly * months) + ' left</span>' +
+      '<span class="plan-loan-when">last payment<br>' + escapeHtml(_planFmtYM(debtFinishYM(d))) + '</span>';
+  } else {
+    foot.className = 'plan-loan-msg';
+    foot.textContent = 'Fill in both boxes and the total appears here.';
+  }
+  renderPlanFoldSums();
 }
 
 (function() {
@@ -5706,7 +5730,7 @@ function renderDebts() {
     const debts = loadDebts();
     debts.push({
       id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
-      name: '', balance: '', monthly: '', annualRate: ''
+      name: '', monthly: '', months: ''
     });
     saveDebts(debts);
     renderDebts();
@@ -5714,8 +5738,6 @@ function renderDebts() {
 
   const box = $('planDebtsList');
 
-  // Saves without re-rendering so typing keeps focus; the derived block is
-  // patched in place afterwards.
   box.addEventListener('input', e => {
     const f = e.target.dataset ? e.target.dataset.d : null;
     if (!f) return;
@@ -5730,21 +5752,6 @@ function renderDebts() {
   });
 
   box.addEventListener('click', async e => {
-    const paid = e.target.closest('[data-debtpaid]');
-    if (paid) {
-      const row = paid.closest('.plan-item');
-      const debts = loadDebts();
-      const d = debts.find(x => String(x.id) === row.dataset.id);
-      if (!d) return;
-      const bal = parseFloat(d.balance) || 0;
-      const mon = parseFloat(d.monthly) || 0;
-      if (mon <= 0) return;
-      // Floored at zero — a loan cannot go past paid off into negative.
-      d.balance = Math.max(0, bal - mon);
-      saveDebts(debts);
-      renderDebts();
-      return;
-    }
     const del = e.target.closest('[data-debtdel]');
     if (!del) return;
     const row = del.closest('.plan-item');
@@ -5755,34 +5762,6 @@ function renderDebts() {
     renderDebts();
   });
 })();
-
-// Rebuilds only the derived block of one loan row, so editing a number
-// updates the months/finish/extra lines without the row losing focus.
-function refreshDebtRow(row, debt) {
-  const s = debtStatus(debt, computeSafeToSpend(getPlanMonth()));
-  const old = row.querySelector('.plan-debt-stats, .plan-debt-msg');
-  const rough = row.querySelector('.plan-debt-rough');
-  const boost = row.querySelector('.plan-debt-boost');
-  if (rough) rough.remove();
-  if (boost) boost.remove();
-
-  let html;
-  if (s.kind === 'nobalance') html = '<div class="plan-debt-msg flat">Enter what is left on this loan and what you pay each month.</div>';
-  else if (s.kind === 'cleared') html = '<div class="plan-debt-msg done">Cleared — nothing left on this one.</div>';
-  else if (s.kind === 'nomonthly') html = '<div class="plan-debt-msg flat">Enter what you pay each month to see when this finishes.</div>';
-  else if (s.kind === 'neverclears') html = '<div class="plan-debt-msg bad">This payment does not cover the interest.</div>';
-  else {
-    html = '<div class="plan-debt-stats">' +
-      '<span class="plan-debt-stat"><span class="k">Months left</span><span class="v">' + s.months + '</span></span>' +
-      '<span class="plan-debt-stat right"><span class="k">Finishes</span><span class="v">' +
-        (s.finishYM ? escapeHtml(_planFmtYM(s.finishYM)) : '—') + '</span></span>' +
-    '</div>' +
-    (s.hasRate ? '' : '<div class="plan-debt-rough">rough — does not count interest</div>') +
-    (s.extra ? '<div class="plan-debt-boost">Pay ' + fmtLKR(s.extra) + ' extra this month and you finish ' +
-      s.savedMonths + ' month' + (s.savedMonths === 1 ? '' : 's') + ' earlier.</div>' : '');
-  }
-  if (old) old.outerHTML = html;
-}
 
 // ---------- Goals ----------
 // Answers one question per goal: at this person's actual spare money, is the
@@ -5878,7 +5857,7 @@ function renderGoals() {
     return `
       <div class="plan-item" data-id="${escapeHtml(String(g.id))}">
         <div class="plan-item-top">
-          <input type="text" class="plan-name" data-g="name" value="${escapeHtml(g.name || '')}" placeholder="e.g. Hajj">
+          <input type="text" class="plan-name" data-g="name" value="${escapeHtml(g.name || '')}" placeholder="e.g. Next trip">
           <button class="plan-del" data-goaldel="1" aria-label="Delete">🗑</button>
         </div>
         <div class="plan-grid wide">
@@ -6247,6 +6226,34 @@ function renderPlanSmoothing() {
   // which would drop focus and the caret out of the box being typed in. Only
   // the row's own computed footer is patched in place.
   listBox.addEventListener('input', e => {
+    // The rate box that appears on a row whose currency has no rate yet, so
+    // a missing rate is fixed where you noticed it instead of sending you
+    // off to the rates section and back.
+    const rateCur = e.target.dataset ? e.target.dataset.rateforc : null;
+    if (rateCur) {
+      const rates = loadFxRates();
+      rates[rateCur] = e.target.value;
+      saveFxRates(rates);
+      renderPlanFx();
+      const ymr = getPlanMonth();
+      // Patch every row on this currency in place. Re-rendering would drop
+      // the caret out of the rate box after the first digit typed.
+      const all = planLayoversFor(ymr);
+      listBox.querySelectorAll('.plan-item').forEach(r => {
+        const it2 = all.find(x => x.id === r.dataset.id);
+        if (!it2 || it2.currency !== rateCur) return;
+        const b2 = (parseFloat(it2.received) || 0) - (parseFloat(it2.spent) || 0);
+        const rt = planFxRate(it2.currency);
+        const el = r.querySelector('.plan-lay-lkr');
+        if (el) {
+          el.textContent = rt === null ? '—' : fmtLKR(b2 * rt);
+          el.classList.toggle('neg', rt !== null && b2 * rt < 0);
+        }
+      });
+      renderPlanMoneyIn(ymr);
+      renderPlanFoldSums();
+      return;
+    }
     const f = e.target.dataset ? e.target.dataset.f : null;
     if (!f || f === 'currency') return;
     const row = e.target.closest('.plan-item');
@@ -7073,6 +7080,78 @@ window._slaShowTrialStartIfFirst = function(){};
 })();
 
 
+
+
+// ============================================================
+// PLAN TAB — inner tabs and fold-away sections
+// ============================================================
+// The page had grown to eleven stacked cards, which on a phone is a long
+// scroll to reach anything. Three panes split it by what you are actually
+// doing at that moment — reading the month, editing the bills, or looking
+// at savings — and inside each pane the bulky entry sections fold away, so
+// the answers sit at the top and the typing hides underneath them.
+const PLAN_TAB_KEY = 'sla_plan_tab';
+const PLAN_FOLD_KEY = 'sla_plan_folds';
+
+function showPlanTab(name) {
+  const tabs = document.querySelectorAll('.plan-tab');
+  if (!tabs.length) return;
+  let found = false;
+  tabs.forEach(b => { if (b.dataset.plantab === name) found = true; });
+  if (!found) name = 'month';
+  tabs.forEach(b => b.classList.toggle('active', b.dataset.plantab === name));
+  document.querySelectorAll('.plan-pane').forEach(p => {
+    p.classList.toggle('active', p.id === 'planPane-' + name);
+  });
+  try { localStorage.setItem(PLAN_TAB_KEY, name); } catch (e) {}
+}
+
+// A short line on each folded header, so the number worth knowing is
+// readable without opening the section at all.
+function renderPlanFoldSums() {
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  const ym = getPlanMonth();
+
+  const income = planMoneyInParts(ym);
+  set('planFoldInSum', income.salaryFound ? fmtLKR(income.total) : 'no salary yet');
+
+  const rates = loadFxRates();
+  const n = PLAN_CURRENCIES.filter(c => {
+    const v = parseFloat(rates[c]);
+    return isFinite(v) && v > 0;
+  }).length;
+  set('planFoldFxSum', n ? n + ' set' : 'none set');
+
+  const goals = loadGoals();
+  set('planFoldGoalsSum', goals.length ? goals.length + (goals.length === 1 ? ' goal' : ' goals') : 'none yet');
+
+  const debts = loadDebts();
+  const left = debts.reduce((s, d) => s + debtTotalLeft(d), 0);
+  set('planFoldLoansSum', debts.length ? (left > 0 ? fmtLKR(left) + ' left' : debts.length + ' added') : 'none yet');
+}
+
+(function() {
+  document.querySelectorAll('.plan-tab').forEach(b => {
+    b.addEventListener('click', () => showPlanTab(b.dataset.plantab));
+  });
+  let saved = 'month';
+  try { saved = localStorage.getItem(PLAN_TAB_KEY) || 'month'; } catch (e) {}
+  showPlanTab(saved);
+
+  // Remember which sections were left open, so the page comes back the way
+  // it was last used rather than shut every time.
+  let openSet = {};
+  try { openSet = JSON.parse(localStorage.getItem(PLAN_FOLD_KEY) || '{}') || {}; } catch (e) {}
+  document.querySelectorAll('.plan-fold').forEach(d => {
+    if (openSet[d.id]) d.open = true;
+    d.addEventListener('toggle', () => {
+      openSet[d.id] = d.open;
+      try { localStorage.setItem(PLAN_FOLD_KEY, JSON.stringify(openSet)); } catch (e) {}
+    });
+  });
+
+  renderPlanFoldSums();
+})();
 
 // ── SERVICE WORKER — auto-update, no manual cache-clearing needed ──
 if ('serviceWorker' in navigator) {
