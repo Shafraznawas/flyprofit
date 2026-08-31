@@ -462,129 +462,198 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   --sans:-apple-system,'Segoe UI','Roboto',Arial,sans-serif;
   --nav-h:64px;--top-h:56px;
 
-  /* fallback palette = Graphite (used only until the theme script runs) */
-  --bg:#15171a;--card:#1d2024;--card2:#262a2f;--inp:#22262b;--chrome:#111316;
-  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(122,167,217,.4);
-  --border:rgba(255,255,255,.08);
-  --purple:#7aa7d9;--purple2:#35638f;--purple3:#a9c8e6;--accent-rgb:122,167,217;
-  --pink:#d98fa8;--cyan:#8bb0c9;--cyan2:#a7c6da;
-  --red:#e5796e;--amber:#e0a44a;--green:#67b98a;
-  --tx1:#eef1f3;--tx2:#a7adb4;--tx3:#8b9198;
+  /* fallback palette = NEBULA (used only until the theme script runs) */
+  --bg:#050713;--card:#11172A;--card2:#161D34;--inp:#161D34;--chrome:#0B1020;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(139,92,246,.4);
+  --border:#242C43;
+  --purple:#8B5CF6;--purple2:#6D28D9;--purple3:#C084FC;--accent-rgb:139,92,246;
+  --pink:#3B82F6;--cyan:#60A5FA;--cyan2:#C084FC;
+  --red:#F87171;--amber:#FBBF24;--green:#34D399;
+  --tx1:#F8FAFC;--tx2:#A7B0C0;--tx3:#7C8698;
 }
 
-/* ── THEMES ─────────────────────────────────────────────────────
-   The surfaces (--bg --card --card2 --inp) are a real NEUTRAL grey
-   stack with genuine value steps for depth — never a saturated wash
-   of the accent. Each theme owns ONE confident accent; the functional
-   colours (green/amber/red) stay true, not muted to match. The accent
-   is NOT painted onto card headers, icon chips or section titles (see
-   the neutralised rules further down) — it appears only on the things
-   you tap: the active tab, the nav underline, the Calculate button,
-   the one hero figure. Every text token clears WCAG AA at the smallest
-   size the sheet uses. */
+/* ── THEME SYSTEM — 10 premium palettes ────────────────────────
+   ONE source of truth. Every screen consumes the same tokens; a
+   theme switch never touches a component. Token map (spec name ->
+   sheet var): background=--bg  surface=--chrome  card=--card
+   cardElevated=--card2/--inp  primary=--purple  primaryStrong=--purple2
+   (active tab / Calculate bg; always keeps >=4.5:1 on its label text)
+   accent=--purple3  primaryRGB=--accent-rgb (subtle washes only)
+   secondary=--pink/--cyan  success=--green  warning=--amber
+   danger=--red  textPrimary=--tx1  textSecondary=--tx2  textMuted=--tx3
+   border=--border  hairlines=--b0/--b1  focusRing=--b2.
+   The identity colours (bg / surface / card / primary / success /
+   warning / danger) are the spec values verbatim; secondary/muted and
+   the derived primaryStrong/accent are tuned only where needed to hold
+   WCAG AA at the smallest size the sheet uses. Colour marks what you
+   tap and the one hero figure — never every card. */
 
-/* 1 — GRAPHITE · deep steel-blue on cool charcoal — professional, matured (dark) */
-:root[data-theme="graphite"]{
-  --bg:#15171a;--card:#1d2024;--card2:#262a2f;--inp:#22262b;--chrome:#111316;
-  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(122,167,217,.4);
-  --border:rgba(255,255,255,.08);
-  --purple:#7aa7d9;--purple2:#35638f;--purple3:#a9c8e6;--accent-rgb:122,167,217;
-  --pink:#d98fa8;--cyan:#8bb0c9;--cyan2:#a7c6da;
-  --red:#e5796e;--amber:#e0a44a;--green:#67b98a;
-  --tx1:#eef1f3;--tx2:#a7adb4;--tx3:#8b9198;
+/* 1 — NEBULA · dark futuristic — violet/blue on deep space */
+:root[data-theme="nebula"]{
+  --bg:#050713;--card:#11172A;--card2:#161D34;--inp:#161D34;--chrome:#0B1020;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(139,92,246,.4);
+  --border:#242C43;
+  --purple:#8B5CF6;--purple2:#6D28D9;--purple3:#C084FC;--accent-rgb:139,92,246;
+  --pink:#3B82F6;--cyan:#60A5FA;--cyan2:#C084FC;
+  --red:#F87171;--amber:#FBBF24;--green:#34D399;
+  --tx1:#F8FAFC;--tx2:#A7B0C0;--tx3:#7C8698;
 }
 
-/* 2 — UMBER · warm brass on toasted stone — matured, unhurried (dark) */
-:root[data-theme="umber"]{
-  --bg:#1a1613;--card:#221d19;--card2:#2b2521;--inp:#26201c;--chrome:#151210;
-  --b0:rgba(255,245,235,.05);--b1:rgba(255,245,235,.1);--b2:rgba(208,154,78,.4);
-  --border:rgba(255,245,235,.08);
-  --purple:#d09a4e;--purple2:#7a5620;--purple3:#e5bd82;--accent-rgb:208,154,78;
-  --pink:#cf8f88;--cyan:#8aa9a0;--cyan2:#a3c0b7;
-  --red:#e0796b;--amber:#d9a441;--green:#7cb083;
-  --tx1:#f0ebe4;--tx2:#aaa298;--tx3:#8f887e;
+/* 2 — SKYLINE · arctic clean — executive light, aviation blue */
+:root[data-theme="skyline"]{
+  --bg:#F4F7FB;--card:#FFFFFF;--card2:#F8FAFD;--inp:#F1F5FA;--chrome:#FFFFFF;
+  --b0:rgba(15,23,42,.08);--b1:rgba(15,23,42,.14);--b2:rgba(37,99,235,.35);
+  --border:#E2E8F0;
+  --purple:#2563EB;--purple2:#1D4ED8;--purple3:#0369A1;--accent-rgb:37,99,235;
+  --pink:#0369A1;--cyan:#0369A1;--cyan2:#0369A1;
+  --red:#DC2626;--amber:#B45309;--green:#047857;
+  --tx1:#0F172A;--tx2:#475569;--tx3:#5B6472;
 }
 
-/* 3 — PRECISION · near-achromatic slate on near-black, hairline borders — perfectionist (dark) */
-:root[data-theme="precision"]{
-  --bg:#0f1113;--card:#16191c;--card2:#1e2226;--inp:#1a1e22;--chrome:#0c0e10;
-  --b0:rgba(255,255,255,.05);--b1:rgba(255,255,255,.1);--b2:rgba(159,179,201,.4);
-  --border:rgba(255,255,255,.07);
-  --purple:#9fb3c9;--purple2:#3f4a5a;--purple3:#bcccdc;--accent-rgb:159,179,201;
-  --pink:#d99ab4;--cyan:#5bc6c0;--cyan2:#82d6d1;
-  --red:#e8837e;--amber:#dcb15c;--green:#6fc79e;
-  --tx1:#eef0f2;--tx2:#9aa0a7;--tx3:#7f858c;
+/* 3 — AURORA · vibrant playful — pink/purple/orange, still grown-up (light) */
+:root[data-theme="aurora"]{
+  --bg:#FFF8FC;--card:#FFFFFF;--card2:#FFF1F7;--inp:#FDEEF5;--chrome:#FFFFFF;
+  --b0:rgba(23,19,36,.09);--b1:rgba(23,19,36,.15);--b2:rgba(236,72,153,.35);
+  --border:#F1D9E8;
+  --purple:#EC4899;--purple2:#BE185D;--purple3:#BE185D;--accent-rgb:236,72,153;
+  --pink:#BE185D;--cyan:#6D28D9;--cyan2:#BE185D;
+  --red:#DC2626;--amber:#B45309;--green:#0F766E;
+  --tx1:#171324;--tx2:#5B5368;--tx3:#746B80;
 }
 
-/* 4 — PORCELAIN · warm clay on soft paper — young, elegant (light) */
+/* 4 — OBSIDIAN · deep & bold — black/red cockpit */
+:root[data-theme="obsidian"]{
+  --bg:#08090B;--card:#15181D;--card2:#1B1F25;--inp:#1B1F25;--chrome:#101216;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(239,68,68,.4);
+  --border:#292D33;
+  --purple:#EF4444;--purple2:#B91C1C;--purple3:#FB7185;--accent-rgb:239,68,68;
+  --pink:#FB7185;--cyan:#F97316;--cyan2:#FB7185;
+  --red:#EF4444;--amber:#F59E0B;--green:#22C55E;
+  --tx1:#F5F5F5;--tx2:#A1A1AA;--tx3:#87878F;
+}
+
+/* 5 — LUXE · premium elegant — black + champagne gold */
+:root[data-theme="luxe"]{
+  --bg:#070707;--card:#151515;--card2:#1C1C1C;--inp:#1C1C1C;--chrome:#101010;
+  --b0:rgba(255,246,214,.06);--b1:rgba(255,246,214,.12);--b2:rgba(212,175,55,.4);
+  --border:#3A3320;
+  --purple:#D4AF37;--purple2:#A87F1C;--purple3:#E1C15A;--accent-rgb:212,175,55;
+  --on-accent:#171200;
+  --pink:#F5D76E;--cyan:#F5D76E;--cyan2:#C9A227;
+  --red:#F87171;--amber:#EAB308;--green:#4ADE80;
+  --tx1:#FAFAF9;--tx2:#A8A29E;--tx3:#8E8781;
+}
+
+/* 6 — OCEAN · calm & fresh — turquoise on soft aqua (light) */
+:root[data-theme="ocean"]{
+  --bg:#F0FAFA;--card:#FFFFFF;--card2:#F2FBFB;--inp:#EAF6F7;--chrome:#FFFFFF;
+  --b0:rgba(15,23,42,.08);--b1:rgba(15,23,42,.14);--b2:rgba(8,145,178,.35);
+  --border:#D5E9EC;
+  --purple:#0891B2;--purple2:#0E7490;--purple3:#0E7490;--accent-rgb:8,145,178;
+  --pink:#0F766E;--cyan:#0E7490;--cyan2:#0891B2;
+  --red:#DC2626;--amber:#B45309;--green:#047857;
+  --tx1:#12313A;--tx2:#526B72;--tx3:#5C7379;
+}
+
+/* 7 — SUNSET · warm & energetic — orange/coral/gold (light) */
+:root[data-theme="sunset"]{
+  --bg:#FFF8F2;--card:#FFFFFF;--card2:#FFF3E8;--inp:#FCEFE2;--chrome:#FFFFFF;
+  --b0:rgba(41,21,12,.09);--b1:rgba(41,21,12,.15);--b2:rgba(249,115,22,.35);
+  --border:#F2DED0;
+  --purple:#F97316;--purple2:#C2410C;--purple3:#C2410C;--accent-rgb:249,115,22;
+  --pink:#B91C1C;--cyan:#C2410C;--cyan2:#C2410C;
+  --red:#DC2626;--amber:#B45309;--green:#15803D;
+  --tx1:#29150C;--tx2:#6B5145;--tx3:#7A6459;
+}
+
+/* 8 — ASCENT · professional blue — deep navy + electric blue (dark) */
+:root[data-theme="ascent"]{
+  --bg:#06111F;--card:#102238;--card2:#142B45;--inp:#142B45;--chrome:#0B1929;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(56,189,248,.4);
+  --border:#1E3A56;
+  --purple:#38BDF8;--purple2:#0369A1;--purple3:#60A5FA;--accent-rgb:56,189,248;
+  --pink:#60A5FA;--cyan:#60A5FA;--cyan2:#38BDF8;
+  --red:#FB7185;--amber:#FBBF24;--green:#34D399;
+  --tx1:#F8FAFC;--tx2:#A8BDD0;--tx3:#8093A7;
+}
+
+/* 9 — EVERGREEN · professional green — financial stability (dark) */
+:root[data-theme="evergreen"]{
+  --bg:#07110D;--card:#122019;--card2:#17281F;--inp:#17281F;--chrome:#0D1914;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(34,197,94,.4);
+  --border:#1E3829;
+  --purple:#22C55E;--purple2:#166534;--purple3:#34D399;--accent-rgb:34,197,94;
+  --pink:#34D399;--cyan:#10B981;--cyan2:#34D399;
+  --red:#F87171;--amber:#EAB308;--green:#22C55E;
+  --tx1:#F0FDF4;--tx2:#A7C4B1;--tx3:#78927F;
+}
+
+/* 10 — COSMOS · galaxy purple — futuristic financial intelligence (dark) */
+:root[data-theme="cosmos"]{
+  --bg:#090615;--card:#181029;--card2:#211537;--inp:#211537;--chrome:#120C20;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(168,85,247,.4);
+  --border:#332044;
+  --purple:#A855F7;--purple2:#7E22CE;--purple3:#E879F9;--accent-rgb:168,85,247;
+  --pink:#D946EF;--cyan:#C084FC;--cyan2:#D946EF;
+  --red:#FB7185;--amber:#FBBF24;--green:#34D399;
+  --tx1:#FAF5FF;--tx2:#B9A8C8;--tx3:#93859F;
+}
+
+/* aliases for older stored values (the theme script also rewrites sla_theme) */
+:root[data-theme="dark"],:root[data-theme="midnight"],:root[data-theme="slate"],:root[data-theme="nocturne"],:root[data-theme="precision"]{
+  --bg:#050713;--card:#11172A;--card2:#161D34;--inp:#161D34;--chrome:#0B1020;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(139,92,246,.4);
+  --border:#242C43;
+  --purple:#8B5CF6;--purple2:#6D28D9;--purple3:#C084FC;--accent-rgb:139,92,246;
+  --pink:#3B82F6;--cyan:#60A5FA;--cyan2:#C084FC;
+  --red:#F87171;--amber:#FBBF24;--green:#34D399;
+  --tx1:#F8FAFC;--tx2:#A7B0C0;--tx3:#7C8698;
+}
+:root[data-theme="graphite"],:root[data-theme="executive"],:root[data-theme="meridian"]{
+  --bg:#06111F;--card:#102238;--card2:#142B45;--inp:#142B45;--chrome:#0B1929;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(56,189,248,.4);
+  --border:#1E3A56;
+  --purple:#38BDF8;--purple2:#0369A1;--purple3:#60A5FA;--accent-rgb:56,189,248;
+  --pink:#60A5FA;--cyan:#60A5FA;--cyan2:#38BDF8;
+  --red:#FB7185;--amber:#FBBF24;--green:#34D399;
+  --tx1:#F8FAFC;--tx2:#A8BDD0;--tx3:#8093A7;
+}
+:root[data-theme="umber"],:root[data-theme="magma"],:root[data-theme="vesper"]{
+  --bg:#070707;--card:#151515;--card2:#1C1C1C;--inp:#1C1C1C;--chrome:#101010;
+  --b0:rgba(255,246,214,.06);--b1:rgba(255,246,214,.12);--b2:rgba(212,175,55,.4);
+  --border:#3A3320;
+  --purple:#D4AF37;--purple2:#A87F1C;--purple3:#E1C15A;--accent-rgb:212,175,55;
+  --on-accent:#171200;
+  --pink:#F5D76E;--cyan:#F5D76E;--cyan2:#C9A227;
+  --red:#F87171;--amber:#EAB308;--green:#4ADE80;
+  --tx1:#FAFAF9;--tx2:#A8A29E;--tx3:#8E8781;
+}
+:root[data-theme="light"],:root[data-theme="paper"],:root[data-theme="nordic"],:root[data-theme="canvas"],:root[data-theme="studio"],:root[data-theme="harbor"]{
+  --bg:#F4F7FB;--card:#FFFFFF;--card2:#F8FAFD;--inp:#F1F5FA;--chrome:#FFFFFF;
+  --b0:rgba(15,23,42,.08);--b1:rgba(15,23,42,.14);--b2:rgba(37,99,235,.35);
+  --border:#E2E8F0;
+  --purple:#2563EB;--purple2:#1D4ED8;--purple3:#0369A1;--accent-rgb:37,99,235;
+  --pink:#0369A1;--cyan:#0369A1;--cyan2:#0369A1;
+  --red:#DC2626;--amber:#B45309;--green:#047857;
+  --tx1:#0F172A;--tx2:#475569;--tx3:#5B6472;
+}
+:root[data-theme="glacier"],:root[data-theme="verdant"],:root[data-theme="fresh"],:root[data-theme="reef"]{
+  --bg:#F0FAFA;--card:#FFFFFF;--card2:#F2FBFB;--inp:#EAF6F7;--chrome:#FFFFFF;
+  --b0:rgba(15,23,42,.08);--b1:rgba(15,23,42,.14);--b2:rgba(8,145,178,.35);
+  --border:#D5E9EC;
+  --purple:#0891B2;--purple2:#0E7490;--purple3:#0E7490;--accent-rgb:8,145,178;
+  --pink:#0F766E;--cyan:#0E7490;--cyan2:#0891B2;
+  --red:#DC2626;--amber:#B45309;--green:#047857;
+  --tx1:#12313A;--tx2:#526B72;--tx3:#5C7379;
+}
 :root[data-theme="porcelain"]{
-  --bg:#f2efe9;--card:#faf8f4;--card2:#ebe7df;--inp:#e5e0d6;--chrome:#faf8f4;
-  --b0:rgba(30,25,20,.09);--b1:rgba(30,25,20,.15);--b2:rgba(163,72,42,.35);
-  --border:rgba(30,25,20,.1);
-  --purple:#a3482a;--purple2:#8a3d22;--purple3:#8a3d22;--accent-rgb:163,72,42;
-  --pink:#a84e6a;--cyan:#3f6a6d;--cyan2:#4d8083;
-  --red:#a53a28;--amber:#8a5a1e;--green:#3d7a4e;
-  --tx1:#241f1a;--tx2:#5a534a;--tx3:#6b6359;
-}
-
-/* 5 — FRESH · clean emerald on cool white-grey — playful, neat & tidy (light) */
-:root[data-theme="fresh"]{
-  --bg:#eef1f0;--card:#fbfcfc;--card2:#e4e9e8;--inp:#dde3e2;--chrome:#fbfcfc;
-  --b0:rgba(20,35,30,.09);--b1:rgba(20,35,30,.15);--b2:rgba(15,138,95,.35);
-  --border:rgba(20,35,30,.1);
-  --purple:#0d7350;--purple2:#0c7350;--purple3:#0b6647;--accent-rgb:15,138,95;
-  --pink:#c2567a;--cyan:#1f7a9c;--cyan2:#2a8bad;
-  --red:#c0392b;--amber:#8a5f12;--green:#12864f;
-  --tx1:#1b211f;--tx2:#525a57;--tx3:#626b68;
-}
-
-/* 6 — HARBOR · deep navy on cool grey — professional, corporate (light) */
-:root[data-theme="harbor"]{
-  --bg:#eceef1;--card:#f9fafb;--card2:#e2e6ea;--inp:#dbe0e5;--chrome:#f9fafb;
-  --b0:rgba(20,30,45,.09);--b1:rgba(20,30,45,.15);--b2:rgba(40,70,110,.35);
-  --border:rgba(20,30,45,.1);
-  --purple:#28466e;--purple2:#20385a;--purple3:#2f5182;--accent-rgb:40,70,110;
-  --pink:#b0567a;--cyan:#2f6a80;--cyan2:#3a7f99;
-  --red:#b23b2f;--amber:#8a5f16;--green:#337a54;
-  --tx1:#1a2027;--tx2:#535b64;--tx3:#636b74;
-}
-
-/* aliases for older stored values (the theme script also rewrites these) */
-:root[data-theme="dark"],:root[data-theme="midnight"],:root[data-theme="slate"],:root[data-theme="nocturne"],:root[data-theme="executive"],:root[data-theme="meridian"]{
-  --bg:#15171a;--card:#1d2024;--card2:#262a2f;--inp:#22262b;--chrome:#111316;
-  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(122,167,217,.4);
-  --border:rgba(255,255,255,.08);
-  --purple:#7aa7d9;--purple2:#35638f;--purple3:#a9c8e6;--accent-rgb:122,167,217;
-  --pink:#d98fa8;--cyan:#8bb0c9;--cyan2:#a7c6da;
-  --red:#e5796e;--amber:#e0a44a;--green:#67b98a;
-  --tx1:#eef1f3;--tx2:#a7adb4;--tx3:#8b9198;
-}
-:root[data-theme="magma"],:root[data-theme="vesper"]{
-  --bg:#1a1613;--card:#221d19;--card2:#2b2521;--inp:#26201c;--chrome:#151210;
-  --b0:rgba(255,245,235,.05);--b1:rgba(255,245,235,.1);--b2:rgba(208,154,78,.4);
-  --border:rgba(255,245,235,.08);
-  --purple:#d09a4e;--purple2:#7a5620;--purple3:#e5bd82;--accent-rgb:208,154,78;
-  --pink:#cf8f88;--cyan:#8aa9a0;--cyan2:#a3c0b7;
-  --red:#e0796b;--amber:#d9a441;--green:#7cb083;
-  --tx1:#f0ebe4;--tx2:#aaa298;--tx3:#8f887e;
-}
-:root[data-theme="light"],:root[data-theme="paper"],:root[data-theme="nordic"],:root[data-theme="canvas"],:root[data-theme="studio"],:root[data-theme="reef"]{
-  --bg:#f2efe9;--card:#faf8f4;--card2:#ebe7df;--inp:#e5e0d6;--chrome:#faf8f4;
-  --b0:rgba(30,25,20,.09);--b1:rgba(30,25,20,.15);--b2:rgba(163,72,42,.35);
-  --border:rgba(30,25,20,.1);
-  --purple:#a3482a;--purple2:#8a3d22;--purple3:#8a3d22;--accent-rgb:163,72,42;
-  --pink:#a84e6a;--cyan:#3f6a6d;--cyan2:#4d8083;
-  --red:#a53a28;--amber:#8a5a1e;--green:#3d7a4e;
-  --tx1:#241f1a;--tx2:#5a534a;--tx3:#6b6359;
-}
-:root[data-theme="glacier"],:root[data-theme="verdant"]{
-  --bg:#eef1f0;--card:#fbfcfc;--card2:#e4e9e8;--inp:#dde3e2;--chrome:#fbfcfc;
-  --b0:rgba(20,35,30,.09);--b1:rgba(20,35,30,.15);--b2:rgba(15,138,95,.35);
-  --border:rgba(20,35,30,.1);
-  --purple:#0d7350;--purple2:#0c7350;--purple3:#0b6647;--accent-rgb:15,138,95;
-  --pink:#c2567a;--cyan:#1f7a9c;--cyan2:#2a8bad;
-  --red:#c0392b;--amber:#8a5f12;--green:#12864f;
-  --tx1:#1b211f;--tx2:#525a57;--tx3:#626b68;
+  --bg:#FFF8F2;--card:#FFFFFF;--card2:#FFF3E8;--inp:#FCEFE2;--chrome:#FFFFFF;
+  --b0:rgba(41,21,12,.09);--b1:rgba(41,21,12,.15);--b2:rgba(249,115,22,.35);
+  --border:#F2DED0;
+  --purple:#F97316;--purple2:#C2410C;--purple3:#C2410C;--accent-rgb:249,115,22;
+  --pink:#B91C1C;--cyan:#C2410C;--cyan2:#C2410C;
+  --red:#DC2626;--amber:#B45309;--green:#15803D;
+  --tx1:#29150C;--tx2:#6B5145;--tx3:#7A6459;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{font-size:115%;}
@@ -600,7 +669,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .tb-title span{color:var(--pink);}
 .tb-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .tb-clock{font-size:.62rem;font-family:var(--mono);color:var(--cyan);background:rgba(0,200,240,.08);border:1px solid rgba(0,200,240,.15);border-radius:20px;padding:4px 10px;white-space:nowrap;}
-.tb-calc{background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;color:#fff;border-radius:22px;padding:9px 16px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--sans);box-shadow:0 0 18px rgba(var(--accent-rgb),.4);display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.tb-calc{background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;color:var(--on-accent,#fff);border-radius:22px;padding:9px 16px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--sans);box-shadow:0 4px 16px rgba(var(--accent-rgb),.28);display:flex;align-items:center;gap:5px;white-space:nowrap;}
 .tb-calc:disabled{background:var(--inp);color:var(--tx3);box-shadow:none;cursor:not-allowed;opacity:.6;}
 .tb-install{background:rgba(var(--accent-rgb),.12);border:1.5px solid var(--purple2);color:var(--purple3);border-radius:22px;padding:9px 14px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:5px;white-space:nowrap;}
 .tb-help{background:rgba(var(--accent-rgb),.12);border:1.5px solid var(--purple2);color:var(--purple3);border-radius:50%;width:34px;height:34px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -658,7 +727,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-tabs{display:flex;gap:5px;background:var(--card2);border:1px solid var(--b0);border-radius:13px;padding:4px;margin-bottom:12px;}
 .plan-tabs-sticky .plan-tabs{margin-bottom:0;}
 .plan-tab{flex:1;min-width:0;padding:9px 3px;border-radius:10px;border:none;background:transparent;color:var(--tx3);font-family:var(--sans);font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.plan-tab.active{background:var(--purple2);color:#fff;}
+.plan-tab.active{background:var(--purple2);color:var(--on-accent,#fff);}
 .plan-pane{display:none;}
 .plan-pane.active{display:block;}
 /* Fold-away section. Native <details> so it works with no JS behind it. */
@@ -838,9 +907,9 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .s-val.c{color:var(--cyan);} .s-val.a{color:var(--amber);}
 
 /* NET HERO */
-.net-hero{background:linear-gradient(135deg,rgba(var(--accent-rgb),.16),rgba(var(--accent-rgb),.04));border:1px solid rgba(var(--accent-rgb),.28);border-radius:16px;padding:22px 18px;text-align:center;box-shadow:0 0 36px rgba(var(--accent-rgb),.1);}
-.nh-lbl{font-size:.58rem;font-family:var(--mono);color:var(--purple3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;}
-.nh-amt{font-size:2.2rem;font-weight:700;font-family:var(--mono);color:var(--tx1);letter-spacing:-.02em;line-height:1;}
+.net-hero{background:linear-gradient(135deg,rgba(var(--accent-rgb),.12),rgba(var(--accent-rgb),.03));border:1px solid rgba(var(--accent-rgb),.24);border-radius:16px;padding:24px 18px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.14);}
+.nh-lbl{font-size:.58rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;}
+.nh-amt{font-size:2.4rem;font-weight:800;font-family:var(--mono);color:var(--tx1);letter-spacing:-.02em;line-height:1;}
 .nh-amt.live{color:var(--purple3);}
 .nh-tag{font-size:.66rem;color:var(--tx3);font-family:var(--mono);margin-top:9px;line-height:1.5;}
 .nh-split{font-size:.72rem;color:var(--tx2);font-family:var(--mono);margin-top:7px;line-height:1.5;}
@@ -1078,7 +1147,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     </div>
     <div id="parseWarnings"></div>
     <div class="card">
-      <div class="card-head"><span class="card-ico">🎨</span><div><div class="card-title">Appearance</div><div class="card-sub">Six themes — pick one</div></div></div>
+      <div class="card-head"><span class="card-ico">🎨</span><div><div class="card-title">Appearance</div><div class="card-sub">Ten themes — pick one</div></div></div>
       <div class="card-body">
         <div class="theme-grid" id="themeGrid"></div>
       </div>
@@ -4501,27 +4570,35 @@ $('btnExportPDF').addEventListener('click', () => {
 
 
 
-// Theme — six neutral-base palettes, each with its own accent + personality
+// Theme — 10 premium palettes; one token source of truth in the <style> block.
+// Each entry here only feeds the picker preview (card = card colour,
+// accent = primary, dots = [cardElevated, primary, secondary, accent]).
 (function(){
   var THEMES = [
-    { id:'graphite',  name:'Graphite',  accent:'#7aa7d9', tx:'#eef1f3', card:'#1d2024', dots:['#262a2f','#7aa7d9','#67b98a','#e0a44a'] },
-    { id:'umber',     name:'Umber',     accent:'#d09a4e', tx:'#f0ebe4', card:'#221d19', dots:['#2b2521','#d09a4e','#8aa9a0','#7cb083'] },
-    { id:'precision', name:'Precision', accent:'#9fb3c9', tx:'#eef0f2', card:'#16191c', dots:['#1e2226','#9fb3c9','#5bc6c0','#dcb15c'] },
-    { id:'porcelain', name:'Porcelain', accent:'#a3482a', tx:'#241f1a', card:'#faf8f4', dots:['#ebe7df','#a3482a','#3f6a6d','#8a5a1e'] },
-    { id:'fresh',     name:'Fresh',     accent:'#0d7350', tx:'#1b211f', card:'#fbfcfc', dots:['#e4e9e8','#0d7350','#1f7a9c','#8a5f12'] },
-    { id:'harbor',    name:'Harbor',    accent:'#28466e', tx:'#1a2027', card:'#f9fafb', dots:['#e2e6ea','#28466e','#2f6a80','#8a5f16'] }
+    { id:'nebula',    name:'Nebula',    accent:'#8B5CF6', tx:'#F8FAFC', card:'#11172A', dots:['#161D34','#8B5CF6','#3B82F6','#C084FC'] },
+    { id:'skyline',   name:'Skyline',   accent:'#2563EB', tx:'#0F172A', card:'#FFFFFF', dots:['#F8FAFD','#2563EB','#38BDF8','#0EA5E9'] },
+    { id:'aurora',    name:'Aurora',    accent:'#EC4899', tx:'#171324', card:'#FFFFFF', dots:['#FFF1F7','#EC4899','#8B5CF6','#F97316'] },
+    { id:'obsidian',  name:'Obsidian',  accent:'#EF4444', tx:'#F5F5F5', card:'#15181D', dots:['#1B1F25','#EF4444','#F97316','#FB7185'] },
+    { id:'luxe',      name:'Luxe',      accent:'#D4AF37', tx:'#FAFAF9', card:'#151515', dots:['#1C1C1C','#D4AF37','#F5D76E','#C9A227'] },
+    { id:'ocean',     name:'Ocean',     accent:'#0891B2', tx:'#12313A', card:'#FFFFFF', dots:['#F2FBFB','#0891B2','#14B8A6','#06B6D4'] },
+    { id:'sunset',    name:'Sunset',    accent:'#F97316', tx:'#29150C', card:'#FFFFFF', dots:['#FFF3E8','#F97316','#EF4444','#F59E0B'] },
+    { id:'ascent',    name:'Ascent',    accent:'#38BDF8', tx:'#F8FAFC', card:'#102238', dots:['#142B45','#38BDF8','#2563EB','#60A5FA'] },
+    { id:'evergreen', name:'Evergreen', accent:'#22C55E', tx:'#F0FDF4', card:'#122019', dots:['#17281F','#22C55E','#10B981','#34D399'] },
+    { id:'cosmos',    name:'Cosmos',    accent:'#A855F7', tx:'#FAF5FF', card:'#181029', dots:['#211537','#A855F7','#7C3AED','#D946EF'] }
   ];
   var MIGRATE = {
-    '':'graphite', dark:'graphite', midnight:'graphite', slate:'graphite',
-    nocturne:'graphite', executive:'graphite', meridian:'graphite', aurora:'precision',
-    magma:'umber', ember:'umber', vesper:'umber', neon:'precision',
-    light:'porcelain', paper:'porcelain', canvas:'porcelain', studio:'porcelain', reef:'porcelain',
-    nordic:'harbor', glacier:'fresh', verdant:'fresh', botanic:'fresh'
+    '':'nebula', dark:'nebula', midnight:'nebula', slate:'nebula', nocturne:'nebula',
+    precision:'nebula', vesper:'cosmos',
+    graphite:'ascent', executive:'ascent', meridian:'ascent',
+    umber:'luxe', magma:'obsidian', ember:'obsidian', neon:'cosmos',
+    light:'skyline', paper:'skyline', canvas:'skyline', studio:'skyline', nordic:'skyline', harbor:'skyline',
+    glacier:'ocean', reef:'ocean', fresh:'ocean',
+    verdant:'evergreen', botanic:'evergreen', porcelain:'sunset'
   };
   function current(){
-    var v = localStorage.getItem('sla_theme') || 'graphite';
+    var v = localStorage.getItem('sla_theme') || 'nebula';
     v = MIGRATE[v] || v;
-    return THEMES.some(function(t){ return t.id === v; }) ? v : 'graphite';
+    return THEMES.some(function(t){ return t.id === v; }) ? v : 'nebula';
   }
   function apply(id){
     document.documentElement.setAttribute('data-theme', id);
