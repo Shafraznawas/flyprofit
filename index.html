@@ -588,6 +588,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-cmp-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:8px 0;}
 .plan-cmp-row .k{font-size:.78rem;color:var(--tx2);}
 .plan-cmp-row .v{font-size:.82rem;font-family:var(--mono);font-weight:600;color:var(--tx1);white-space:nowrap;}
+.plan-cmp-row .sub{display:block;font-size:.6rem;font-family:var(--mono);color:var(--tx3);line-height:1.5;margin-top:3px;}
 .plan-cmp-diff{font-size:.86rem;font-weight:700;margin-top:8px;padding-top:10px;border-top:1px solid var(--b0);}
 .plan-cmp-diff.up{color:var(--green);}
 .plan-cmp-diff.down{color:var(--amber);}
@@ -5999,13 +6000,24 @@ const PLAN_TYPICAL_MIN = 3;
 const PLAN_TYPICAL_WINDOW = 6;
 
 // READ ONLY over sla_salary_history, same as planSalaryFor().
-function planTypicalSalary() {
+// Average net of the saved roster months BEFORE beforeRosterKey.
+//
+// The "before" part is the whole point. This used to average the newest
+// saved months regardless of where they sat on the timeline, while the
+// figure it was compared against is the S-2 roster — so with Jul, Aug and
+// Sep rosters saved, July's pay was being measured against an average that
+// contained August and September. A big September dragged the average up
+// and made July look like a short month. Only months earlier than the one
+// on screen can be "usual" for it.
+function planTypicalSalary(beforeRosterKey) {
   let hist;
   try { hist = JSON.parse(localStorage.getItem('sla_salary_history') || '{}'); }
   catch (e) { return { count: 0, average: 0 }; }
   if (!hist || typeof hist !== 'object' || Array.isArray(hist)) return { count: 0, average: 0 };
+  const cutoff = _planYMToIndex(beforeRosterKey);
   const nets = Object.keys(hist)
     .filter(k => _planYMToIndex(k) !== null)
+    .filter(k => cutoff === null || _planYMToIndex(k) < cutoff)
     .sort()
     .map(k => {
       const entry = hist[k];
@@ -6063,20 +6075,24 @@ function renderPlanSmoothing() {
   const box = $('planCompareBox');
   if (!box) return;
   const ym = getPlanMonth();
-  const typical = planTypicalSalary();
   const thisMonth = planSalaryFor(ym);
   renderBuffer();
 
-  if (typical.count < PLAN_TYPICAL_MIN) {
-    box.innerHTML = '<div class="plan-salary-miss">Save at least ' + PLAN_TYPICAL_MIN +
-      ' months to see this.</div>';
-    return;
-  }
   // The comparison needs BOTH sides. Without this month's own figure there
   // is nothing to compare the average against.
   if (!thisMonth.found) {
     box.innerHTML = '<div class="plan-salary-miss">Add this month\'s salary first — calculate the ' +
       escapeHtml(_planFmtYM(thisMonth.rosterKey)) + ' roster and tap Save Month.</div>';
+    return;
+  }
+
+  // Only rosters EARLIER than this one count as "usual" — see the note on
+  // planTypicalSalary. Computed after thisMonth because it depends on it.
+  const typical = planTypicalSalary(thisMonth.rosterKey);
+  if (typical.count < PLAN_TYPICAL_MIN) {
+    box.innerHTML = '<div class="plan-salary-miss">Save ' + PLAN_TYPICAL_MIN +
+      ' roster months from before ' + escapeHtml(_planFmtYM(thisMonth.rosterKey)) +
+      ' to compare against. Saved so far: ' + typical.count + '.</div>';
     return;
   }
 
@@ -6112,9 +6128,10 @@ function renderPlanSmoothing() {
     diffLine = 'Exactly your usual month.';
   }
 
+  const rosterName = escapeHtml(_planFmtYM(thisMonth.rosterKey));
   box.innerHTML =
-    '<div class="plan-cmp-row"><span class="k">This month</span><span class="v">' + fmtLKR(thisMonth.net) + '</span></div>' +
-    '<div class="plan-cmp-row"><span class="k">Your usual<br><span class="sub">average of your last ' + typical.count + ' saved month' + (typical.count === 1 ? '' : 's') + '</span></span><span class="v">' + fmtLKR(typical.average) + '</span></div>' +
+    '<div class="plan-cmp-row"><span class="k">The pay you get<br><span class="sub">from flying in ' + rosterName + '</span></span><span class="v">' + fmtLKR(thisMonth.net) + '</span></div>' +
+    '<div class="plan-cmp-row"><span class="k">Your usual<br><span class="sub">average of the ' + typical.count + ' month' + (typical.count === 1 ? '' : 's') + ' you flew before ' + rosterName + '</span></span><span class="v">' + fmtLKR(typical.average) + '</span></div>' +
     '<div class="plan-cmp-diff ' + diffCls + '">' + diffLine + '</div>' +
     (suggest ? '<div class="plan-suggest ' + suggestCls + '">' + suggest + '</div>' : '');
 }
