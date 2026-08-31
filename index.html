@@ -1274,7 +1274,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
   <!-- PAGE 4: STATS -->
   <div class="page" id="page-gauge">
     <div class="card">
-      <div class="card-head"><div style="font-size:.7rem;font-family:var(--mono);color:var(--tx2);letter-spacing:.07em;text-transform:uppercase;">🕐 Hourly Progress Gauge</div><span style="margin-left:auto;font-size:.54rem;font-family:var(--mono);color:var(--tx3);background:rgba(255,255,255,.04);border:1px solid var(--b0);border-radius:20px;padding:2px 7px;">75h limit</span></div>
+      <div class="card-head"><span class="card-ico">🕐</span><div><div class="card-title">Hourly Progress</div><div class="card-sub">Block hours against the 75h tier line</div></div><span style="margin-left:auto;font-size:.56rem;color:var(--tx3);background:var(--card2);border:1px solid var(--b0);border-radius:20px;padding:3px 9px;white-space:nowrap;">75h limit</span></div>
       <div class="card-body" id="tierGaugeArea">
         <div class="gauge-lbl"><span>BLK HRS</span><span>00:00</span></div>
         <div class="gauge-track" style="position:relative;"><div class="gauge-t1" style="width:0%"></div><div class="gauge-t2" style="width:0%"></div><div class="gauge-mark" style="left:87%;"></div></div>
@@ -1314,22 +1314,22 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
       <div class="card-body" id="logbookSummary"></div>
     </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">🏨</span><div><div class="card-title">Long Stays</div><div class="card-sub">2+ nights · yearly quota, by station</div></div></div>
-      <div class="card-body" id="logbookLongStays"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">🧳</span><div><div class="card-title">Layovers</div><div class="card-sub">Single-night layovers</div></div></div>
-      <div class="card-body" id="logbookLayovers1"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">📍</span><div><div class="card-title">Top Destinations</div><div class="card-sub">Most-visited this year</div></div></div>
-      <div class="card-body" id="logbookDestinations"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><span class="card-ico">🗓️</span><div><div class="card-title">Month by Month</div><div class="card-sub">Your saved flying record</div></div></div>
-      <div class="card-body" id="logbookMonths"></div>
-    </div>
+    <details class="plan-fold">
+      <summary><span class="plan-fold-ico">🏨</span><span class="plan-fold-t"><b>Long Stays</b><i>2+ nights · yearly quota, by station</i></span><span class="plan-fold-arw">▸</span></summary>
+      <div class="plan-fold-body"><div id="logbookLongStays"></div></div>
+    </details>
+    <details class="plan-fold">
+      <summary><span class="plan-fold-ico">🧳</span><span class="plan-fold-t"><b>Layovers</b><i>Single-night layovers</i></span><span class="plan-fold-arw">▸</span></summary>
+      <div class="plan-fold-body"><div id="logbookLayovers1"></div></div>
+    </details>
+    <details class="plan-fold">
+      <summary><span class="plan-fold-ico">📍</span><span class="plan-fold-t"><b>Top Destinations</b><i>Most-visited this year</i></span><span class="plan-fold-arw">▸</span></summary>
+      <div class="plan-fold-body"><div id="logbookDestinations"></div></div>
+    </details>
+    <details class="plan-fold">
+      <summary><span class="plan-fold-ico">🗓️</span><span class="plan-fold-t"><b>Month by Month</b><i>Your saved flying record</i></span><span class="plan-fold-arw">▸</span></summary>
+      <div class="plan-fold-body"><div id="logbookMonths"></div></div>
+    </details>
     <div class="action-row">
       <button class="act-btn" id="btnLogbookExport">Export History</button>
       <button class="act-btn" id="btnLogbookImport">Import History</button>
@@ -1412,7 +1412,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <div style="font-size:.68rem;color:var(--tx3);line-height:1.6;margin-top:9px;">
           Tap this again any time you change a date, so your calendar stays correct.
         </div>
-        <button class="btn-outline" id="btnDocsCalendar" style="margin-top:12px;">📅 Add Reminders To My Calendar</button>
+        <button class="btn-outline" id="btnDocsCalendar" style="margin-top:12px;">Add Reminders To My Calendar</button>
         <div id="docsCalendarMsg" style="font-size:.68rem;line-height:1.6;margin-top:9px;display:none;"></div>
       </div>
     </div>
