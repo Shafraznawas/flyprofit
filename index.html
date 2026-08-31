@@ -462,84 +462,108 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   --sans:-apple-system,'Segoe UI','Roboto',Arial,sans-serif;
   --nav-h:64px;--top-h:56px;
 
-  /* default palette = Midnight (also the fallback if no data-theme is set) */
-  --bg:#0b0e1a;--card:#141828;--card2:#1a1e35;--inp:#1c2138;--chrome:#0d1020;
-  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.1);--b2:rgba(139,92,246,.35);
-  --border:rgba(255,255,255,.07);
-  --purple:#7c3aed;--purple2:#a855f7;--purple3:#c084fc;--accent-rgb:124,58,237;
-  --pink:#ec4899;--cyan:#00c8f0;--cyan2:#00e5ff;
-  --red:#f87171;--amber:#f59e0b;--green:#4ade80;
-  --tx1:#e2e8ff;--tx2:#8792bb;--tx3:#9aa5c7;
+  /* fallback palette = Nocturne (used only until the theme script runs) */
+  --bg:#171334;--card:#211b47;--card2:#2b2358;--inp:#282050;--chrome:#131029;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(167,139,250,.4);
+  --border:rgba(255,255,255,.08);
+  --purple:#a78bfa;--purple2:#7c3aed;--purple3:#c4b5fd;--accent-rgb:167,139,250;
+  --pink:#f472b6;--cyan:#38bdf8;--cyan2:#7dd3fc;
+  --red:#fb7185;--amber:#fbbf24;--green:#4ade80;
+  --tx1:#f2effe;--tx2:#c1b8e6;--tx3:#a79cd4;
 }
 
 /* ── THEMES ─────────────────────────────────────────────────────
-   Every theme redefines the full token set, so the change is total,
-   not a tint. accent-rgb is the accent as bare "r,g,b" for the many
-   rgba(var(--accent-rgb),a) washes across the sheet. */
+   Each theme is a different world: its own hue family, its own mood.
+   Every token is redefined, so a switch is total, not a tint. Text
+   tokens are checked to stay well clear of the AA contrast floor at
+   every font size the sheet uses. accent-rgb is the accent as bare
+   "r,g,b" for the rgba(var(--accent-rgb),a) washes across the sheet. */
 
-:root[data-theme="midnight"]{
-  --bg:#0b0e1a;--card:#141828;--card2:#1a1e35;--inp:#1c2138;--chrome:#0d1020;
-  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.1);--b2:rgba(139,92,246,.35);
-  --border:rgba(255,255,255,.07);
-  --purple:#7c3aed;--purple2:#a855f7;--purple3:#c084fc;--accent-rgb:124,58,237;
-  --pink:#ec4899;--cyan:#00c8f0;--cyan2:#00e5ff;
-  --red:#f87171;--amber:#f59e0b;--green:#4ade80;
-  --tx1:#e2e8ff;--tx2:#8792bb;--tx3:#9aa5c7;
-}
-
-:root[data-theme="aurora"]{
-  --bg:#06110f;--card:#0c1a18;--card2:#112523;--inp:#0f221f;--chrome:#081411;
-  --b0:rgba(120,255,220,.06);--b1:rgba(120,255,220,.12);--b2:rgba(45,212,191,.4);
-  --border:rgba(120,255,220,.08);
-  --purple:#14b8a6;--purple2:#0f766e;--purple3:#5eead4;--accent-rgb:20,184,166;
+/* 1 — NOCTURNE · electric violet on deep indigo */
+:root[data-theme="nocturne"]{
+  --bg:#171334;--card:#211b47;--card2:#2b2358;--inp:#282050;--chrome:#131029;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(167,139,250,.4);
+  --border:rgba(255,255,255,.08);
+  --purple:#a78bfa;--purple2:#7c3aed;--purple3:#c4b5fd;--accent-rgb:167,139,250;
   --pink:#f472b6;--cyan:#38bdf8;--cyan2:#7dd3fc;
   --red:#fb7185;--amber:#fbbf24;--green:#4ade80;
-  --tx1:#e6fff8;--tx2:#84afa4;--tx3:#9cc4ba;
+  --tx1:#f2effe;--tx2:#c1b8e6;--tx3:#a79cd4;
 }
 
-:root[data-theme="ember"]{
-  --bg:#160f0d;--card:#211613;--card2:#2b1c18;--inp:#291a16;--chrome:#180f0c;
-  --b0:rgba(255,200,170,.07);--b1:rgba(255,200,170,.13);--b2:rgba(244,63,94,.4);
-  --border:rgba(255,200,170,.08);
-  --purple:#f43f5e;--purple2:#be123c;--purple3:#fb7185;--accent-rgb:244,63,94;
-  --pink:#f472b6;--cyan:#38bdf8;--cyan2:#7dd3fc;
-  --red:#ef4444;--amber:#fbbf24;--green:#34d399;
-  --tx1:#fdeee6;--tx2:#b3958a;--tx3:#c9a79b;
+/* 2 — REEF · vivid cyan + coral on ocean teal */
+:root[data-theme="reef"]{
+  --bg:#07323b;--card:#0c414c;--card2:#125460;--inp:#0f4a56;--chrome:#052a32;
+  --b0:rgba(180,255,245,.06);--b1:rgba(180,255,245,.12);--b2:rgba(34,211,238,.4);
+  --border:rgba(180,255,245,.09);
+  --purple:#22d3ee;--purple2:#0e7490;--purple3:#7dd3fc;--accent-rgb:34,211,238;
+  --pink:#fb7185;--cyan:#38bdf8;--cyan2:#a5f3fc;
+  --red:#fca5a5;--amber:#fcd34d;--green:#5eead4;
+  --tx1:#e8fdff;--tx2:#a7d3db;--tx3:#93c2cc;
 }
 
-:root[data-theme="slate"]{
-  --bg:#101216;--card:#181b21;--card2:#1e2229;--inp:#20242c;--chrome:#121419;
-  --b0:rgba(255,255,255,.07);--b1:rgba(255,255,255,.12);--b2:rgba(96,165,250,.35);
+/* 3 — MAGMA · burnt orange on true charcoal */
+:root[data-theme="magma"]{
+  --bg:#181818;--card:#232323;--card2:#2e2e2e;--inp:#292929;--chrome:#141414;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.12);--b2:rgba(249,115,22,.4);
   --border:rgba(255,255,255,.08);
-  --purple:#3b82f6;--purple2:#2563eb;--purple3:#60a5fa;--accent-rgb:59,130,246;
-  --pink:#f472b6;--cyan:#22d3ee;--cyan2:#67e8f9;
-  --red:#f87171;--amber:#fbbf24;--green:#34d399;
-  --tx1:#f1f5f9;--tx2:#94a3b8;--tx3:#aab4c4;
+  --purple:#f97316;--purple2:#c2410c;--purple3:#fdba74;--accent-rgb:249,115,22;
+  --pink:#f472b6;--cyan:#38bdf8;--cyan2:#7dd3fc;
+  --red:#f87171;--amber:#fbbf24;--green:#4ade80;
+  --tx1:#f5f5f4;--tx2:#b0a9a2;--tx3:#a8a29e;
 }
 
-:root[data-theme="paper"]{
-  --bg:#f5f2ea;--card:#fffdf8;--card2:#efe9dc;--inp:#eae2d1;--chrome:#fffdf8;
-  --b0:rgba(60,40,20,.1);--b1:rgba(60,40,20,.16);--b2:rgba(79,70,229,.3);
-  --border:rgba(60,40,20,.1);
-  --purple:#4f46e5;--purple2:#4338ca;--purple3:#6366f1;--accent-rgb:79,70,229;
-  --pink:#db2777;--cyan:#0e7490;--cyan2:#0891b2;
-  --red:#dc2626;--amber:#b45309;--green:#15803d;
-  --tx1:#2a2320;--tx2:#6b5d52;--tx3:#7a6a5d;
+/* 4 — VERDANT · gold on deep emerald */
+:root[data-theme="verdant"]{
+  --bg:#0d2620;--card:#123329;--card2:#184035;--inp:#153a30;--chrome:#0a1f1a;
+  --b0:rgba(200,255,230,.06);--b1:rgba(200,255,230,.12);--b2:rgba(251,191,36,.4);
+  --border:rgba(200,255,230,.09);
+  --purple:#fbbf24;--purple2:#b45309;--purple3:#fcd34d;--accent-rgb:251,191,36;
+  --pink:#f472b6;--cyan:#5eead4;--cyan2:#99f6e4;
+  --red:#fca5a5;--amber:#fcd34d;--green:#4ade80;
+  --tx1:#e9fdf4;--tx2:#a6cabb;--tx3:#93bdad;
 }
 
-:root[data-theme="nordic"]{
-  --bg:#e9edf2;--card:#ffffff;--card2:#dfe5ec;--inp:#d5dde7;--chrome:#ffffff;
-  --b0:rgba(30,45,70,.1);--b1:rgba(30,45,70,.16);--b2:rgba(61,107,153,.35);
-  --border:rgba(30,45,70,.1);
-  --purple:#3d6b99;--purple2:#2f5680;--purple3:#4a7bad;--accent-rgb:61,107,153;
-  --pink:#a24d78;--cyan:#3f7d8c;--cyan2:#5a97a6;
-  --red:#bf3d47;--amber:#b06a3f;--green:#2f7d4f;
-  --tx1:#2e3440;--tx2:#4c566a;--tx3:#5c677d;
+/* 5 — CANVAS · terracotta on warm sand (light, never white) */
+:root[data-theme="canvas"]{
+  --bg:#efe6d9;--card:#f8f0e3;--card2:#e7dcc9;--inp:#e2d5bf;--chrome:#f8f0e3;
+  --b0:rgba(60,40,15,.12);--b1:rgba(60,40,15,.2);--b2:rgba(154,52,18,.35);
+  --border:rgba(60,40,15,.12);
+  --purple:#c2410c;--purple2:#9a3412;--purple3:#92400e;--accent-rgb:194,65,12;
+  --pink:#be185d;--cyan:#0e7490;--cyan2:#0891b2;
+  --red:#b91c1c;--amber:#92400e;--green:#15803d;
+  --tx1:#2b211a;--tx2:#5c4a3a;--tx3:#6b5744;
 }
 
-/* legacy stored values from the old two-way toggle */
-:root[data-theme="dark"]{--bg:#0b0e1a;--card:#141828;--card2:#1a1e35;--inp:#1c2138;--chrome:#0d1020;--b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.1);--b2:rgba(139,92,246,.35);--border:rgba(255,255,255,.07);--purple:#7c3aed;--purple2:#a855f7;--purple3:#c084fc;--accent-rgb:124,58,237;--pink:#ec4899;--cyan:#00c8f0;--cyan2:#00e5ff;--red:#f87171;--amber:#f59e0b;--green:#4ade80;--tx1:#e2e8ff;--tx2:#8792bb;--tx3:#9aa5c7;}
-:root[data-theme="light"]{--bg:#f5f2ea;--card:#fffdf8;--card2:#efe9dc;--inp:#eae2d1;--chrome:#fffdf8;--b0:rgba(60,40,20,.1);--b1:rgba(60,40,20,.16);--b2:rgba(79,70,229,.3);--border:rgba(60,40,20,.1);--purple:#4f46e5;--purple2:#4338ca;--purple3:#6366f1;--accent-rgb:79,70,229;--pink:#db2777;--cyan:#0e7490;--cyan2:#0891b2;--red:#dc2626;--amber:#b45309;--green:#15803d;--tx1:#2a2320;--tx2:#6b5d52;--tx3:#7a6a5d;}
+/* 6 — GLACIER · deep teal on cool ice (light, never white) */
+:root[data-theme="glacier"]{
+  --bg:#dfe7e9;--card:#eef3f4;--card2:#d5e0e2;--inp:#cdd9db;--chrome:#eef3f4;
+  --b0:rgba(15,55,60,.12);--b1:rgba(15,55,60,.2);--b2:rgba(15,118,110,.35);
+  --border:rgba(15,55,60,.12);
+  --purple:#0d9488;--purple2:#0f766e;--purple3:#115e59;--accent-rgb:13,148,136;
+  --pink:#be185d;--cyan:#0369a1;--cyan2:#0284c7;
+  --red:#b91c1c;--amber:#b45309;--green:#15803d;
+  --tx1:#12292b;--tx2:#3c5052;--tx3:#43575a;
+}
+
+/* aliases for older stored values (the theme script also rewrites these) */
+:root[data-theme="dark"],:root[data-theme="midnight"],:root[data-theme="slate"]{
+  --bg:#171334;--card:#211b47;--card2:#2b2358;--inp:#282050;--chrome:#131029;
+  --b0:rgba(255,255,255,.06);--b1:rgba(255,255,255,.11);--b2:rgba(167,139,250,.4);
+  --border:rgba(255,255,255,.08);
+  --purple:#a78bfa;--purple2:#7c3aed;--purple3:#c4b5fd;--accent-rgb:167,139,250;
+  --pink:#f472b6;--cyan:#38bdf8;--cyan2:#7dd3fc;
+  --red:#fb7185;--amber:#fbbf24;--green:#4ade80;
+  --tx1:#f2effe;--tx2:#c1b8e6;--tx3:#a79cd4;
+}
+:root[data-theme="light"],:root[data-theme="paper"],:root[data-theme="nordic"]{
+  --bg:#efe6d9;--card:#f8f0e3;--card2:#e7dcc9;--inp:#e2d5bf;--chrome:#f8f0e3;
+  --b0:rgba(60,40,15,.12);--b1:rgba(60,40,15,.2);--b2:rgba(154,52,18,.35);
+  --border:rgba(60,40,15,.12);
+  --purple:#c2410c;--purple2:#9a3412;--purple3:#92400e;--accent-rgb:194,65,12;
+  --pink:#be185d;--cyan:#0e7490;--cyan2:#0891b2;
+  --red:#b91c1c;--amber:#92400e;--green:#15803d;
+  --tx1:#2b211a;--tx2:#5c4a3a;--tx3:#6b5744;
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{font-size:115%;}
 html,body{height:100%;overflow:hidden;}
@@ -4458,18 +4482,21 @@ $('btnExportPDF').addEventListener('click', () => {
 // Theme — six full palettes, chosen from the Appearance card
 (function(){
   var THEMES = [
-    { id:'midnight', name:'Midnight', accent:'#a855f7', tx:'#e2e8ff', card:'#141828', dots:['#0b0e1a','#7c3aed','#00c8f0','#4ade80'] },
-    { id:'aurora',   name:'Aurora',   accent:'#2dd4bf', tx:'#e6fff8', card:'#0c1a18', dots:['#06110f','#14b8a6','#38bdf8','#5eead4'] },
-    { id:'ember',    name:'Ember',    accent:'#f43f5e', tx:'#fdeee6', card:'#211613', dots:['#160f0d','#f43f5e','#fbbf24','#fb923c'] },
-    { id:'slate',    name:'Slate',    accent:'#3b82f6', tx:'#f1f5f9', card:'#181b21', dots:['#101216','#3b82f6','#22d3ee','#34d399'] },
-    { id:'paper',    name:'Paper',    accent:'#4f46e5', tx:'#2a2320', card:'#fffdf8', dots:['#f5f2ea','#4f46e5','#0e7490','#15803d'] },
-    { id:'nordic',   name:'Nordic',   accent:'#3d6b99', tx:'#2e3440', card:'#ffffff', dots:['#e9edf2','#3d6b99','#3f7d8c','#2f7d4f'] }
+    { id:'nocturne', name:'Nocturne', accent:'#a78bfa', tx:'#f2effe', card:'#211b47', dots:['#171334','#a78bfa','#38bdf8','#f472b6'] },
+    { id:'reef',     name:'Reef',     accent:'#22d3ee', tx:'#e8fdff', card:'#0c414c', dots:['#07323b','#22d3ee','#fb7185','#fcd34d'] },
+    { id:'magma',    name:'Magma',    accent:'#f97316', tx:'#f5f5f4', card:'#232323', dots:['#181818','#f97316','#38bdf8','#4ade80'] },
+    { id:'verdant',  name:'Verdant',  accent:'#fbbf24', tx:'#e9fdf4', card:'#123329', dots:['#0d2620','#fbbf24','#4ade80','#5eead4'] },
+    { id:'canvas',   name:'Canvas',   accent:'#c2410c', tx:'#2b211a', card:'#f8f0e3', dots:['#efe6d9','#c2410c','#0e7490','#15803d'] },
+    { id:'glacier',  name:'Glacier',  accent:'#0f766e', tx:'#12292b', card:'#eef3f4', dots:['#dfe7e9','#0f766e','#0369a1','#b91c1c'] }
   ];
-  var MIGRATE = { dark:'midnight', light:'paper', '':'midnight' };
+  var MIGRATE = {
+    '':'nocturne', dark:'nocturne', midnight:'nocturne', slate:'nocturne',
+    aurora:'reef', ember:'magma', light:'canvas', paper:'canvas', nordic:'glacier'
+  };
   function current(){
-    var v = localStorage.getItem('sla_theme') || 'midnight';
+    var v = localStorage.getItem('sla_theme') || 'nocturne';
     v = MIGRATE[v] || v;
-    return THEMES.some(function(t){ return t.id === v; }) ? v : 'midnight';
+    return THEMES.some(function(t){ return t.id === v; }) ? v : 'nocturne';
   }
   function apply(id){
     document.documentElement.setAttribute('data-theme', id);
