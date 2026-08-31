@@ -585,18 +585,27 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-safe-status.zero{color:var(--tx2);}
 .plan-safe-status.neg{color:var(--red);}
 .plan-safe-note{font-size:.68rem;color:var(--amber);line-height:1.55;margin-top:10px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:9px;padding:9px 11px;}
-.plan-cmp-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:8px 0;}
-.plan-cmp-row .k{font-size:.78rem;color:var(--tx2);}
-.plan-cmp-row .v{font-size:.82rem;font-family:var(--mono);font-weight:600;color:var(--tx1);white-space:nowrap;}
-.plan-cmp-row .sub{display:block;font-size:.6rem;font-family:var(--mono);color:var(--tx3);line-height:1.5;margin-top:3px;}
-.plan-cmp-diff{font-size:.86rem;font-weight:700;margin-top:8px;padding-top:10px;border-top:1px solid var(--b0);}
-.plan-cmp-diff.up{color:var(--green);}
-.plan-cmp-diff.down{color:var(--amber);}
-.plan-cmp-diff.same{color:var(--tx2);}
-.plan-suggest{font-size:.78rem;line-height:1.6;margin-top:11px;border-radius:10px;padding:11px 12px;}
-.plan-suggest.up{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.22);color:var(--green);}
-.plan-suggest.down{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);color:var(--amber);}
-.plan-suggest.short{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
+.plan-back{font-size:.74rem;line-height:1.6;border-radius:10px;padding:10px 12px;margin-bottom:14px;}
+.plan-back.up{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.2);color:var(--green);}
+.plan-back.down{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);color:var(--amber);}
+.plan-back.none{background:rgba(255,255,255,.03);border:1px solid var(--b0);color:var(--tx3);}
+.plan-back b{font-weight:700;}
+.plan-mon{border:1px solid var(--b0);border-radius:12px;padding:11px 12px;margin-bottom:9px;background:rgba(255,255,255,.02);}
+.plan-mon-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;}
+.plan-mon-name{font-size:.82rem;font-weight:700;color:var(--tx1);}
+.plan-mon-from{font-size:.58rem;font-family:var(--mono);color:var(--tx3);text-align:right;line-height:1.4;}
+.plan-mon-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:3px 0;}
+.plan-mon-row .k{font-size:.72rem;color:var(--tx2);}
+.plan-mon-row .v{font-size:.76rem;font-family:var(--mono);color:var(--tx1);white-space:nowrap;}
+.plan-mon-left{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:7px;padding-top:8px;border-top:1px solid var(--b0);}
+.plan-mon-left .k{font-size:.74rem;font-weight:700;}
+.plan-mon-left .v{font-size:.82rem;font-family:var(--mono);font-weight:700;white-space:nowrap;}
+.plan-mon.up .plan-mon-left .k,.plan-mon.up .plan-mon-left .v{color:var(--green);}
+.plan-mon.down .plan-mon-left .k,.plan-mon.down .plan-mon-left .v{color:var(--amber);}
+.plan-mon.wait{opacity:.72;}
+.plan-mon-wait{font-size:.68rem;color:var(--tx3);line-height:1.55;}
+.plan-word{font-size:.76rem;line-height:1.7;margin-top:12px;border-radius:10px;padding:11px 12px;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.22);color:var(--tx2);}
+.plan-word b{color:var(--tx1);font-weight:700;}
 .plan-buf-bal{font-size:1.5rem;font-family:var(--mono);font-weight:800;color:var(--tx1);line-height:1.2;}
 .plan-buf-note{font-size:.66rem;color:var(--tx3);line-height:1.55;margin-top:5px;}
 .plan-buf-controls{display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-top:12px;align-items:stretch;}
@@ -1285,8 +1294,8 @@ Insurance - 18,000, yearly"></textarea>
 
     <div class="card" style="margin-top:12px;">
       <div class="card-head">
-        <span class="card-ico">⚖️</span>
-        <div><div class="card-title">Good Month, Bad Month</div><div class="card-sub">Use a big month to cover a small one</div></div>
+        <span class="card-ico">🗓️</span>
+        <div><div class="card-title">Your Next Few Months</div><div class="card-sub">You already know this money — it's flown</div></div>
       </div>
       <div class="card-body">
         <div id="planCompareBox"></div>
@@ -5996,42 +6005,7 @@ const PLAN_BUFFER_KEY = 'sla_buffer';
 
 // Averaging one or two months would just be noise dressed up as a baseline,
 // so below this many saved months the section refuses to draw a conclusion.
-const PLAN_TYPICAL_MIN = 3;
-const PLAN_TYPICAL_WINDOW = 6;
 
-// READ ONLY over sla_salary_history, same as planSalaryFor().
-// Average net of the saved roster months BEFORE beforeRosterKey.
-//
-// The "before" part is the whole point. This used to average the newest
-// saved months regardless of where they sat on the timeline, while the
-// figure it was compared against is the S-2 roster — so with Jul, Aug and
-// Sep rosters saved, July's pay was being measured against an average that
-// contained August and September. A big September dragged the average up
-// and made July look like a short month. Only months earlier than the one
-// on screen can be "usual" for it.
-function planTypicalSalary(beforeRosterKey) {
-  let hist;
-  try { hist = JSON.parse(localStorage.getItem('sla_salary_history') || '{}'); }
-  catch (e) { return { count: 0, average: 0 }; }
-  if (!hist || typeof hist !== 'object' || Array.isArray(hist)) return { count: 0, average: 0 };
-  const cutoff = _planYMToIndex(beforeRosterKey);
-  const nets = Object.keys(hist)
-    .filter(k => _planYMToIndex(k) !== null)
-    .filter(k => cutoff === null || _planYMToIndex(k) < cutoff)
-    .sort()
-    .map(k => {
-      const entry = hist[k];
-      if (!entry || typeof entry !== 'object') return null;
-      const calc = entry.calculation;
-      if (!calc || typeof calc !== 'object') return null;
-      const n = calc.finalNet;
-      return (typeof n === 'number' && isFinite(n)) ? n : null;
-    })
-    .filter(n => n !== null)
-    .slice(-PLAN_TYPICAL_WINDOW);
-  if (!nets.length) return { count: 0, average: 0 };
-  return { count: nets.length, average: nets.reduce((a, b) => a + b, 0) / nets.length };
-}
 
 function loadBuffer() {
   const b = _planReadJSON(PLAN_BUFFER_KEY, null);
@@ -6046,9 +6020,11 @@ function saveBuffer(b) {
   try { localStorage.setItem(PLAN_BUFFER_KEY, JSON.stringify(b)); } catch (e) {}
 }
 
-// Suggestions land on round numbers a person can actually act on — nobody
-// transfers Rs 24,317 into savings.
-function _planRound500(n) { return Math.round(n / 500) * 500; }
+
+// How many plan months to show. Three is what the S-2 pay lag actually
+// makes knowable: the moment a roster is saved, that month's pay and the
+// two before it are all already flown, so none of this is a forecast.
+const PLAN_AHEAD_COUNT = 3;
 
 function renderBuffer() {
   const b = loadBuffer();
@@ -6071,69 +6047,109 @@ function renderBuffer() {
     }).join('');
 }
 
+// One plan month's in-versus-out picture. Read-only throughout: salary
+// comes from saved roster history, money out from the commitments list.
+function planMonthPicture(ym, list) {
+  const income = planMoneyInParts(ym);
+  const out = planTotals(list, ym).dueThis;
+  return {
+    ym: ym,
+    rosterKey: income.rosterKey,
+    known: income.salaryFound,
+    inLkr: income.total,
+    outLkr: out,
+    left: income.total - out
+  };
+}
+
+// Deliberately general, and never a precise instruction.
+//
+// The app knows the numbers it was handed and nothing else — not the
+// family emergency, not the debt nobody wrote down. A confident "put
+// 68,500 aside and September is covered" is therefore often wrong for the
+// person reading it, and reads as bossy when it is. So this names the
+// shape of the next few months and leaves the decision with them. It also
+// never sweetens a tight month: comfort that isn't true is worse than none.
+function planAheadWords(months) {
+  const known = months.filter(m => m.known);
+  if (!known.length) {
+    return '<div class="plan-word">Save a roster month and this fills in, so you get to see a tight month coming instead of finding out when it arrives.</div>';
+  }
+  const tight = known.filter(m => m.left < 0);
+  const spare = known.filter(m => m.left > 0).reduce((s, m) => s + m.left, 0);
+  const gap = tight.reduce((s, m) => s + Math.abs(m.left), 0);
+  const firstTight = tight.length ? '<b>' + escapeHtml(_planFmtYM(tight[0].ym)) + '</b>' : '';
+  let t;
+
+  if (!tight.length) {
+    t = 'Nothing in the next ' + (known.length === 1 ? 'month' : known.length + ' months') +
+      ' asks for more than what is coming in. That is a good place to be. The easy months are quietly the important ones — what you hold back now is what carries you through a thin month later.';
+  } else if (!spare) {
+    t = firstTight + ' onwards looks tight against your list. Nothing here has to be sorted today. It is worth running an eye down the list above though — one large item moved or trimmed changes the whole picture.';
+  } else if (spare >= gap) {
+    t = firstTight + (tight.length > 1 ? ' and the other tight months are' : ' is') +
+      ' the pinch. The rest have more room than those come up short by, so this is coverable from your own months — holding some of that back rather than spending it takes the pressure off before it arrives.';
+  } else {
+    t = firstTight + (tight.length > 1 ? ' and the months around it look' : ' looks') +
+      ' tight, and the stronger months only partly cover it. Holding back what you can from them still softens the landing, and the list above is worth a look for anything that could wait.';
+  }
+  return '<div class="plan-word">' + t + '</div>';
+}
+
 function renderPlanSmoothing() {
   const box = $('planCompareBox');
   if (!box) return;
-  const ym = getPlanMonth();
-  const thisMonth = planSalaryFor(ym);
   renderBuffer();
+  const ym = getPlanMonth();
+  const i = _planYMToIndex(ym);
+  if (i === null) { box.innerHTML = ''; return; }
 
-  // The comparison needs BOTH sides. Without this month's own figure there
-  // is nothing to compare the average against.
-  if (!thisMonth.found) {
-    box.innerHTML = '<div class="plan-salary-miss">Add this month\'s salary first — calculate the ' +
-      escapeHtml(_planFmtYM(thisMonth.rosterKey)) + ' roster and tap Save Month.</div>';
+  // Without a commitments list "money out" is zero and every month would
+  // look comfortable — falsely reassuring, which is the one thing this
+  // card must never be.
+  const list = loadPlan();
+  if (!list.length) {
+    box.innerHTML = '<div class="plan-salary-miss">Add what you pay each month in the list above first. Until then there is nothing to measure your salary against.</div>';
     return;
   }
 
-  // Only rosters EARLIER than this one count as "usual" — see the note on
-  // planTypicalSalary. Computed after thisMonth because it depends on it.
-  const typical = planTypicalSalary(thisMonth.rosterKey);
-  if (typical.count < PLAN_TYPICAL_MIN) {
-    box.innerHTML = '<div class="plan-salary-miss">Save ' + PLAN_TYPICAL_MIN +
-      ' roster months from before ' + escapeHtml(_planFmtYM(thisMonth.rosterKey)) +
-      ' to compare against. Saved so far: ' + typical.count + '.</div>';
-    return;
-  }
-
-  const diff = thisMonth.net - typical.average;
-  const buffer = loadBuffer().balance;
-  let diffCls, diffLine, suggest = '', suggestCls = '';
-
-  if (diff > 0) {
-    diffCls = 'up';
-    diffLine = 'Above usual by ' + fmtLKR(diff);
-    const put = _planRound500(diff);
-    if (put > 0) {
-      suggestCls = 'up';
-      suggest = 'Good month. Put ' + fmtLKR(put) +
-        ' into your buffer and this month still feels normal.';
-    }
-  } else if (diff < 0) {
-    const gap = Math.abs(diff);
-    diffCls = 'down';
-    diffLine = 'Below usual by ' + fmtLKR(gap);
-    const need = _planRound500(gap);
-    if (buffer >= need && need > 0) {
-      suggestCls = 'down';
-      suggest = 'Short month. Take ' + fmtLKR(need) +
-        ' from your buffer and you are back to normal.';
-    } else if (need > 0) {
-      suggestCls = 'short';
-      suggest = 'Short month. Your buffer covers ' + fmtLKR(buffer) +
-        ' of the ' + fmtLKR(need) + ' gap.';
-    }
+  // Looking back one month: a strong finish or a thin one changes how the
+  // months ahead should be read, so it comes first.
+  const prev = planMonthPicture(_planIndexToYM(i - 1), list);
+  let html;
+  if (!prev.known) {
+    html = '<div class="plan-back none">Nothing saved for ' + escapeHtml(_planFmtYM(prev.ym)) +
+      ' yet, so there is no last month to look back on.</div>';
+  } else if (prev.left >= 0) {
+    html = '<div class="plan-back up">' + escapeHtml(_planFmtYM(prev.ym)) + ' finished with <b>' +
+      fmtLKR(prev.left) + '</b> spare. A strong start to work from.</div>';
   } else {
-    diffCls = 'same';
-    diffLine = 'Exactly your usual month.';
+    html = '<div class="plan-back down">' + escapeHtml(_planFmtYM(prev.ym)) + ' finished <b>' +
+      fmtLKR(Math.abs(prev.left)) + '</b> short. Worth knowing before you read the months below.</div>';
   }
 
-  const rosterName = escapeHtml(_planFmtYM(thisMonth.rosterKey));
-  box.innerHTML =
-    '<div class="plan-cmp-row"><span class="k">The pay you get<br><span class="sub">from flying in ' + rosterName + '</span></span><span class="v">' + fmtLKR(thisMonth.net) + '</span></div>' +
-    '<div class="plan-cmp-row"><span class="k">Your usual<br><span class="sub">average of the ' + typical.count + ' month' + (typical.count === 1 ? '' : 's') + ' you flew before ' + rosterName + '</span></span><span class="v">' + fmtLKR(typical.average) + '</span></div>' +
-    '<div class="plan-cmp-diff ' + diffCls + '">' + diffLine + '</div>' +
-    (suggest ? '<div class="plan-suggest ' + suggestCls + '">' + suggest + '</div>' : '');
+  const months = [];
+  for (let k = 0; k < PLAN_AHEAD_COUNT; k++) {
+    months.push(planMonthPicture(_planIndexToYM(i + k), list));
+  }
+
+  months.forEach(m => {
+    const head = '<div class="plan-mon-head"><span class="plan-mon-name">' + escapeHtml(_planFmtYM(m.ym)) +
+      '</span><span class="plan-mon-from">from flying in<br>' + escapeHtml(_planFmtYM(m.rosterKey)) + '</span></div>';
+    if (!m.known) {
+      html += '<div class="plan-mon wait">' + head +
+        '<div class="plan-mon-wait">Not known yet — calculate the ' + escapeHtml(_planFmtYM(m.rosterKey)) +
+        ' roster and tap Save Month, and this fills itself in.</div></div>';
+      return;
+    }
+    html += '<div class="plan-mon ' + (m.left >= 0 ? 'up' : 'down') + '">' + head +
+      '<div class="plan-mon-row"><span class="k">Money in</span><span class="v">' + fmtLKR(m.inLkr) + '</span></div>' +
+      '<div class="plan-mon-row"><span class="k">Money out</span><span class="v">' + fmtLKR(m.outLkr) + '</span></div>' +
+      '<div class="plan-mon-left"><span class="k">' + (m.left >= 0 ? 'Left over' : 'Short by') +
+      '</span><span class="v">' + fmtLKR(Math.abs(m.left)) + '</span></div></div>';
+  });
+
+  box.innerHTML = html + planAheadWords(months);
 }
 
 (function() {
