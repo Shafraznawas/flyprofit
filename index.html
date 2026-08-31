@@ -2032,8 +2032,18 @@ function extractRosterIdentity(lines) {
   // "C" prefix = Contract staff (e.g. "C14819" IS the whole staff number,
   // not a code glued onto "14819" — keep it, never strip it).
   const headerMatch = joined.match(/([A-Z][a-z]+[#*$]*(?:\s[A-Z][a-z]+[#*$]*)+)\s+([Cc]?\d{4,7})\s+[A-Za-z]{3,8}\b/);
-  const staffName = headerMatch ? headerMatch[1].replace(/[#*$]/g, '').trim() : null;
-  const staffNo = headerMatch ? headerMatch[2] : null;
+  // Second line of defence against a payslip being read as a roster. A
+  // payslip's column headings ("Pay Unit Normal Pay Cost Center") match the
+  // header pattern above exactly, with the cost-centre number standing in
+  // for the staff no. The caller already requires a bid period or sectors,
+  // but a payslip that happens to print its pay period in roster date
+  // format would slip past that — and a wrong staff no is written to the
+  // device permanently on first upload, so it must never be guessed from
+  // payroll wording. None of these words appear in a crew member's name.
+  const PAYROLL_WORDS = /\b(pay|unit|cost|cent(?:er|re)|basic|salary|allowance|deduction|gross|net|earnings?|employee|description|total|taxable|epf|etf|payslip|payroll)\b/i;
+  const looksLikePayslip = headerMatch ? PAYROLL_WORDS.test(headerMatch[1]) : false;
+  const staffName = (headerMatch && !looksLikePayslip) ? headerMatch[1].replace(/[#*$]/g, '').trim() : null;
+  const staffNo = (headerMatch && !looksLikePayslip) ? headerMatch[2] : null;
   const periodMatch = joined.match(/(\d{2}[A-Z]{3}\d{2})\s*-\s*(\d{2}[A-Z]{3}\d{2})/);
   const rosterMonth = periodMatch ? periodMatch[2].slice(2) : null; // e.g. "MAY26"
   return { staffNo, staffName, rosterMonth };
@@ -4332,11 +4342,22 @@ async function importRosterFile(file, source){
   try{
     const result=await parseRosterPDF(file);
 
-    // Readable PDF, but nothing identifying it as a CAE roster: no staff header,
-    // no bid period and no sectors. A leave-only roster still carries the header,
-    // so this never rejects a genuine roster.
+    // Readable PDF, but nothing identifying it as a CAE roster.
+    //
+    // A staff header on its own is deliberately NOT enough. A payslip PDF
+    // lays its column headings out as "Pay Unit Normal Pay Cost Center"
+    // followed by the cost-centre number, which is character-for-character
+    // the same shape as "Farook Shafraz 17401 ShaFar" — so a payslip used
+    // to pass this check, register its cost centre as the device's staff
+    // no (written once, never overwritten) and create a junk trial row on
+    // the monitoring sheet. Seen for real on 2026-07-20: staff no "4020",
+    // name "Pay Unit Normal Pay Cost Center".
+    //
+    // Every genuine roster carries a bid period ("01MAY26 - 31MAY26"), a
+    // full-leave month included, so requiring a period or sectors rejects
+    // payslips without rejecting anything real.
     const _rid = (result && result.identity) || {};
-    if(!_rid.staffNo && !_rid.rosterMonth && (!result.sectors || result.sectors.length===0)){
+    if(!_rid.rosterMonth && (!result.sectors || result.sectors.length===0)){
       setUploadStatus(INVALID_MSG,'err'); return false;
     }
 
