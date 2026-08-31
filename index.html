@@ -5863,18 +5863,31 @@ function goalStatus(goal, safe) {
   const monthsLeft = tIdx - pIdx;
   out.monthsLeft = monthsLeft;
   if (monthsLeft <= 0) { out.kind = 'passed'; return out; }
-
-  // remaining / monthsLeft — recomputed every render, so as real money goes
-  // in (Put in / Take out below) the "per month from now" figure moves with
-  // it. This is the number that actually tells someone where they stand.
-  out.needPerMonth = remaining / monthsLeft;
   out.targetLabel = _planFmtYM(goal.targetYM);
 
-  // What this ONE month can spare — shown only as "this month you have X
-  // free", never turned into a verdict on the whole goal. Cabin-crew pay
-  // swings with every roster, so a thin month is no reason to call a goal
-  // impossible. null means no salary saved yet — say nothing about spare cash.
+  // Has money already gone in FOR the month being planned? If so, this
+  // month's saving is done — the amount put in was this month's share of the
+  // spare cash. The "how much a month" figure then has to be spread over the
+  // months that come AFTER this one, not this one again.
+  const planYM = getPlanMonth();
+  const addedThisMonth = (goal.lastAddYM === planYM) ? (parseFloat(goal.addedThisMonth) || 0) : 0;
+  out.addedThisMonth = addedThisMonth;
+  const contributed = addedThisMonth > 0;
+  const effMonths = contributed ? monthsLeft - 1 : monthsLeft;
+  out.fromNextMonth = contributed && effMonths > 0;
+  out.finalStretch = contributed && effMonths <= 0;
+
+  // remaining / (months still to save in) — recomputed every render, so the
+  // figure moves the moment money goes in and always reads "from where you
+  // actually stand", counting only the months you have left to act.
+  out.needPerMonth = effMonths > 0 ? remaining / effMonths : remaining;
+
+  // What this ONE month can spare, and what is left of it after money already
+  // put toward this goal this month. Shown only as a "this month" line, never
+  // turned into a verdict on the whole goal — crew pay swings every roster.
+  // null means no salary saved yet — say nothing about spare cash.
   out.safeThisMonth = (safe && safe.available) ? safe.safe : null;
+  out.safeLeftThisMonth = out.safeThisMonth === null ? null : (out.safeThisMonth - addedThisMonth);
 
   out.kind = 'plan';
   return out;
@@ -5891,9 +5904,27 @@ function goalVerdictHtml(s, safe) {
     case 'nodate':
       return '<div class="plan-goal-verdict flat">Pick a target month to see if it is realistic.</div>';
     case 'plan': {
+      // Line 1 — how much a month, and from when.
+      let line1;
+      if (s.finalStretch) {
+        line1 = '<b>' + escapeHtml(s.targetLabel) + '</b> is next month and <b>' + fmtLKR(s.remaining) +
+                '</b> is still to find — put in what you can now.';
+      } else if (s.fromNextMonth) {
+        line1 = '<b>From next month</b>, save about <b>' + fmtLKR(s.needPerMonth) +
+                '</b> a month to reach this by ' + escapeHtml(s.targetLabel) + '.';
+      } else {
+        line1 = 'Save about <b>' + fmtLKR(s.needPerMonth) + '</b> a month to reach this by ' +
+                escapeHtml(s.targetLabel) + '.';
+      }
+
+      // Line 2 — this month's spare cash, less anything already put in.
       let line2;
       if (s.safeThisMonth === null) {
         line2 = 'Add your salary above to see what you can spare this month.';
+      } else if (s.addedThisMonth > 0) {
+        const left = Math.max(0, s.safeLeftThisMonth);
+        line2 = 'You have put in <b>' + fmtLKR(s.addedThisMonth) + '</b> this month — <b>' +
+                fmtLKR(left) + '</b> of this month’s free money still spare.';
       } else if (s.safeThisMonth <= 0) {
         line2 = 'Nothing spare this month — put in more on a better month.';
       } else if (s.safeThisMonth >= s.needPerMonth) {
@@ -5902,9 +5933,8 @@ function goalVerdictHtml(s, safe) {
         line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free — ' +
                 fmtLKR(s.needPerMonth - s.safeThisMonth) + ' under that.';
       }
-      return '<div class="plan-goal-verdict flat">' +
-             'Save about <b>' + fmtLKR(s.needPerMonth) + '</b> a month from now to reach this by ' +
-             escapeHtml(s.targetLabel) + '.<br>' + line2 + '<br>' +
+
+      return '<div class="plan-goal-verdict flat">' + line1 + '<br>' + line2 + '<br>' +
              '<span style="color:var(--tx3);">Pay changes every month, so this is a guide — the amount updates as you put money in.</span>' +
              '</div>';
     }
@@ -6011,6 +6041,13 @@ function renderGoals() {
       const goals = loadGoals();
       const g = goals.find(x => String(x.id) === row.dataset.id);
       if (!g) return;
+      const planYM = getPlanMonth();
+      // Track how much has gone in FOR the month being planned, so the
+      // "per month" figure can count from next month once this one is funded.
+      // A fresh month resets the running total.
+      if (g.lastAddYM !== planYM) { g.lastAddYM = planYM; g.addedThisMonth = 0; }
+      const before = parseFloat(g.addedThisMonth) || 0;
+      g.addedThisMonth = Math.max(0, before + dir * amt);
       g.saved = Math.max(0, (parseFloat(g.saved) || 0) + dir * amt);
       saveGoals(goals);
       inp.value = '';
