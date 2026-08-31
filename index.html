@@ -679,10 +679,13 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .tb-airline{font-size:.62rem;font-family:var(--sans);color:var(--tx3);font-weight:500;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
 .tb-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .tb-clock{font-size:.62rem;font-family:var(--mono);color:var(--cyan);background:rgba(0,200,240,.08);border:1px solid rgba(0,200,240,.15);border-radius:20px;padding:4px 10px;white-space:nowrap;}
-.tb-calc{background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;color:var(--on-accent,#fff);border-radius:22px;padding:9px 16px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:var(--sans);box-shadow:0 4px 16px rgba(var(--accent-rgb),.28);display:flex;align-items:center;gap:5px;white-space:nowrap;}
-.tb-calc:disabled{background:var(--inp);color:var(--tx3);box-shadow:none;cursor:not-allowed;opacity:.6;}
-.tb-install{background:rgba(var(--accent-rgb),.12);border:1.5px solid var(--purple2);color:var(--purple3);border-radius:22px;padding:9px 14px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:5px;white-space:nowrap;}
-.tb-help{background:rgba(var(--accent-rgb),.12);border:1.5px solid var(--purple2);color:var(--purple3);border-radius:50%;width:34px;height:34px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.tb-calc{background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;color:var(--on-accent,#fff);border-radius:11px;padding:9px 15px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:var(--sans);box-shadow:0 4px 14px rgba(var(--accent-rgb),.26);display:flex;align-items:center;gap:6px;white-space:nowrap;transition:transform .12s ease,box-shadow .15s;}
+.tb-calc svg{width:15px;height:15px;flex-shrink:0;}
+.tb-calc:active{transform:scale(.97);}
+.tb-calc:disabled{background:var(--inp);color:var(--tx3);box-shadow:none;cursor:not-allowed;opacity:.55;}
+.tb-install{background:rgba(var(--accent-rgb),.12);border:1px solid var(--purple2);color:var(--purple3);border-radius:11px;padding:9px 13px;font-size:.76rem;font-weight:600;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.tb-help{background:transparent;border:1px solid var(--b1);color:var(--tx2);border-radius:50%;width:34px;height:34px;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.tb-help svg{width:17px;height:17px;}
 .ef-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
 .ef-row-lbl{font-size:.6rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.04em;flex-shrink:0;white-space:nowrap;}
 .ef-chip-group{display:flex;gap:5px;flex-shrink:0;}
@@ -695,10 +698,11 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 
 /* TOP NAV TABS */
 .bottomnav{height:var(--nav-h);flex-shrink:0;background:var(--chrome);border-bottom:1px solid var(--b0);display:flex;align-items:stretch;z-index:100;}
-.nav-btn{position:relative;flex:1;border:none;border-bottom:3px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:6px 4px 5px;color:var(--tx3);font-family:var(--sans);transition:color .15s,border-color .15s;}
-.nav-btn.active{color:var(--purple3);border-bottom-color:var(--purple3);background:rgba(var(--accent-rgb),.08);}
-.nav-icon{font-size:17px;line-height:1;}
-.nav-lbl{font-size:.58rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;}
+.nav-btn{position:relative;flex:1;border:none;border-bottom:2px solid transparent;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;padding:7px 4px 6px;color:var(--tx3);font-family:var(--sans);transition:color .15s,border-color .15s;}
+.nav-btn.active{color:var(--purple3);border-bottom-color:var(--purple3);background:rgba(var(--accent-rgb),.07);}
+.nav-icon{width:21px;height:21px;display:block;}
+.nav-icon svg{width:100%;height:100%;display:block;}
+.nav-lbl{font-size:.56rem;font-weight:600;letter-spacing:.02em;text-transform:none;white-space:nowrap;}
 /* Adding the Plan tab took the bar past the width of a 320px phone (old
    iPhone SE / 5s), where the nav has no room to spare — the overflow was
    clipped, which quietly made the last tab unreachable rather than just
@@ -706,7 +710,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
    min-width:0 is what actually lets a flex item shrink below its label. */
 @media (max-width:359px){
   .nav-btn{padding:6px 2px 5px;min-width:0;}
-  .nav-icon{font-size:15px;}
+  .nav-icon{width:18px;height:18px;}
   .nav-lbl{font-size:.5rem;letter-spacing:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
 }
 .nav-dot{display:none;}
@@ -744,7 +748,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-fold{border:1px solid var(--b0);border-radius:14px;background:var(--card);margin-top:12px;overflow:hidden;}
 .plan-fold>summary{list-style:none;cursor:pointer;padding:13px 14px;display:flex;align-items:center;gap:10px;}
 .plan-fold>summary::-webkit-details-marker{display:none;}
-.plan-fold-ico{font-size:.95rem;flex-shrink:0;}
+.plan-fold-ico{font-size:.95rem;flex-shrink:0;filter:grayscale(1) opacity(.65);}
 .plan-fold-t{flex:1;min-width:0;}
 .plan-fold-t b{display:block;font-size:.8rem;font-weight:700;color:var(--tx1);}
 .plan-fold-t i{display:block;font-style:normal;font-size:.58rem;font-family:var(--mono);color:var(--tx3);margin-top:2px;}
@@ -910,11 +914,11 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.stat-card{background:var(--card);border:1px solid var(--b0);border-radius:12px;padding:14px;position:relative;overflow:hidden;}
-.stat-card .ghost{position:absolute;right:10px;bottom:8px;font-size:26px;opacity:.06;}
-.s-lbl{font-size:.54rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;}
-.s-val{font-size:1.1rem;font-weight:700;font-family:var(--mono);}
-.s-val.c{color:var(--cyan);} .s-val.a{color:var(--amber);}
+.stat-card{background:var(--card);border:1px solid var(--b0);border-radius:var(--r-md);padding:var(--sp4);position:relative;overflow:hidden;box-shadow:var(--elev1);}
+.stat-card .ghost{position:absolute;right:10px;bottom:8px;font-size:22px;opacity:.05;filter:grayscale(1);}
+.s-lbl{font-size:.6rem;font-family:var(--sans);color:var(--tx3);letter-spacing:.04em;text-transform:uppercase;font-weight:600;margin-bottom:6px;}
+.s-val{font-size:1.15rem;font-weight:700;font-family:var(--sans);color:var(--tx1);letter-spacing:-.01em;}
+.s-val.c,.s-val.a{color:var(--tx1);}
 
 /* NET HERO — the single most important element on the screen */
 .net-hero{background:linear-gradient(180deg,rgba(var(--accent-rgb),.09),rgba(var(--accent-rgb),.02));border:1px solid rgba(var(--accent-rgb),.18);border-radius:var(--r-lg);padding:var(--sp6) var(--sp5) var(--sp5);text-align:center;box-shadow:var(--elev1);}
@@ -930,7 +934,7 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 /* CARDS */
 .card{background:var(--card);border:1px solid var(--b0);border-radius:var(--r-md);overflow:hidden;box-shadow:var(--elev1);}
 .card-head{display:flex;align-items:center;gap:11px;padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--b0);background:var(--card2);}
-.card-ico{font-size:.95rem;flex-shrink:0;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--b1);border:1px solid var(--b1);}
+.card-ico{font-size:.9rem;flex-shrink:0;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--b1);border:1px solid var(--b1);filter:grayscale(1) opacity(.65);}
 .card-title{font-size:.9rem;font-weight:600;color:var(--tx1);letter-spacing:-.01em;}
 .card-sub{font-size:.66rem;color:var(--tx3);margin-top:2px;}
 .badge-p{margin-left:auto;font-size:.56rem;font-family:var(--sans);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:20px;background:rgba(var(--accent-rgb),.12);color:var(--purple3);border:1px solid rgba(var(--accent-rgb),.25);}
@@ -1008,10 +1012,10 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
 .bk-row.cyan .bk-lbl,.bk-row.cyan .bk-val{color:var(--cyan);font-weight:700;}
 .bk-row.red .bk-val{color:var(--red);}
 .bk-row.green .bk-val{color:var(--green);}
-.block-hero{background:rgba(0,200,240,.06);border:1px solid rgba(0,200,240,.14);border-radius:12px;padding:15px;text-align:center;margin-bottom:12px;}
-.bh-lbl{font-size:.55rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;}
-.bh-val{font-size:1.7rem;font-weight:700;font-family:var(--mono);color:var(--cyan);}
-.bh-sub{font-size:.62rem;font-family:var(--mono);color:var(--tx3);margin-top:4px;}
+.block-hero{background:var(--card2);border:1px solid var(--b0);border-radius:var(--r-md);padding:var(--sp4);text-align:center;margin-bottom:var(--sp3);}
+.bh-lbl{font-size:.6rem;font-family:var(--sans);color:var(--tx3);letter-spacing:.04em;text-transform:uppercase;font-weight:600;margin-bottom:5px;}
+.bh-val{font-size:1.7rem;font-weight:800;font-family:var(--sans);color:var(--tx1);letter-spacing:-.02em;}
+.bh-sub{font-size:.66rem;font-family:var(--sans);color:var(--tx3);margin-top:4px;}
 
 /* BUTTONS */
 .action-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -1061,21 +1065,21 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     <div class="tb-airline" id="topDesig">SriLankan Cabin Crew</div>
   </div>
   <div class="tb-right">
-    <button class="tb-help" id="btnHelp" title="Get Help">❓</button>
-    <button class="tb-install" id="btnInstallApp" style="display:none;">⬇ Install</button>
-    <button class="tb-calc" id="btnCalculate">⚡ Calculate</button>
+    <button class="tb-help" id="btnHelp" title="Get Help" aria-label="Get Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.6c0 1.7-2.4 2.4-2.4 2.4"/><path d="M12 17h.01"/></svg></button>
+    <button class="tb-install" id="btnInstallApp" style="display:none;">Install</button>
+    <button class="tb-calc" id="btnCalculate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5a1 1 0 0 0 .8 1.6H11l-1 6.9 8.5-11.5a1 1 0 0 0-.8-1.6H12l1-6.8Z"/></svg><span>Calculate</span></button>
   </div>
 </div>
 
 <div class="bottomnav">
-  <button class="nav-btn active" data-page="page-roster"><span class="nav-icon">📋</span><span class="nav-lbl">Roster</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-home"><span class="nav-icon">💰</span><span class="nav-lbl">Result</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-inputs"><span class="nav-icon">✏️</span><span class="nav-lbl">Inputs</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-gauge"><span class="nav-icon">📊</span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-logbook"><span class="nav-icon">📖</span><span class="nav-lbl">Logbook</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-plan"><span class="nav-icon">📆</span><span class="nav-lbl">Plan</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-swap"><span class="nav-icon">🔄</span><span class="nav-lbl">Swap</span><span class="nav-dot"></span></button>
-  <button class="nav-btn" data-page="page-docs"><span class="nav-icon">🪪</span><span class="nav-lbl">Docs</span><span class="nav-dot" id="docsNavDot"></span></button>
+  <button class="nav-btn active" data-page="page-roster"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="M9 13h6"/><path d="M9 17h4"/></svg></span><span class="nav-lbl">Roster</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-home"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span><span class="nav-lbl">Result</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-inputs"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1.5" y1="14" x2="6.5" y2="14"/><line x1="9.5" y1="8" x2="14.5" y2="8"/><line x1="17.5" y1="16" x2="22.5" y2="16"/></svg></span><span class="nav-lbl">Inputs</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-gauge"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="15"/><line x1="12" y1="20" x2="12" y2="9"/><line x1="18" y1="20" x2="18" y2="4"/></svg></span><span class="nav-lbl">Stats</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-logbook"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v13"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></span><span class="nav-lbl">Logbook</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-plan"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="17" rx="2"/><line x1="16" y1="2.5" x2="16" y2="6.5"/><line x1="8" y1="2.5" x2="8" y2="6.5"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span class="nav-lbl">Plan</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-swap"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m17 3 4 4-4 4"/><path d="M3 11V10a4 4 0 0 1 4-4h14"/><path d="m7 21-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span><span class="nav-lbl">Swap</span><span class="nav-dot"></span></button>
+  <button class="nav-btn" data-page="page-docs"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"/><circle cx="9" cy="10.5" r="2"/><path d="M14.5 9h4M14.5 12.5h4M6.5 15.5c.6-1.4 4.4-1.4 5 0"/></svg></span><span class="nav-lbl">Docs</span><span class="nav-dot" id="docsNavDot"></span></button>
 </div>
 
 <div class="scroll-area" id="scrollArea">
@@ -1090,17 +1094,17 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       <div class="card-body">
         <div class="g2">
           <div class="field">
-            <label>📅 Roster Month</label>
+            <label>Roster Month</label>
             <input type="month" id="monthYear" readonly>
             <div class="hint">Auto-filled from your uploaded roster</div>
           </div>
           <div class="field">
-            <label>💵 USD Rate (LKR)</label>
+            <label>USD Rate (LKR)</label>
             <input type="number" id="dollarRate" step="0.01" placeholder="e.g. 318.56">
             <div class="hint">Changes monthly</div>
           </div>
           <div class="field">
-            <label>💰 Sales Commission (LKR)</label>
+            <label>Sales Commission (LKR)</label>
             <input type="number" id="salesCommission" step="0.01" placeholder="Optional">
           </div>
         </div>
@@ -1193,7 +1197,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     <div class="card">
       <div class="card-head"><span class="card-ico">⏱</span><div><div class="card-title">Block Hours Override</div><div class="card-sub">Only use if company hours differ from roster</div></div></div>
       <div class="card-body">
-        <div class="field"><label>⏱ Block Override (HH:MM)</label><input type="text" id="blockHoursOverride" placeholder="e.g. 79:50" inputmode="numeric" maxlength="5"><div class="hint">Leave blank — app uses roster total automatically</div></div>
+        <div class="field"><label>Block Override (HH:MM)</label><input type="text" id="blockHoursOverride" placeholder="e.g. 79:50" inputmode="numeric" maxlength="5"><div class="hint">Leave blank — app uses roster total automatically</div></div>
       </div>
     </div>
 
@@ -1315,7 +1319,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
       <div class="card-body">
         <div class="field">
-          <label>👤 My Category</label>
+          <label>My Category</label>
           <select id="swapCategory">
             <option value="CM">C5 Cabin Manager</option>
             <option value="CS" selected>C4 Cabin Supervisor</option>
@@ -1329,7 +1333,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
           </select>
         </div>
         <div class="field">
-          <label>💱 Dollar Rate (LKR)</label>
+          <label>Dollar Rate (LKR)</label>
           <input type="number" id="swapDollarRate" step="0.01" placeholder="e.g. 318.56">
           <div class="hint">Only used for this comparison — separate from the Roster tab's rate, doesn't affect your monthly salary calculation.</div>
         </div>
@@ -1352,7 +1356,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
 
-    <button class="tb-calc" id="btnSwapCalculate" style="width:100%;padding:14px;border-radius:12px;">⚡ Compare</button>
+    <button class="tb-calc" id="btnSwapCalculate" style="width:100%;padding:14px;border-radius:12px;justify-content:center;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5a1 1 0 0 0 .8 1.6H11l-1 6.9 8.5-11.5a1 1 0 0 0-.8-1.6H12l1-6.8Z"/></svg><span>Compare</span></button>
     <div id="swapResultsArea"></div>
   </div>
 
