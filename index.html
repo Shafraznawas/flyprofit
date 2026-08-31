@@ -691,10 +691,6 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-goal-verdict.no{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--red);}
 .plan-goal-verdict.done{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.28);color:var(--green);font-weight:700;}
 .plan-goal-verdict.flat{background:rgba(255,255,255,.03);border:1px solid var(--b0);color:var(--tx2);}
-.plan-goal-add{background:rgba(124,58,237,.14);border:1.5px solid rgba(124,58,237,.38);color:var(--purple3);border-radius:9px;padding:9px 12px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:var(--sans);white-space:nowrap;}
-.plan-goal-addrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px;}
-.plan-goal-addrow input{min-width:0;background:var(--inp);border:1.5px solid var(--b1);border-radius:9px;padding:9px 11px;color:var(--tx1);font-family:var(--mono);font-size:.82rem;-webkit-appearance:none;}
-.plan-goal-addrow input:focus{outline:none;border-color:var(--purple2);}
 
 /* STAT ROW */
 .stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -5527,7 +5523,7 @@ function renderPlanLayovers(planYM) {
         </div>
         <div class="plan-lay-foot">
           <span class="plan-lay-bal">Left: <b>${escapeHtml(row.currency || '')} ${bal.toLocaleString('en-LK', { maximumFractionDigits: 2 })}</b></span>
-          <span class="plan-lay-lkr${lkr !== null && lkr < 0 ? ' neg' : ''}">${row.currency === 'LKR' ? 'already in rupees' : (lkr === null ? '—' : fmtLKR(lkr))}</span>
+          <span class="plan-lay-lkr${lkr !== null && lkr < 0 ? ' neg' : ''}">${row.currency === 'LKR' ? '' : (lkr === null ? '—' : fmtLKR(lkr))}</span>
         </div>
         ${rate === null ? `
         <div class="plan-lay-rate">
@@ -5899,29 +5895,17 @@ function goalStatus(goal, safe) {
   if (monthsLeft <= 0) { out.kind = 'passed'; return out; }
   out.targetLabel = _planFmtYM(goal.targetYM);
 
-  // Has money already gone in FOR the month being planned? If so, this
-  // month's saving is done — the amount put in was this month's share of the
-  // spare cash. The "how much a month" figure then has to be spread over the
-  // months that come AFTER this one, not this one again.
-  const planYM = getPlanMonth();
-  const addedThisMonth = (goal.lastAddYM === planYM) ? (parseFloat(goal.addedThisMonth) || 0) : 0;
-  out.addedThisMonth = addedThisMonth;
-  const contributed = addedThisMonth > 0;
-  const effMonths = contributed ? monthsLeft - 1 : monthsLeft;
-  out.fromNextMonth = contributed && effMonths > 0;
-  out.finalStretch = contributed && effMonths <= 0;
-
-  // remaining / (months still to save in) — recomputed every render, so the
-  // figure moves the moment money goes in and always reads "from where you
-  // actually stand", counting only the months you have left to act.
+  // The plan figure is always "from next month on". This month is handled by
+  // the crew member with whatever they can spare right now (the free-cash
+  // line below) and by editing "Saved so far" — so it is never counted twice.
+  const effMonths = monthsLeft - 1;
+  out.finalStretch = effMonths <= 0;               // target is next month
   out.needPerMonth = effMonths > 0 ? remaining / effMonths : remaining;
 
-  // What this ONE month can spare, and what is left of it after money already
-  // put toward this goal this month. Shown only as a "this month" line, never
-  // turned into a verdict on the whole goal — crew pay swings every roster.
-  // null means no salary saved yet — say nothing about spare cash.
+  // What this month can spare, shown only as a "this month" line — never a
+  // pass/fail on the whole goal, since crew pay swings every roster. null
+  // means no salary saved yet, so say nothing about spare cash.
   out.safeThisMonth = (safe && safe.available) ? safe.safe : null;
-  out.safeLeftThisMonth = out.safeThisMonth === null ? null : (out.safeThisMonth - addedThisMonth);
 
   out.kind = 'plan';
   return out;
@@ -5938,38 +5922,33 @@ function goalVerdictHtml(s, safe) {
     case 'nodate':
       return '<div class="plan-goal-verdict flat">Pick a target month to see if it is realistic.</div>';
     case 'plan': {
-      // Line 1 — how much a month, and from when.
+      // Line 1 — how much a month from next month on (this month is handled
+      // separately, so it is never in the divisor).
       let line1;
       if (s.finalStretch) {
-        line1 = '<b>' + escapeHtml(s.targetLabel) + '</b> is next month and <b>' + fmtLKR(s.remaining) +
-                '</b> is still to find — put in what you can now.';
-      } else if (s.fromNextMonth) {
+        line1 = '<b>' + escapeHtml(s.targetLabel) + '</b> is next month — <b>' + fmtLKR(s.remaining) +
+                '</b> still to find. Put in what you can this month.';
+      } else {
         line1 = '<b>From next month</b>, save about <b>' + fmtLKR(s.needPerMonth) +
                 '</b> a month to reach this by ' + escapeHtml(s.targetLabel) + '.';
-      } else {
-        line1 = 'Save about <b>' + fmtLKR(s.needPerMonth) + '</b> a month to reach this by ' +
-                escapeHtml(s.targetLabel) + '.';
       }
 
-      // Line 2 — this month's spare cash, less anything already put in.
+      // Line 2 — what this month can spare toward it.
       let line2;
       if (s.safeThisMonth === null) {
         line2 = 'Add your salary above to see what you can spare this month.';
-      } else if (s.addedThisMonth > 0) {
-        const left = Math.max(0, s.safeLeftThisMonth);
-        line2 = 'You have put in <b>' + fmtLKR(s.addedThisMonth) + '</b> this month — <b>' +
-                fmtLKR(left) + '</b> of this month’s free money still spare.';
       } else if (s.safeThisMonth <= 0) {
         line2 = 'Nothing spare this month — put in more on a better month.';
+      } else if (s.finalStretch) {
+        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free toward it.';
       } else if (s.safeThisMonth >= s.needPerMonth) {
-        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free — that covers it.';
+        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free — more than a month’s worth.';
       } else {
-        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free — ' +
-                fmtLKR(s.needPerMonth - s.safeThisMonth) + ' under that.';
+        line2 = 'This month you have <b>' + fmtLKR(s.safeThisMonth) + '</b> free toward it.';
       }
 
       return '<div class="plan-goal-verdict flat">' + line1 + '<br>' + line2 + '<br>' +
-             '<span style="color:var(--tx3);">Pay changes every month, so this is a guide — the amount updates as you put money in.</span>' +
+             '<span style="color:var(--tx3);">Pay changes every month, so this is a guide. Keep &ldquo;Saved so far&rdquo; up to date and it re-works itself.</span>' +
              '</div>';
     }
   }
@@ -5999,10 +5978,14 @@ function renderGoals() {
             <input type="number" data-g="target" value="${escapeHtml(String(g.target == null ? '' : g.target))}" inputmode="decimal" min="0" step="any" placeholder="0">
           </div>
         </div>
-        <div class="plan-grid wide" style="margin-top:8px;">
+        <div class="plan-grid" style="margin-top:8px;">
           <div>
             <label>By Month</label>
             <input type="month" data-g="targetYM" value="${escapeHtml(g.targetYM || '')}">
+          </div>
+          <div>
+            <label>Saved so far (LKR)</label>
+            <input type="number" data-g="saved" value="${escapeHtml(String(g.saved == null || g.saved === 0 ? '' : g.saved))}" inputmode="decimal" min="0" step="any" placeholder="0">
           </div>
         </div>
         <div class="plan-goal-money">
@@ -6016,11 +5999,6 @@ function renderGoals() {
             s.monthsLeft !== null && s.monthsLeft > 0 ? ' · ' + s.monthsLeft + ' month' + (s.monthsLeft === 1 ? '' : 's') + ' left' : ''}</span>
         </div>
         ${goalVerdictHtml(s, safe)}
-        <div class="plan-buf-controls" style="margin-top:11px;">
-          <input type="number" data-g="addamt" inputmode="decimal" min="0" step="any" placeholder="Amount">
-          <button class="plan-buf-btn in" data-goaladd="1">Put in</button>
-          <button class="plan-buf-btn out" data-goalout="1">Take out</button>
-        </div>
       </div>`;
   }).join('');
 }
@@ -6030,7 +6008,7 @@ function renderGoals() {
     const goals = loadGoals();
     goals.push({
       id: Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
-      name: '', target: '', saved: 0, targetYM: ''
+      name: '', target: '', saved: '', targetYM: ''
     });
     saveGoals(goals);
     renderGoals();
@@ -6042,7 +6020,7 @@ function renderGoals() {
   // Only the derived parts of that one row are patched afterwards.
   box.addEventListener('input', e => {
     const f = e.target.dataset ? e.target.dataset.g : null;
-    if (!f || f === 'addamt') return;
+    if (!f) return;
     const row = e.target.closest('.plan-item');
     if (!row) return;
     const goals = loadGoals();
@@ -6063,31 +6041,6 @@ function renderGoals() {
   });
 
   box.addEventListener('click', async e => {
-    // Put in / Take out — the same "note what you actually moved" idea as My
-    // Buffer, but pointed at one goal. Take out never drops below zero.
-    const moveBtn = e.target.closest('[data-goaladd],[data-goalout]');
-    if (moveBtn) {
-      const dir = moveBtn.hasAttribute('data-goalout') ? -1 : 1;
-      const row = moveBtn.closest('.plan-item');
-      const inp = row.querySelector('[data-g="addamt"]');
-      const amt = parseFloat(inp.value);
-      if (!isFinite(amt) || amt <= 0) { inp.focus(); return; }
-      const goals = loadGoals();
-      const g = goals.find(x => String(x.id) === row.dataset.id);
-      if (!g) return;
-      const planYM = getPlanMonth();
-      // Track how much has gone in FOR the month being planned, so the
-      // "per month" figure can count from next month once this one is funded.
-      // A fresh month resets the running total.
-      if (g.lastAddYM !== planYM) { g.lastAddYM = planYM; g.addedThisMonth = 0; }
-      const before = parseFloat(g.addedThisMonth) || 0;
-      g.addedThisMonth = Math.max(0, before + dir * amt);
-      g.saved = Math.max(0, (parseFloat(g.saved) || 0) + dir * amt);
-      saveGoals(goals);
-      inp.value = '';
-      renderGoals();
-      return;
-    }
     const delBtn = e.target.closest('[data-goaldel]');
     if (!delBtn) return;
     const row = delBtn.closest('.plan-item');
@@ -6116,7 +6069,7 @@ function refreshGoalRow(row, goal) {
     '</span>';
   const html = goalVerdictHtml(s, computeSafeToSpend(getPlanMonth()));
   if (verdict) verdict.outerHTML = html || '<div class="plan-goal-verdict flat" style="display:none;"></div>';
-  else if (html) row.querySelector('.plan-buf-controls').insertAdjacentHTML('beforebegin', html);
+  else if (html && meta) meta.insertAdjacentHTML('afterend', html);
 }
 
 // ---------- Good month, bad month ----------
@@ -6414,7 +6367,7 @@ function renderPlanSmoothing() {
     const lkrEl = row.querySelector('.plan-lay-lkr');
     if (balEl) balEl.textContent = (it.currency || '') + ' ' + bal.toLocaleString('en-LK', { maximumFractionDigits: 2 });
     if (lkrEl) {
-      lkrEl.textContent = it.currency === 'LKR' ? 'already in rupees' : (rate === null ? '—' : fmtLKR(bal * rate));
+      lkrEl.textContent = it.currency === 'LKR' ? '' : (rate === null ? '—' : fmtLKR(bal * rate));
       lkrEl.classList.toggle('neg', it.currency !== 'LKR' && rate !== null && bal * rate < 0);
     }
     renderPlanMoneyIn(ym);
