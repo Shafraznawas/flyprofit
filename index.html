@@ -1033,8 +1033,17 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
 .ct-s{font-size:.62rem;color:var(--tx3);font-family:var(--mono);margin-top:2px;}
 
 /* HISTORY */
-.month-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(var(--accent-rgb),.1);border:1px solid rgba(var(--accent-rgb),.22);border-radius:20px;padding:6px 13px;margin:4px 4px 4px 0;font-size:.72rem;font-family:var(--mono);color:var(--purple3);cursor:pointer;}
+.month-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(var(--accent-rgb),.1);border:1px solid rgba(var(--accent-rgb),.22);border-radius:20px;padding:6px 13px;margin:4px 4px 4px 0;font-size:.72rem;font-family:var(--sans);color:var(--purple3);cursor:pointer;}
 .month-tag .del{color:var(--red);font-weight:700;}
+/* Mini bar chart — last few months' take-home, so a month reads in context */
+.mini-chart{margin:10px 0 6px;}
+.mc-bars{display:flex;align-items:flex-end;gap:7px;min-height:86px;}
+.mc-col{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px;}
+.mc-bar{width:100%;max-width:36px;border-radius:5px 5px 2px 2px;background:rgba(var(--accent-rgb),.32);}
+.mc-col.cur .mc-bar{background:var(--purple);}
+.mc-val{font-size:.58rem;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.mc-lbl{font-size:.58rem;color:var(--tx3);white-space:nowrap;}
+.mc-col.cur .mc-lbl{color:var(--tx1);font-weight:600;}
 .collapsible-body.hidden{display:none;}
 .sec-lbl{font-size:.56rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;}
 
@@ -1202,11 +1211,11 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     </div>
 
     <div class="action-row">
-      <button class="act-btn pur" id="btnExportPDF">🖨 Print PDF</button>
-      <button class="act-btn" id="btnSaveMonth">💾 Save This Month</button>
+      <button class="act-btn pur" id="btnExportPDF">Print PDF</button>
+      <button class="act-btn" id="btnSaveMonth">Save This Month</button>
     </div>
     <div class="action-row">
-      <button class="act-btn" id="btnShowHistory">📁 History</button>
+      <button class="act-btn" id="btnShowHistory">History</button>
     </div>
     <div id="historyPanel" style="display:none;margin-top:8px;"></div>
   </div>
@@ -1237,7 +1246,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
     <div class="action-row">
-      <button class="act-btn" id="btnReset">↺ Reset</button>
+      <button class="act-btn" id="btnReset">Reset</button>
     </div>
   </div>
 
@@ -1301,11 +1310,11 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       <div class="card-body" id="logbookMonths"></div>
     </div>
     <div class="action-row">
-      <button class="act-btn" id="btnLogbookExport">⬇ Export History</button>
-      <button class="act-btn" id="btnLogbookImport">⬆ Import History</button>
+      <button class="act-btn" id="btnLogbookExport">Export History</button>
+      <button class="act-btn" id="btnLogbookImport">Import History</button>
     </div>
     <div class="action-row">
-      <button class="act-btn" id="btnLogbookReset" style="color:var(--red);">🗑 Reset Logbook</button>
+      <button class="act-btn" id="btnLogbookReset" style="color:var(--red);">Reset Logbook</button>
     </div>
     <input type="file" id="logbookImportFile" accept="application/json" style="display:none;">
   </div>
@@ -1395,7 +1404,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     </div>
 
     <div class="action-row">
-      <button class="act-btn" id="btnDocsClear" style="color:var(--red);">🗑 Clear All Documents</button>
+      <button class="act-btn" id="btnDocsClear" style="color:var(--red);">Clear All Documents</button>
     </div>
   </div>
 
@@ -1589,7 +1598,7 @@ Insurance - 18,000, yearly"></textarea>
       </details>
 
       <div class="action-row" style="margin-top:12px;">
-        <button class="act-btn" id="btnPlanClear" style="color:var(--red);">&#128465; Clear My List</button>
+        <button class="act-btn" id="btnPlanClear" style="color:var(--red);">Clear My List</button>
       </div>
 
     </div>
@@ -4234,6 +4243,37 @@ function applyInputs(inputs) {
   Object.keys(inputs).forEach(id => { if ($(id)) $(id).value = inputs[id]; });
 }
 
+// Read-only: a compact bar chart of the last few months' take-home pay so a
+// single month is seen in context. Draws nothing with fewer than two months.
+function _histChart(sortedKeys, allHistory) {
+  if (sortedKeys.length < 2) return '';
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const shortMon = k => {
+    const m = /^(\d{4})-(\d{1,2})$/.exec(k);
+    return m ? MON[+m[2] - 1] + " '" + m[1].slice(2) : String(k).slice(0, 6);
+  };
+  const rows = sortedKeys.slice(-6).map(k => {
+    const c = allHistory[k] && allHistory[k].calculation;
+    return { k, net: (c && typeof c.finalNet === 'number') ? c.finalNet : 0 };
+  });
+  const nets = rows.map(r => r.net);
+  const max = Math.max(...nets, 1);
+  const min = Math.min(...nets);
+  // anchor a little below the smallest month so the differences actually read
+  const floor = min > 0 ? min * 0.9 : 0;
+  const span = Math.max(max - floor, 1);
+  const curKey = sortedKeys[sortedKeys.length - 1];
+  const bars = rows.map(r => {
+    const h = Math.max(10, Math.round((r.net - floor) / span * 60) + 10);
+    const val = r.net >= 1000 ? Math.round(r.net / 1000) + 'k' : String(Math.round(r.net));
+    return `<div class="mc-col${r.k === curKey ? ' cur' : ''}">` +
+      `<div class="mc-val">${val}</div>` +
+      `<div class="mc-bar" style="height:${h}px"></div>` +
+      `<div class="mc-lbl">${shortMon(r.k)}</div></div>`;
+  }).join('');
+  return `<div class="mini-chart"><div class="mc-bars">${bars}</div></div>`;
+}
+
 function renderHistoryPanel() {
   const allHistory = JSON.parse(localStorage.getItem('sla_salary_history') || '{}');
   const panel = $('historyPanel');
@@ -4244,9 +4284,11 @@ function renderHistoryPanel() {
     return;
   }
   const sortedKeys = [...keys].sort();
-  panel.innerHTML = '<div style="font-size:.72rem;color:var(--tx3);margin-bottom:6px;font-family:var(--mono);letter-spacing:.05em;">SAVED MONTHS — tap to load</div>' +
+  panel.innerHTML = '<div style="font-size:.72rem;color:var(--tx3);margin-bottom:6px;letter-spacing:.05em;">SAVED MONTHS — tap to load</div>' +
     keys.map(k => `<span class="month-tag" data-key="${k}">${k} <span class="del" data-key="${k}">&times;</span></span>`).join('') +
-    '<div style="font-size:.72rem;color:var(--tx3);margin:14px 0 6px;font-family:var(--mono);letter-spacing:.05em;">COMPARISON</div>' +
+    '<div style="font-size:.72rem;color:var(--tx3);margin:16px 0 6px;letter-spacing:.05em;">TAKE-HOME BY MONTH</div>' +
+    _histChart(sortedKeys, allHistory) +
+    '<div style="font-size:.72rem;color:var(--tx3);margin:16px 0 6px;letter-spacing:.05em;">COMPARISON</div>' +
     '<table class="flights" style="width:100%;"><thead><tr><th>Month</th><th>Net Pay</th><th>Block Hours</th></tr></thead><tbody>' +
     sortedKeys.map(k => {
       const c = allHistory[k].calculation;
