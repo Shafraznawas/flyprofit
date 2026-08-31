@@ -834,6 +834,18 @@ body{background:var(--bg);color:var(--tx1);font-family:var(--sans);display:flex;
 .plan-safe-row .k{font-size:.78rem;color:var(--tx2);}
 .plan-safe-row .v{font-size:.82rem;font-family:var(--mono);font-weight:600;color:var(--tx1);white-space:nowrap;}
 .plan-safe-rule{border-top:2px solid var(--b1);margin:8px 0 4px;}
+/* Where the month's money goes — one proportional bar */
+.plan-flow{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--b1);margin:12px 0 8px;}
+.plan-flow i{display:block;height:100%;}
+.plan-flow .f-bills{background:var(--amber);opacity:.7;}
+.plan-flow .f-aside{background:var(--purple);opacity:.6;}
+.plan-flow .f-safe{background:var(--green);}
+.plan-flow-key{display:flex;gap:14px;flex-wrap:wrap;font-size:.62rem;color:var(--tx3);margin-bottom:2px;}
+.plan-flow-key span{display:inline-flex;align-items:center;}
+.plan-flow-key i{width:9px;height:9px;border-radius:3px;margin-right:5px;flex-shrink:0;}
+.plan-flow-key .f-bills{background:var(--amber);}
+.plan-flow-key .f-aside{background:var(--purple);}
+.plan-flow-key .f-safe{background:var(--green);}
 .plan-safe-big{font-size:1.9rem;font-family:var(--mono);font-weight:800;line-height:1.15;letter-spacing:-.01em;word-break:break-word;}
 .plan-safe-big.pos{color:var(--green);}
 .plan-safe-big.zero{color:var(--tx2);}
@@ -5983,10 +5995,39 @@ function renderSafeToSpend() {
       escapeHtml(income.missingCurrencies.join(' and ')) + ' rate above.</div>';
   }
 
+  // Proportional split of the month's money: bills, put-aside, what's left.
+  // Read-only view of figures already computed above.
+  let flowHtml = '';
+  if (safe >= 0) {
+    const base = Math.max(income.total, 1);
+    const wB = Math.max(0, t.dueThis / base * 100);
+    const wA = Math.max(0, t.setAside / base * 100);
+    const wS = Math.max(0, 100 - wB - wA);
+    flowHtml =
+      (wB > 0 ? '<i class="f-bills" style="width:' + wB.toFixed(2) + '%"></i>' : '') +
+      (wA > 0 ? '<i class="f-aside" style="width:' + wA.toFixed(2) + '%"></i>' : '') +
+      (wS > 0 ? '<i class="f-safe" style="width:' + wS.toFixed(2) + '%"></i>' : '');
+  } else {
+    const need = Math.max(t.dueThis + t.setAside, 1);
+    flowHtml =
+      '<i class="f-bills" style="width:' + (t.dueThis / need * 100).toFixed(2) + '%"></i>' +
+      '<i class="f-aside" style="width:' + (t.setAside / need * 100).toFixed(2) + '%"></i>';
+  }
+  const flowKey =
+    '<div class="plan-flow-key">' +
+      '<span><i class="f-bills"></i>Bills</span>' +
+      '<span><i class="f-aside"></i>Put aside</span>' +
+      (safe >= 0
+        ? '<span><i class="f-safe"></i>Left to spend</span>'
+        : '<span style="color:var(--red)">Short by ' + fmtLKR(Math.abs(safe)) + '</span>') +
+    '</div>';
+
   body.innerHTML =
     '<div class="plan-safe-row"><span class="k">Money in</span><span class="v">' + fmtLKR(income.total) + '</span></div>' +
     '<div class="plan-safe-row"><span class="k">Bills this month</span><span class="v">− ' + fmtLKR(t.dueThis) + '</span></div>' +
     '<div class="plan-safe-row"><span class="k">Put aside</span><span class="v">− ' + fmtLKR(t.setAside) + '</span></div>' +
+    flowKey +
+    '<div class="plan-flow">' + flowHtml + '</div>' +
     '<div class="plan-safe-rule"></div>' +
     '<div style="padding-top:8px;">' +
       '<div style="font-size:.6rem;font-family:var(--mono);color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;">Safe to spend</div>' +
