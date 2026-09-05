@@ -968,6 +968,12 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       <button class="cat-pick-btn" data-cat="FA_C" style="padding:14px 10px;border-radius:14px;border:1.5px solid var(--b1);background:rgba(255,255,255,.03);color:var(--tx2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .18s;line-height:1.3;text-align:center;"><span style="font-size:15px;display:block;">C</span>New Contract<br><span style="font-size:9.5px;font-weight:400;color:var(--tx3);">No Meal Ded.</span></button>
       <button class="cat-pick-btn" data-cat="FA_C_OLD" style="padding:14px 10px;border-radius:14px;border:1.5px solid var(--b1);background:rgba(255,255,255,.03);color:var(--tx2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:all .18s;line-height:1.3;text-align:center;"><span style="font-size:15px;display:block;">C</span>Old Contract<br><span style="font-size:9.5px;font-weight:400;color:var(--tx3);">Meal Ded.</span></button>
     </div>
+    <div id="catStaffNoBlock" style="margin-bottom:14px;text-align:left;">
+      <div style="font-size:11.5px;font-weight:700;color:var(--tx1);margin-bottom:4px;">Your Staff No</div>
+      <div style="font-size:10.5px;color:var(--tx3);line-height:1.55;margin-bottom:7px;">This is how FlyProfit knows you. It keeps your account yours if you change phone or browser.</div>
+      <input id="catStaffNo" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 17401" style="width:100%;box-sizing:border-box;background:var(--inp);border:1.5px solid var(--b1);border-radius:12px;padding:12px;color:var(--tx1);font-family:var(--sans);font-size:14px;text-align:center;letter-spacing:.06em;text-transform:uppercase;">
+      <div id="catStaffNoErr" style="font-size:10.5px;color:var(--red);margin-top:6px;display:none;">Please enter your Staff No (4–7 digits).</div>
+    </div>
     <button id="btnCategoryConfirm" disabled style="width:100%;background:var(--purple);color:#fff;border:none;border-radius:12px;padding:13px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:var(--sans);opacity:.4;transition:opacity .2s;">Confirm &amp; Open Calculator</button>
   </div>
 </div>
@@ -3051,8 +3057,40 @@ function saveFixedValues() {
   localStorage.setItem('sla_fixed_values', JSON.stringify(obj));
 }
 
+// Safe localStorage read. A raw JSON.parse on a stored value throws if that
+// value is ever truncated or corrupted (an interrupted write, a full disk, a
+// half-finished import), and because these run during render, one bad key took
+// out the whole History / Logbook / saved-inputs screen with a blank page
+// instead of just losing that one item.
+function _readStore(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const v = JSON.parse(raw);
+    return (v && typeof v === 'object') ? v : fallback;
+  } catch (e) {
+    console.warn('[storage] unreadable key, using fallback:', key);
+    return fallback;
+  }
+}
+
+// Safe localStorage write. localStorage is capped (commonly ~5MB per site) and
+// setItem THROWS when full — it does not fail quietly. Saved months and the
+// logbook both grow with every roster, so on a long-serving crew member's phone
+// "Save This Month" could throw, leave the month unsaved, and show nothing at
+// all. Say it plainly and point at the two things that free space.
+function _writeStore(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    alert("Your phone is out of storage space for FlyProfit, so this could not be saved.\n\nTo free some up: open Result \u2192 Export History (keeps a backup file), then Reset. Or open Logbook \u2192 Reset Logbook.");
+    return false;
+  }
+}
+
 function loadFixedValues() {
-  const saved = JSON.parse(localStorage.getItem('sla_fixed_values') || 'null');
+  const saved = _readStore('sla_fixed_values', null);
   if (saved) {
     FIXED_VALUE_IDS.forEach(id => { if (saved[id] !== undefined && $(id)) $(id).value = saved[id]; });
   }
@@ -3084,7 +3122,7 @@ function applyInputs(inputs) {
 }
 
 function renderHistoryPanel() {
-  const allHistory = JSON.parse(localStorage.getItem('sla_salary_history') || '{}');
+  const allHistory = _readStore('sla_salary_history', {});
   const panel = $('historyPanel');
   if (!panel) return;
   const keys = Object.keys(allHistory);
@@ -3120,7 +3158,7 @@ function renderHistoryPanel() {
       const k = del.dataset.key;
       if (!await showConfirm(`Delete saved data for ${k}?`)) return;
       delete allHistory[k];
-      localStorage.setItem('sla_salary_history', JSON.stringify(allHistory));
+      _writeStore('sla_salary_history', allHistory);
       renderHistoryPanel();
     });
   });
@@ -3129,13 +3167,13 @@ function renderHistoryPanel() {
 // ---------- Save Month (for history / comparison) ----------
 $('btnSaveMonth').addEventListener('click', () => {
   if (!state.lastCalculation) { alert('Please calculate the salary first.'); return; }
-  const allHistory = JSON.parse(localStorage.getItem('sla_salary_history') || '{}');
+  const allHistory = _readStore('sla_salary_history', {});
   const key = getMonthKey();
   allHistory[key] = {
     inputs: collectInputs(),
     calculation: state.lastCalculation
   };
-  localStorage.setItem('sla_salary_history', JSON.stringify(allHistory));
+  if (!_writeStore('sla_salary_history', allHistory)) return;
   renderHistoryPanel();
   alert(`Saved ${key}.`);
 });
@@ -3245,13 +3283,13 @@ function captureMonthToLogbook(flights) {
     sectors.push({ date: f.date, flightNo: f.flightNo, route: (f.orig || '?') + '-' + (f.dest || '?'), blockMin: f.blockMinutes || 0, type: f.dutyType });
   });
 
-  const store = JSON.parse(localStorage.getItem(LOGBOOK_KEY) || '{}');
+  const store = _readStore(LOGBOOK_KEY, {});
   store[year] = store[year] || {};
   store[year][monthKey] = { monthKey, blockMin, sectorCount: flights.length, destinations, layovers, sectors, savedAt: Date.now() };
-  localStorage.setItem(LOGBOOK_KEY, JSON.stringify(store));
+  _writeStore(LOGBOOK_KEY, store);
 }
 
-function _logbookStore() { return JSON.parse(localStorage.getItem(LOGBOOK_KEY) || '{}'); }
+function _logbookStore() { return _readStore(LOGBOOK_KEY, {}); }
 
 function renderLogbook() {
   const store = _logbookStore();
@@ -3790,7 +3828,7 @@ $('btnLogbookExport').addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'flyprofit-logbook-' + new Date().toISOString().slice(0,10) + '.json';
+  a.download = 'flyprofit-logbook-' + _localDateStr(new Date()) + '.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
@@ -4047,6 +4085,7 @@ window._slaShowTrialStartIfFirst = function(){};
       taps = 0;
       localStorage.removeItem('sla_category');
       state.category = 'CS';
+      if (typeof window._slaSyncStaffNoField === 'function') window._slaSyncStaffNoField();
       const overlay = document.getElementById('category-overlay');
       if (overlay) overlay.style.display = 'flex';
     } else {
@@ -4064,8 +4103,21 @@ window._slaShowTrialStartIfFirst = function(){};
   // this never appears before the crew member has actually dismissed the
   // disclaimer. If a category is already saved, skip straight to the
   // trial-started check instead of showing this at all.
+  // Hide the Staff No question whenever one is already known — either typed
+  // here before, or (better) read off a real roster PDF. Re-opening this
+  // screen from the hidden admin reset must never re-ask for it.
+  function _syncStaffNoField() {
+    const known = localStorage.getItem('sla_registered_staff_no') || '';
+    const block = document.getElementById('catStaffNoBlock');
+    const input = document.getElementById('catStaffNo');
+    if (input) input.value = known;
+    if (block) block.style.display = known ? 'none' : 'block';
+  }
+  window._slaSyncStaffNoField = _syncStaffNoField;
+
   window._slaAfterDisclaimer = function() {
     if (!localStorage.getItem('sla_category')) {
+      _syncStaffNoField();
       overlay.style.display = 'flex';
     } else {
       window._slaShowTrialStartIfFirst();
@@ -4093,6 +4145,35 @@ window._slaShowTrialStartIfFirst = function(){};
 
   confirmBtn.addEventListener('click', () => {
     if (!pickedCat) return;
+
+    // Staff No is captured HERE, at first launch, instead of waiting for the
+    // first roster upload. Every trial marker — start date, day count,
+    // licensed flag — lives in this browser's own localStorage, so someone
+    // opening the app in a different browser arrived with no identity at all
+    // and was handed a brand-new trial. The Staff No is the only thing that
+    // survives a browser change (or a new phone), so the app asks for it once,
+    // up front, and every server check can key off it from the very first open
+    // rather than only after a PDF has been uploaded.
+    const already = localStorage.getItem('sla_registered_staff_no');
+    if (!already) {
+      const snInput = document.getElementById('catStaffNo');
+      const snErr = document.getElementById('catStaffNoErr');
+      const typed = (snInput ? snInput.value : '').trim().toUpperCase();
+      if (!/^[Cc]?\d{4,7}$/.test(typed)) {
+        if (snErr) snErr.style.display = 'block';
+        if (snInput) snInput.focus();
+        return;
+      }
+      if (snErr) snErr.style.display = 'none';
+      localStorage.setItem('sla_registered_staff_no', typed);
+      // Ask the server about it straight away, so a returning crew member who
+      // is already past their trial is locked on this first open rather than
+      // getting a free run until their next upload. A typed Staff No can only
+      // ever RAISE the day count — the clock is max(local elapsed, server
+      // days) — so a wrong guess can never buy anyone extra time.
+      if (typeof checkStaffTrial === 'function') checkStaffTrial(typed, '');
+    }
+
     state.category = pickedCat;
     localStorage.setItem('sla_category', pickedCat);
     updateCatUI();
@@ -4343,8 +4424,23 @@ const PING_URL = 'https://script.google.com/macros/s/AKfycbzSF4_Vt0MI43ZUIhIJtKH
 const NEW_INSTALL_CUTOFF = '2026-07-21';
 const OLD_TRIAL_DAYS = 20;
 const NEW_TRIAL_DAYS = 10;
+// Local calendar date as yyyy-MM-dd.
+//
+// Deliberately NOT toISOString(), which is UTC. Sri Lanka is UTC+5:30, so
+// between midnight and 05:29 local time the UTC date is still YESTERDAY. That
+// one detail was quietly costing users: a first open at 1am stamped the trial
+// as having started the day before (a day of trial lost), the "once per day"
+// ping rolled over at 05:30 instead of midnight, and an install late on the
+// cutoff date could land in the 20-day bucket instead of the 10-day one.
+function _localDateStr(d) {
+  const t = (d instanceof Date) ? d : new Date(d);
+  return t.getFullYear() + '-' +
+         String(t.getMonth() + 1).padStart(2, '0') + '-' +
+         String(t.getDate()).padStart(2, '0');
+}
+
 function _trialDaysFor(startMs) {
-  const key = new Date(startMs).toISOString().slice(0, 10);
+  const key = _localDateStr(startMs);
   return key >= NEW_INSTALL_CUTOFF ? NEW_TRIAL_DAYS : OLD_TRIAL_DAYS;
 }
 
@@ -4375,7 +4471,7 @@ function _deviceCode() {
 // Daily restriction-status check (two-way, readable) — cached locally so
 // enforcement never depends on network access at the exact moment of upload.
 function _refreshRestrictionStatus() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = _localDateStr(new Date());
   if (localStorage.getItem('sla_restriction_check_date') === todayStr) return;
   localStorage.setItem('sla_restriction_check_date', todayStr);
   fetch(PING_URL + '?checkRestriction=1&code=' + encodeURIComponent(_deviceCode()))
@@ -4392,7 +4488,7 @@ _refreshRestrictionStatus();
 // IS the first open.
 function _trialStartStr() {
   const ms = parseInt(localStorage.getItem('sla_trial_start') || '', 10);
-  return isNaN(ms) ? '' : new Date(ms).toISOString().slice(0, 10);
+  return isNaN(ms) ? '' : _localDateStr(ms);
 }
 
 // Proactive "device is alive" ping — once per calendar day per device,
@@ -4401,7 +4497,7 @@ function _trialStartStr() {
 // this is what keeps Last Seen / Days Since First Open moving on the
 // monitoring sheet for every device, including ones already activated.
 (function() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = _localDateStr(new Date());
   if (localStorage.getItem('sla_last_ping_date') === todayStr) return;
   localStorage.setItem('sla_last_ping_date', todayStr);
   fetch(PING_URL + '?code=' + encodeURIComponent(_deviceCode()) + '&start=' + encodeURIComponent(_trialStartStr()), { mode: 'no-cors' }).catch(() => {});
@@ -4467,7 +4563,12 @@ async function registerAndCheckRosterIdentity(identity, durationsPayload) {
   if (!deviceExempt) {
     await Promise.race([
       checkStaffTrial(identity.staffNo, identity.staffName),
-      new Promise(resolve => setTimeout(resolve, 4000))
+      // 8s, not 4s. This is the one check standing between an expired Staff No
+      // and a processed roster, and on a weak inflight/hotel connection 4s was
+      // short enough to lose the race routinely — every timeout falls through
+      // to "allowed". Still bounded, so a genuinely offline upload is never
+      // left hanging.
+      new Promise(resolve => setTimeout(resolve, 8000))
     ]);
     let verdicts = {};
     try { verdicts = JSON.parse(localStorage.getItem('sla_staff_trial_verdicts') || '{}'); } catch (e) {}
@@ -4504,8 +4605,13 @@ function checkStaffTrial(staffNo, name) {
   // on failure) so callers that need an AUTHORITATIVE answer before
   // proceeding — the upload gate below — can await it, while callers that
   // just want a background refresh (the on-open check) can ignore it.
+  // The device code rides along purely so the server can tell a real install
+  // apart from someone hand-typing checkTrial URLs — it is never used to
+  // decide licensing (see checkDeviceTrial for why device code can't be
+  // trusted for that).
   return fetch(PING_URL + '?checkTrial=1&staffNo=' + encodeURIComponent(staffNo) +
       '&name=' + encodeURIComponent(name || '') +
+      '&code=' + encodeURIComponent(_deviceCode()) +
       '&start=' + encodeURIComponent(startParam))
     .then(r => r.json())
     .then(data => {
@@ -4546,26 +4652,40 @@ function checkStaffTrial(staffNo, name) {
     .catch(() => null); // offline/blocked — local clock keeps serving as the fallback
 }
 
-// Licensed-status check for a device that's never uploaded a roster — no
-// Staff No exists to check with, so this asks by device code instead,
-// matching the "DEV-<code>" row the owner sees on the Sheet and types YES
-// into after payment. Same instant-unlock behavior as checkStaffTrial.
-function checkDeviceLicense() {
+// Trial-day check for a device that has no Staff No yet. Asks the server about
+// this device's own DEV-<code> row and ENFORCES the day count it sends back.
+//
+// It deliberately does NOT unlock any more, and that is the whole point. This
+// used to set sla_licensed when the DEV row was marked Licensed, which broke
+// the rule the July staff-no migration established — device code identifies,
+// it never authorises — because _deviceCode() has two fatal properties:
+//
+//   * it COLLIDES. It is a hash of phone model + screen + language + timezone,
+//     so any two crew on the same handset in the same country get the same
+//     code. One person paying silently licensed everyone else on that model.
+//   * it CHANGES. navigator.userAgent is part of the hash, so Chrome, Samsung
+//     Internet and Firefox on one phone are three different "devices", each
+//     getting its own fresh DEV row and therefore its own fresh trial.
+//
+// It also used to read only data.licensed and throw away data.daysSince and
+// data.trialDays, which the server has always sent. That was the other half of
+// the same bug: a brand-new browser has no local start date and no Staff No,
+// so nothing else was checking expiry and the app simply opened unlocked.
+// Reading them here is what closes it.
+//
+// Unlocking now happens only through the Staff No — unique per person, stable
+// across browsers and phones — via checkStaffTrial or the lock screen's Step 1.
+function checkDeviceTrial() {
   fetch(PING_URL + '?checkTrial=1&code=' + encodeURIComponent(_deviceCode()))
     .then(r => r.json())
     .then(data => {
-      if (!data) return;
-      if (data.licensed) {
-        localStorage.setItem('sla_licensed', '1');
-        const ov = document.getElementById('sla-lock-overlay');
-        if (ov) { ov.remove(); document.body.style.overflow = ''; }
-      } else if (localStorage.getItem('sla_licensed') === '1') {
-        // Sheet-driven revoke — see the matching branch in checkStaffTrial.
-        localStorage.removeItem('sla_licensed');
-        location.reload();
+      if (!data || typeof data.daysSince !== 'number') return;
+      if (localStorage.getItem('sla_licensed') === '1') return; // already activated on this device
+      if (typeof window._slaHandleServerTrialCheck === 'function') {
+        window._slaHandleServerTrialCheck(data.daysSince, data.trialDays);
       }
     })
-    .catch(() => {});
+    .catch(() => {}); // offline/blocked — local clock keeps serving as the fallback
 }
 
 // Closes a real gap the Staff-No-keyed gate above doesn't cover: it only
@@ -4604,7 +4724,7 @@ async function checkDeviceTrialGate() {
   if (localStorage.getItem('sla_owner_whitelisted') === '1') return;
   const reg = localStorage.getItem('sla_registered_staff_no');
   if (reg) checkStaffTrial(reg, localStorage.getItem('sla_registered_name') || '');
-  else checkDeviceLicense();
+  else checkDeviceTrial();
 })();
 
 // Looks up one leg by flight no or route, and — since a mutual is always a
@@ -4641,18 +4761,17 @@ function lookupSchedule(flightNo) {
 const TRIAL_ENABLED = true;
 
 if (TRIAL_ENABLED) (function(){
-  const OWNER_SECRET = 'Rifniya01';
+  // Owner bypass secret. Only the SHA-256 DIGEST ships — the secret itself is
+  // never in the page, so reading the source (or the public repo) no longer
+  // hands anyone a permanent free licence. To rotate: pick a new secret and
+  // replace this digest with its SHA-256, together.
+  const OWNER_HASH = 'd81a497fd9a92730595a2d130bd79e498c3e6b1db4567767d52ac4eb8bf20ba9';
   const OWNER_WHATSAPP = '94770077902';
   const _LIC_SALT = 'SLA-FLYPROFIT-2026';                      // TODO: change once, then keep identical in key_generator.html
   // PING_URL, _hashStr, _deviceCode are now defined in the always-on
   // "ROSTER IDENTITY MONITORING" block above (shared with the roster
   // upload monitoring, which must run for licensed devices too).
 
-  function _codeToKey(code) {
-    const combined = code.split('').reverse().join('') + _LIC_SALT;
-    const h = _hashStr(combined).toString(36).toUpperCase().padStart(8, '0').slice(0, 8);
-    return h.slice(0, 4) + '-' + h.slice(4, 8);
-  }
 
   // Staff-No-based key — the preferred format: a Staff No is unique per
   // person (unlike the device fingerprint, which is identical for crew on
@@ -4667,11 +4786,32 @@ if (TRIAL_ENABLED) (function(){
 
   const params = new URLSearchParams(location.search);
 
-  // Owner bypass — permanent whitelist, forever
-  if (params.get('owner') === OWNER_SECRET) {
-    localStorage.setItem('sla_owner_whitelisted', '1');
-  }
+  // Owner bypass — permanent whitelist, forever. The stored flag is checked
+  // FIRST, and returns before the hash check below is even started. That
+  // order matters: the check is asynchronous, so on a load that was already
+  // whitelisted it would still resolve, store the flag again and reload —
+  // and reload again on the next pass, endlessly, for as long as ?owner=…
+  // stayed in the address bar.
   if (localStorage.getItem('sla_owner_whitelisted') === '1') return;
+
+  // Checked by hashing whatever was typed and comparing digests, so a wrong
+  // guess learns nothing and the real secret never appears in the shipped
+  // file. SubtleCrypto is async, so this stores the flag and reloads; the
+  // synchronous check above then catches it on the next pass. Devices
+  // whitelisted under the old plaintext check already hold the flag and are
+  // unaffected.
+  const _ownerParam = params.get('owner');
+  if (_ownerParam && window.crypto && crypto.subtle) {
+    crypto.subtle.digest('SHA-256', new TextEncoder().encode(_ownerParam))
+      .then(function(buf){
+        const hex = Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+        if (hex === OWNER_HASH) {
+          localStorage.setItem('sla_owner_whitelisted', '1');
+          location.reload();
+        }
+      })
+      .catch(function(){});
+  }
 
   // Already activated on this device
   if (localStorage.getItem('sla_licensed') === '1') return;
@@ -4769,14 +4909,15 @@ if (TRIAL_ENABLED) (function(){
   // block above, so it keeps firing for whitelisted/licensed devices too —
   // this block is skipped entirely for them via the early-returns above.)
 
-  // Testing backdoor — in-memory only, never persisted, never affects real users
-  let elapsedDays;
-  const simDay = params.get('simulate_day');
-  if (simDay !== null && !isNaN(parseInt(simDay, 10))) {
-    elapsedDays = parseInt(simDay, 10);
-  } else {
-    elapsedDays = Math.max(realElapsedDays, serverDays);
-  }
+  // Whichever clock remembers more wins, so neither a wound-back phone date
+  // nor a wiped local start can shrink the count.
+  //
+  // The old ?simulate_day override was REMOVED. It was written as a test-only
+  // backdoor but shipped enabled in production, where appending
+  // "?simulate_day=0" to the URL set the elapsed count to zero and skipped the
+  // lock screen entirely. Test expiry by editing First Seen on the Sheet
+  // instead — that exercises the real server path rather than bypassing it.
+  const elapsedDays = Math.max(realElapsedDays, serverDays);
 
   // Server-push hook: lets an upload's checkTrial response (which resolves
   // seconds after a roster is processed) lock the app mid-session instead
@@ -4800,8 +4941,6 @@ if (TRIAL_ENABLED) (function(){
     // way device-code keys could). Falls back to the device code only when
     // no roster has ever been uploaded on this device.
     const regStaff = localStorage.getItem('sla_registered_staff_no') || '';
-    const lockId = regStaff || code;
-    const lockIdLabel = regStaff ? 'Your Staff No' : 'Your Device Code';
     const ov = document.createElement('div');
     ov.id = 'sla-lock-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0b0e1a;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;';
@@ -4815,10 +4954,19 @@ if (TRIAL_ENABLED) (function(){
           <div style="font-size:1.3rem;font-weight:800;color:#fbbf24;line-height:1.3;">Pay only LKR 3,500<br>to continue using — for life</div>
           <div style="font-size:.64rem;color:#fcd34d;margin-top:8px;">No subscription. No renewal. Ever.</div>
         </div>
-        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">${lockIdLabel} <span style="color:#64748b;text-transform:none;">(use as payment reference)</span></div>
-        <div id="sla-device-code" style="font-family:monospace;font-size:1.3rem;font-weight:700;letter-spacing:.1em;color:#c084fc;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:18px;">${lockId}</div>
 
-        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Step 1 — Pay To This Bank Account</div>
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Step 1 — Your Staff No</div>
+        <div style="font-size:.66rem;color:#64748b;margin-bottom:8px;text-align:left;">Your Staff No is how FlyProfit knows you. It stays yours on any phone or browser${regStaff ? '' : ' — enter it once here'}.</div>
+        ${regStaff
+          ? `<div id="sla-device-code" style="font-family:monospace;font-size:1.3rem;font-weight:700;letter-spacing:.1em;color:var(--purple3);background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:10px;margin-bottom:8px;">${regStaff}</div>`
+          : `<div id="sla-device-code" style="display:none;"></div>`}
+        <input id="sla-staffno-check-input" type="text" placeholder="e.g. 17401" autocomplete="off" inputmode="text" value="${regStaff}" style="width:100%;box-sizing:border-box;background:#0b0e1a;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;padding:11px;color:#e2e8f0;font-family:monospace;font-size:.95rem;text-align:center;letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase;">
+        <button id="sla-staffno-check-btn" style="width:100%;background:rgba(124,58,237,.15);border:1.5px solid rgba(124,58,237,.4);color:var(--purple3);border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">${regStaff ? 'Recheck My Staff No' : 'Save & Check My Staff No'}</button>
+        <div id="sla-staffno-check-msg" style="font-size:.68rem;margin-top:10px;text-align:left;line-height:1.5;display:none;"></div>
+
+        <div style="height:1px;background:rgba(255,255,255,.08);margin:22px 0;"></div>
+
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Step 2 — Pay To This Bank Account</div>
         <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;margin-bottom:16px;text-align:left;font-size:.75rem;color:#cbd5e1;line-height:1.7;">
           <div>Amana Bank PLC — Dehiwala Branch</div>
           <div>Account Name: <strong style="color:#e2e8f0;">SHAFRAZ FAROOK</strong></div>
@@ -4826,22 +4974,16 @@ if (TRIAL_ENABLED) (function(){
           <div>Reference: <strong style="color:#c084fc;">${regStaff || '[Your Staff No]'}</strong></div>
         </div>
 
-        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Step 2 — Send Payment Proof via WhatsApp</div>
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;text-align:left;">Step 3 — Send Payment Proof via WhatsApp</div>
         <a id="sla-wa-btn" href="#" target="_blank" rel="noopener" style="display:block;background:#25D366;color:#fff;text-decoration:none;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;margin-bottom:18px;text-align:center;">📱 Send via WhatsApp</a>
 
-        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;text-align:left;">Step 3 — Enter Your Activation Key</div>
-        <div style="font-size:.66rem;color:#64748b;margin-bottom:8px;text-align:left;">We'll WhatsApp you this key once your payment is confirmed.</div>
+        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;text-align:left;">Step 4 — Enter Your Activation Key</div>
+        <div style="font-size:.66rem;color:#64748b;margin-bottom:8px;text-align:left;">We'll WhatsApp you this key once your payment is confirmed. Most people never need it — once the payment is confirmed, Step 1 unlocks the app on its own.</div>
         <input id="sla-key-input" type="text" placeholder="XXXX-XXXX" autocomplete="off" style="width:100%;box-sizing:border-box;background:#0b0e1a;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;padding:11px;color:#e2e8f0;font-family:monospace;font-size:.95rem;text-align:center;letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase;">
-        <button id="sla-activate-btn" style="width:100%;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">Activate</button>
-        <div id="sla-activate-err" style="font-size:.68rem;color:#f87171;margin-top:10px;display:none;">Invalid key for this device. Please check and try again.</div>
+        <button id="sla-activate-btn" style="width:100%;background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">Activate</button>
+        <div id="sla-activate-err" style="font-size:.68rem;color:#f87171;margin-top:10px;display:none;">Invalid key for this Staff No. Please check and try again.</div>
 
-        <div style="height:1px;background:rgba(255,255,255,.08);margin:22px 0;"></div>
-
-        <div style="font-size:.62rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;text-align:left;">Already Confirmed By The Owner? Recheck Here</div>
-        <div style="font-size:.66rem;color:#64748b;margin-bottom:8px;text-align:left;">Only works after the owner has confirmed your payment. Typing your Staff No here does not pay or activate on its own — complete Steps 1–3 above first.</div>
-        <input id="sla-staffno-check-input" type="text" placeholder="e.g. 17401" autocomplete="off" inputmode="text" style="width:100%;box-sizing:border-box;background:#0b0e1a;border:1.5px solid rgba(255,255,255,.12);border-radius:10px;padding:11px;color:#e2e8f0;font-family:monospace;font-size:.95rem;text-align:center;letter-spacing:.08em;margin-bottom:10px;text-transform:uppercase;">
-        <button id="sla-staffno-check-btn" style="width:100%;background:rgba(124,58,237,.15);border:1.5px solid rgba(124,58,237,.4);color:#c084fc;border-radius:10px;padding:12px;font-weight:700;font-size:.85rem;cursor:pointer;">Recheck My Staff No</button>
-        <div id="sla-staffno-check-msg" style="font-size:.68rem;margin-top:10px;text-align:left;line-height:1.5;display:none;"></div>
+        <div style="font-size:.58rem;color:#475569;margin-top:18px;">Support ref: ${code}</div>
       </div>`;
     document.body.appendChild(ov);
     document.body.style.overflow = 'hidden';
@@ -4884,28 +5026,41 @@ if (TRIAL_ENABLED) (function(){
       const originalLabel = btn.textContent;
       btn.textContent = 'Checking…';
 
-      // Set it BEFORE checking so checkStaffTrial treats it as this
-      // device's own identity (its internal auto-unlock branch only fires
-      // for that case) — rolled back below unless it actually unlocks, so
-      // a mistyped number can't stick as a wrong permanent link.
-      const prevStaffNo = localStorage.getItem('sla_registered_staff_no');
+      // Stored BEFORE checking so checkStaffTrial treats it as this device's
+      // own identity (its auto-unlock branch only fires for that case), and
+      // now KEPT afterwards even when the answer is "not licensed yet". The
+      // old code rolled it back in that case, which quietly threw away the one
+      // identity that survives a browser change — leaving the phone with
+      // nothing but its device fingerprint, and therefore a fresh trial the
+      // next time it was opened somewhere else. Keeping it cannot help anyone
+      // cheat: a Staff No only ever RAISES the day count, since the trial
+      // clock is max(local elapsed, server days).
       localStorage.setItem('sla_registered_staff_no', typed);
       const data = await checkStaffTrial(typed, '');
 
       if (!document.getElementById('sla-lock-overlay')) return; // checkStaffTrial already unlocked it
 
-      if (prevStaffNo) localStorage.setItem('sla_registered_staff_no', prevStaffNo);
-      else localStorage.removeItem('sla_registered_staff_no');
-
       btn.disabled = false;
       btn.textContent = originalLabel;
-      msg.style.display = 'block';
-      if (!data) {
-        msg.style.color = '#f87171';
-        msg.textContent = 'Could not reach the server — check your internet and try again.';
-      } else {
-        msg.style.color = '#f59e0b';
-        msg.textContent = 'Not confirmed yet for this Staff No. If you already paid, wait for the owner to confirm — otherwise, follow Steps 1–3 above.';
+      const msgColor = data ? '#f59e0b' : '#f87171';
+      const msgText = data
+        ? 'Saved. Not confirmed yet for this Staff No — if you have already paid, wait for the owner to confirm. Otherwise follow Steps 2–4 below.'
+        : 'Could not reach the server — check your internet and try again.';
+
+      // When the overlay was built there was no Staff No, so its payment
+      // reference and WhatsApp message still read "[Your Staff No]". Now that
+      // one is saved, rebuild the screen so every step shows it, then put the
+      // message back on the fresh copy.
+      if (!regStaff) {
+        ov.remove();
+        document.body.style.overflow = '';
+        showLock();
+      }
+      const msgEl = document.getElementById('sla-staffno-check-msg');
+      if (msgEl) {
+        msgEl.style.color = msgColor;
+        msgEl.textContent = msgText;
+        msgEl.style.display = 'block';
       }
     }
     document.getElementById('sla-staffno-check-btn').addEventListener('click', checkStaffNoAndActivate);
@@ -4915,15 +5070,34 @@ if (TRIAL_ENABLED) (function(){
 
     document.getElementById('sla-activate-btn').addEventListener('click', function() {
       const entered = document.getElementById('sla-key-input').value.trim().toUpperCase();
-      // Staff-No key when a staff no is registered; device-code key only for
-      // the never-uploaded fallback. Matches key_generator.html's logic.
-      const expected = regStaff ? _staffToKey(regStaff) : _codeToKey(code);
+      // Staff-No keys ONLY. The device-code key was removed: _deviceCode() is
+      // identical for any two crew on the same phone model, language and
+      // timezone, so one device key unlocked all of them — the exact hole the
+      // July staff-no migration set out to close, but left open as a "legacy
+      // fallback". Read live from storage rather than the captured regStaff,
+      // so a Staff No just saved in Step 1 works without a reload.
+      const keyStaff = localStorage.getItem('sla_registered_staff_no') || '';
+      const errEl = document.getElementById('sla-activate-err');
+      if (!keyStaff) {
+        errEl.textContent = 'Enter and save your Staff No in Step 1 first.';
+        errEl.style.display = 'block';
+        return;
+      }
+      const expected = _staffToKey(keyStaff);
       if (entered === expected) {
         localStorage.setItem('sla_licensed', '1');
+        // Record WHICH device activated this Staff No. The key formula and its
+        // salt necessarily ship inside the page, so a determined person can
+        // forge one; logging every activation makes that visible as a single
+        // Staff No lighting up across many device codes, which is what the
+        // owner can actually act on.
+        fetch(PING_URL + '?activated=1&staffNo=' + encodeURIComponent(keyStaff) +
+              '&code=' + encodeURIComponent(code), { mode: 'no-cors' }).catch(function(){});
         ov.remove();
         document.body.style.overflow = '';
       } else {
-        document.getElementById('sla-activate-err').style.display = 'block';
+        errEl.textContent = 'Invalid key for this Staff No. Please check and try again.';
+        errEl.style.display = 'block';
       }
     });
   }
