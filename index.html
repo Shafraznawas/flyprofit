@@ -8468,8 +8468,8 @@ function lookupSchedule(flightNo) {
      block is a guaranteed no-op (single early-return, nothing else
      runs — no localStorage writes, no DOM changes, no listeners).
      Delete this entire <script> tag to remove the system cleanly.
-     Shares its key formula 1:1 with the standalone key_generator.html
-     — keep _LIC_SALT identical in both files.
+     Activation keys are checked by the server, not here — this file
+     no longer contains the key formula or its secret.
      ══════════════════════════════════════════════════════════════ -->
 <script>
 const TRIAL_ENABLED = true;
@@ -8481,22 +8481,16 @@ if (TRIAL_ENABLED) (function(){
   // replace this digest with its SHA-256, together.
   const OWNER_HASH = 'd81a497fd9a92730595a2d130bd79e498c3e6b1db4567767d52ac4eb8bf20ba9';
   const OWNER_WHATSAPP = '94770077902';
-  const _LIC_SALT = 'SLA-FLYPROFIT-2026';                      // TODO: change once, then keep identical in key_generator.html
   // PING_URL, _hashStr, _deviceCode are now defined in the always-on
   // "ROSTER IDENTITY MONITORING" block above (shared with the roster
   // upload monitoring, which must run for licensed devices too).
-
-
-  // Staff-No-based key — the preferred format: a Staff No is unique per
-  // person (unlike the device fingerprint, which is identical for crew on
-  // the same phone model/language/timezone, so device keys were shareable).
-  // '-STAFF' domain-separates the two formulas. Keep byte-identical to
-  // key_generator.html.
-  function _staffToKey(staffNo) {
-    const combined = String(staffNo).split('').reverse().join('') + _LIC_SALT + '-STAFF';
-    const h = _hashStr(combined).toString(36).toUpperCase().padStart(8, '0').slice(0, 8);
-    return h.slice(0, 4) + '-' + h.slice(4, 8);
-  }
+  //
+  // There is deliberately NO key formula and NO salt in this file any more.
+  // Both used to live here, which meant the recipe for a valid activation key
+  // was readable by anyone who opened the page source — and this app is a
+  // single public HTML file, so "anyone" is everyone. The formula now lives
+  // only in the Apps Script backend and in the owner's local key generator;
+  // the app types a key in and is told yes or no.
 
   const params = new URLSearchParams(location.search);
 
@@ -8785,35 +8779,68 @@ document.body.appendChild(ov);
 
     document.getElementById('sla-activate-btn').addEventListener('click', function() {
       const entered = document.getElementById('sla-key-input').value.trim().toUpperCase();
-      // Staff-No keys ONLY. The device-code key was removed: _deviceCode() is
-      // identical for any two crew on the same phone model, language and
-      // timezone, so one device key unlocked all of them — the exact hole the
-      // July staff-no migration set out to close, but left open as a "legacy
-      // fallback". Read live from storage rather than the captured regStaff,
-      // so a Staff No just saved in Step 1 works without a reload.
+      // The key is checked BY THE SERVER now, not here.
+      //
+      // It used to be checked in this file, against a formula and a secret
+      // word that shipped a few lines above. That is unfixable in a public
+      // single-file app: anyone who opened the page source could work out the
+      // correct key for their own Staff No and never pay. Nothing about the
+      // formula is in this file any more — the app sends what was typed and is
+      // told yes or no. The server also stamps the Staff No as Licensed on the
+      // sheet, so the same person unlocks on any future phone or browser
+      // through Step 1 alone, with no second key needed.
+      //
+      // Read live from storage rather than the captured regStaff, so a Staff
+      // No just saved in Step 1 works without a reload.
       const keyStaff = localStorage.getItem('sla_registered_staff_no') || '';
       const errEl = document.getElementById('sla-activate-err');
+      const actBtn = document.getElementById('sla-activate-btn');
       if (!keyStaff) {
         errEl.textContent = 'Enter and save your Staff No in Step 1 first.';
         errEl.style.display = 'block';
         return;
       }
-      const expected = _staffToKey(keyStaff);
-      if (entered === expected) {
-        localStorage.setItem('sla_licensed', '1');
-        // Record WHICH device activated this Staff No. The key formula and its
-        // salt necessarily ship inside the page, so a determined person can
-        // forge one; logging every activation makes that visible as a single
-        // Staff No lighting up across many device codes, which is what the
-        // owner can actually act on.
-        fetch(PING_URL + '?activated=1&staffNo=' + encodeURIComponent(keyStaff) +
-              '&code=' + encodeURIComponent(code), { mode: 'no-cors' }).catch(function(){});
-        ov.remove();
-        document.body.style.overflow = '';
-      } else {
-        errEl.textContent = 'Invalid key for this Staff No. Please check and try again.';
+      if (!entered) {
+        errEl.textContent = 'Enter the activation key we sent you.';
+        errEl.style.display = 'block';
+        return;
+      }
+      errEl.style.display = 'none';
+      const actLabel = actBtn.textContent;
+      actBtn.disabled = true;
+      actBtn.textContent = 'Checking…';
+
+      function actFail(text) {
+        actBtn.disabled = false;
+        actBtn.textContent = actLabel;
+        errEl.textContent = text;
         errEl.style.display = 'block';
       }
+
+      fetch(PING_URL + '?activateKey=1&staffNo=' + encodeURIComponent(keyStaff) +
+            '&key=' + encodeURIComponent(entered) +
+            '&code=' + encodeURIComponent(code))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          // keyChecked is the server's proof that it actually understood this
+          // request. Requiring it means no other reply the endpoint might give
+          // — including from an older backend that has never heard of
+          // activateKey — can ever be mistaken for a valid key.
+          if (data && data.keyChecked === true && data.valid === true) {
+            localStorage.setItem('sla_licensed', '1');
+            ov.remove();
+            document.body.style.overflow = '';
+            return;
+          }
+          if (data && data.keyChecked === true) {
+            actFail('Invalid key for this Staff No. Please check and try again.');
+          } else {
+            actFail('We could not check your key just now. Try "Recheck My Staff No" in Step 1, or message us on WhatsApp.');
+          }
+        })
+        .catch(function() {
+          actFail('Could not reach the server — check your internet and try again.');
+        });
     });
   }
 
