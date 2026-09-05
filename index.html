@@ -8153,6 +8153,26 @@ function _localDateStr(d) {
          String(t.getDate()).padStart(2, '0');
 }
 
+// True when two Staff Nos are the same person written slightly differently.
+//
+// Three different places write sla_registered_staff_no: the first-launch
+// screen and the lock screen (both trimmed and upper-cased) and the roster
+// reader, which stores whatever the PDF happened to print. Every check
+// below used to be an exact string compare, so "9529" saved once and
+// "09529" read off a roster later counted as two different people — and
+// the sheet-driven unlock, which is gated on that compare, quietly never
+// fired even when the Licensed column said YES.
+//
+// Case and spacing are ignored, and so are leading zeros on the digits. A
+// letter prefix is NOT ignored: C1234 and 1234 are two different crew
+// members and must never be treated as one.
+function _sameStaffNo(a, b) {
+  const norm = function(v) { return String(v === null || v === undefined ? '' : v).toUpperCase().replace(/[^A-Z0-9]/g, ''); };
+  const loose = function(v) { const s = norm(v); const m = s.match(/^([A-Z]*)0*(\d+)$/); return m ? m[1] + m[2] : s; };
+  if (!norm(a) || !norm(b)) return false;
+  return norm(a) === norm(b) || loose(a) === loose(b);
+}
+
 function _trialDaysFor(startMs) {
   const key = _localDateStr(startMs);
   return key >= NEW_INSTALL_CUTOFF ? NEW_TRIAL_DAYS : OLD_TRIAL_DAYS;
@@ -8248,7 +8268,7 @@ async function registerAndCheckRosterIdentity(identity, durationsPayload) {
   let restriction = null;
   try { restriction = JSON.parse(localStorage.getItem('sla_restriction_status') || 'null'); } catch (e) {}
   const lockedStaffNo = localStorage.getItem('sla_registered_staff_no');
-  if (restriction && restriction.restricted && identity.staffNo !== lockedStaffNo) {
+  if (restriction && restriction.restricted && !_sameStaffNo(identity.staffNo, lockedStaffNo)) {
     return { allowed: false, message: `This device is registered to Staff No ${lockedStaffNo}. Please use your own device to calculate your salary.` };
   }
 
@@ -8271,7 +8291,7 @@ async function registerAndCheckRosterIdentity(identity, durationsPayload) {
   // the owner's own whitelisted one) becomes a free pass for testing/
   // processing someone else's expired roster, since those local flags say
   // nothing about the uploaded identity's own license status.
-  const isOwnIdentity = identity.staffNo === lockedStaffNo;
+  const isOwnIdentity = _sameStaffNo(identity.staffNo, lockedStaffNo);
   const deviceExempt = (isOwnIdentity && localStorage.getItem('sla_licensed') === '1')
     || (isOwnIdentity && localStorage.getItem('sla_owner_whitelisted') === '1');
   if (!deviceExempt) {
@@ -8314,7 +8334,7 @@ function checkStaffTrial(staffNo, name) {
   // from the owner's own phone). Sending this device's own start date for
   // a different person's Staff No would wrongly seed their row with this
   // device's install history instead of their own.
-  const startParam = staffNo === localStorage.getItem('sla_registered_staff_no') ? _trialStartStr() : '';
+  const startParam = _sameStaffNo(staffNo, localStorage.getItem('sla_registered_staff_no')) ? _trialStartStr() : '';
   // Returns its promise (resolving to the parsed verdict, or null/undefined
   // on failure) so callers that need an AUTHORITATIVE answer before
   // proceeding — the upload gate below — can await it, while callers that
@@ -8336,7 +8356,7 @@ function checkStaffTrial(staffNo, name) {
       verdicts[staffNo] = { daysSince: data.daysSince, licensed: !!data.licensed, trialDays: data.trialDays || OLD_TRIAL_DAYS };
       localStorage.setItem('sla_staff_trial_verdicts', JSON.stringify(verdicts));
 
-      if (staffNo !== localStorage.getItem('sla_registered_staff_no')) return;
+      if (!_sameStaffNo(staffNo, localStorage.getItem('sla_registered_staff_no'))) return;
 
       localStorage.setItem('sla_server_days_since', String(data.daysSince));
       localStorage.setItem('sla_server_days_since_staff', staffNo);
