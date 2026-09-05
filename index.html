@@ -8500,12 +8500,20 @@ if (TRIAL_ENABLED) (function(){
 
   const params = new URLSearchParams(location.search);
 
-  // Owner bypass — permanent whitelist, forever. Checked by hashing whatever
-  // was typed and comparing digests, so a wrong guess learns nothing and the
-  // real secret never appears in the shipped file. SubtleCrypto is async, so
-  // this stores the flag and reloads; the synchronous check right below then
-  // catches it on the next pass. Devices whitelisted under the old plaintext
-  // check already hold the flag and are unaffected.
+  // Owner bypass — permanent whitelist, forever. The stored flag is checked
+  // FIRST, and returns before the hash check below is even started. That
+  // order matters: the check is asynchronous, so on a load that was already
+  // whitelisted it would still resolve, store the flag again and reload —
+  // and reload again on the next pass, endlessly, for as long as ?owner=…
+  // stayed in the address bar.
+  if (localStorage.getItem('sla_owner_whitelisted') === '1') return;
+
+  // Checked by hashing whatever was typed and comparing digests, so a wrong
+  // guess learns nothing and the real secret never appears in the shipped
+  // file. SubtleCrypto is async, so this stores the flag and reloads; the
+  // synchronous check above then catches it on the next pass. Devices
+  // whitelisted under the old plaintext check already hold the flag and are
+  // unaffected.
   const _ownerParam = params.get('owner');
   if (_ownerParam && window.crypto && crypto.subtle) {
     crypto.subtle.digest('SHA-256', new TextEncoder().encode(_ownerParam))
@@ -8518,7 +8526,6 @@ if (TRIAL_ENABLED) (function(){
       })
       .catch(function(){});
   }
-  if (localStorage.getItem('sla_owner_whitelisted') === '1') return;
 
   // Already activated on this device
   if (localStorage.getItem('sla_licensed') === '1') return;
