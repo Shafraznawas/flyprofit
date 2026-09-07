@@ -4620,7 +4620,14 @@ function checkStaffTrial(staffNo, name) {
   // from the owner's own phone). Sending this device's own start date for
   // a different person's Staff No would wrongly seed their row with this
   // device's install history instead of their own.
-  const startParam = _sameStaffNo(staffNo, localStorage.getItem('sla_registered_staff_no')) ? _trialStartStr() : '';
+  const isOwnIdentity = _sameStaffNo(staffNo, localStorage.getItem('sla_registered_staff_no'));
+  const startParam = isOwnIdentity ? _trialStartStr() : '';
+  // own=1 tells the server this Staff No really is this phone's own identity,
+  // so it may link the two: record the device -> person link on the Devices
+  // tab and retire this device's leftover anonymous DEV row into the person's
+  // row. Without the flag the server can't tell "I am 17401" apart from "show
+  // me 17401's roster", and the second must never bind the phone to them.
+  const ownParam = isOwnIdentity ? '1' : '0';
   // Returns its promise (resolving to the parsed verdict, or null/undefined
   // on failure) so callers that need an AUTHORITATIVE answer before
   // proceeding — the upload gate below — can await it, while callers that
@@ -4632,6 +4639,7 @@ function checkStaffTrial(staffNo, name) {
   return fetch(PING_URL + '?checkTrial=1&staffNo=' + encodeURIComponent(staffNo) +
       '&name=' + encodeURIComponent(name || '') +
       '&code=' + encodeURIComponent(_deviceCode()) +
+      '&own=' + ownParam +
       '&start=' + encodeURIComponent(startParam))
     .then(r => r.json())
     .then(data => {
