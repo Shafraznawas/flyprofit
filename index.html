@@ -7466,9 +7466,16 @@ function buildDocsIcs() {
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+    // Downloading is only half the job on a phone — nothing imports the file
+    // on its own, and the old copy said "iPhone" only, so an Android user was
+    // left with a downloaded file and no idea it still needed opening. Spell
+    // out the last step for both, because this is where people stop.
+    const android = /Android/i.test(navigator.userAgent);
     show('var(--tx3)', ready
-      + 'It saved as a file called <b>flyprofit-reminders.ics</b>. Open that file and choose your Calendar app.<br>'
-      + 'On iPhone look in <b>Files → Downloads</b>.');
+      + '<b>One more step — the file is saved but not added yet.</b><br>'
+      + (android
+          ? 'Open <b>My Files → Downloads</b>, tap <b>flyprofit-reminders.ics</b>, then choose your <b>Calendar</b> app.'
+          : 'Open <b>Files → Downloads</b>, tap <b>flyprofit-reminders.ics</b>, then tap <b>Add All</b>.'));
   });
 
   $('btnDocsClear').addEventListener('click', async () => {
