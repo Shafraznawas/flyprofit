@@ -7418,7 +7418,18 @@ function buildDocsIcs() {
     refreshDocsStatus();
   });
 
-  $('btnDocsCalendar').addEventListener('click', () => {
+  // Hands the .ics to the phone's own share sheet, and only falls back to a
+  // download when the phone won't share files.
+  //
+  // A plain <a download> was the ONLY route here before, and in this app it
+  // silently did nothing. FlyProfit is installed (manifest display:standalone),
+  // and a standalone window has no download bar, no downloads shelf and — on
+  // iOS — no download manager at all, so the click was swallowed with no file
+  // and no error. The old code then printed "N reminders ready" regardless,
+  // which is why this looked like it had worked every time it hadn't. The
+  // share sheet is the route that actually exists inside an installed app:
+  // iOS offers Calendar for an .ics, Android offers the calendar app.
+  $('btnDocsCalendar').addEventListener('click', async () => {
     const msg = $('docsCalendarMsg');
     const built = buildDocsIcs();
     if (!built.count) {
@@ -7427,6 +7438,26 @@ function buildDocsIcs() {
       msg.textContent = 'Add at least one expiry date first — there is nothing to remind you about yet.';
       return;
     }
+
+    const show = (color, html) => { msg.style.display = 'block'; msg.style.color = color; msg.innerHTML = html; };
+    const ready = `<b style="color:var(--green);">${built.count} reminder${built.count === 1 ? '' : 's'} ready.</b><br>`;
+
+    const file = new File([built.ics], 'flyprofit-reminders.ics', { type: 'text/calendar' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'FlyProfit Reminders' });
+        show('var(--tx3)', ready + 'Choose <b>Calendar</b> in the list that just opened, then tap <b>Add All</b>.');
+      } catch (err) {
+        // AbortError = they closed the share sheet themselves; not a failure.
+        if (err && err.name === 'AbortError') {
+          show('var(--tx3)', 'Cancelled — nothing was added. Tap the button again when you are ready.');
+        } else {
+          show('var(--amber)', 'Your phone would not open the share list. Try again, or tell me on WhatsApp what phone you have.');
+        }
+      }
+      return;
+    }
+
     const blob = new Blob([built.ics], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -7435,11 +7466,9 @@ function buildDocsIcs() {
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
-    msg.style.display = 'block';
-    msg.style.color = 'var(--tx3)';
-    msg.innerHTML = `<b style="color:var(--green);">${built.count} reminder${built.count === 1 ? '' : 's'} ready.</b><br>`
-      + 'On iPhone it saves to <b>Files</b> — open it from there and tap <b>Add All</b> to put them in your Calendar.<br>'
-      + 'On Android, tap the downloaded file and choose your Calendar app.';
+    show('var(--tx3)', ready
+      + 'It saved as a file called <b>flyprofit-reminders.ics</b>. Open that file and choose your Calendar app.<br>'
+      + 'On iPhone look in <b>Files → Downloads</b>.');
   });
 
   $('btnDocsClear').addEventListener('click', async () => {
