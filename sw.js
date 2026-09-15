@@ -6,7 +6,7 @@
 // on the phone no matter how many times the app is closed and reopened. A new
 // CACHE name is what forces install to re-fetch the assets and activate to
 // delete the stale cache.
-const CACHE = 'sla-salary-v207';
+const CACHE = 'sla-salary-v208';
 
 // Inbox for PDFs handed over by the Android share sheet. Deliberately a
 // SEPARATE cache from CACHE: the activate handler below wipes old asset
@@ -29,7 +29,19 @@ const ASSETS = [
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS).catch(() => {}))
+    caches.open(CACHE).then(cache =>
+      // cache:'reload' is what makes a version bump actually mean something.
+      // A plain addAll() still goes through the BROWSER's own HTTP cache, so
+      // a phone holding a recent copy of index.html would happily re-cache
+      // that same stale copy into the shiny new cache — the version changed,
+      // the bytes did not, and the update appeared to need several app opens
+      // before it "took". 'reload' bypasses the HTTP cache and refreshes it.
+      cache.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))
+        // Fall back to a plain addAll rather than leaving the cache empty if
+        // anything rejects (one bad asset, or a browser that dislikes the
+        // Request option) — a stale app still beats a broken offline one.
+        .catch(() => cache.addAll(ASSETS).catch(() => {}))
+    )
   );
 });
 
