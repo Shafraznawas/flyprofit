@@ -1,5 +1,12 @@
-﻿// SLA Salary Portal — Service Worker v209
-const CACHE = 'sla-salary-v233';
+﻿// SLA Salary Portal — Service Worker
+//
+// BUMP THIS ON EVERY index.html RELEASE. The fetch handler below is
+// cache-first, so a phone with the old index.html cached keeps serving it and
+// only refreshes in the background — meaning a shipped change can be invisible
+// on the phone no matter how many times the app is closed and reopened. A new
+// CACHE name is what forces install to re-fetch the assets and activate to
+// delete the stale cache.
+const CACHE = 'sla-salary-v234';
 
 // Inbox for PDFs handed over by the Android share sheet. Deliberately a
 // SEPARATE cache from CACHE: the activate handler below wipes old asset
