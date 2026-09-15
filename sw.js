@@ -6,7 +6,7 @@
 // on the phone no matter how many times the app is closed and reopened. A new
 // CACHE name is what forces install to re-fetch the assets and activate to
 // delete the stale cache.
-const CACHE = 'sla-salary-v206';
+const CACHE = 'sla-salary-v207';
 
 // Inbox for PDFs handed over by the Android share sheet. Deliberately a
 // SEPARATE cache from CACHE: the activate handler below wipes old asset

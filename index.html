@@ -4571,7 +4571,16 @@ function _trialStartStr() {
   const todayStr = _localDateStr(new Date());
   if (localStorage.getItem('sla_last_ping_date') === todayStr) return;
   localStorage.setItem('sla_last_ping_date', todayStr);
-  fetch(PING_URL + '?code=' + encodeURIComponent(_deviceCode()) + '&start=' + encodeURIComponent(_trialStartStr()), { mode: 'no-cors' }).catch(() => {});
+  // Carry the Staff No when this phone has one. The server could already fall
+  // back to the Staff No recorded against this device code, but that record is
+  // only written once — and on a phone's very first day the ping and the
+  // first-run Staff No check race each other, so it may not be there yet.
+  // Sending it means the day's activity lands on the person's own row from
+  // the very first ping instead of a DEV row that has to be merged in later.
+  const _pingStaff = localStorage.getItem('sla_registered_staff_no') || '';
+  fetch(PING_URL + '?code=' + encodeURIComponent(_deviceCode())
+        + (_pingStaff ? '&staffNo=' + encodeURIComponent(_pingStaff) : '')
+        + '&start=' + encodeURIComponent(_trialStartStr()), { mode: 'no-cors' }).catch(() => {});
 })();
 
 // Called on every roster upload. Registers the device's staff no on the
