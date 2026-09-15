@@ -1230,7 +1230,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
         <div class="card-body" style="padding:10px;">
           <div class="tbl-wrap">
             <table class="flights" id="flightTable">
-              <thead><tr><th>Date</th><th>Flight</th><th>Route</th><th>ATD</th><th>ATA</th><th>Block</th><th>Type</th><th>✓</th><th>Edit</th></tr></thead>
+              <thead><tr><th>Date</th><th>Flight</th><th>Route</th><th>ATD</th><th>ATA</th><th>Block</th><th>Type</th><th>✓</th><th title="Untick a flight to leave it out of this month's pay">Count</th><th>Edit</th></tr></thead>
               <tbody id="flightTableBody"></tbody>
             </table>
           </div>
@@ -3704,6 +3704,20 @@ function escapeHtml(str) {
 }
 
 // ---------- Flight table rendering ----------
+// The ONE rule for whether a sector feeds this month's pay. Both the flight
+// table and calculateSalary go through it, so what the Count column shows and
+// what the money is worked out from can never drift apart.
+//
+// Two separate reasons a flight sits out:
+//   * it belongs to the adjacent month's roster (boundarySeqIndices) — the
+//     app decides that, and the crew can't argue with a calendar;
+//   * f.excluded — the crew unticked it themselves, e.g. a sector they were
+//     offloaded from, or one already paid in a previous month's salary.
+function _countsTowardsPay(f, boundarySeqIndices) {
+  if (boundarySeqIndices && boundarySeqIndices.has(f.seqIndex)) return false;
+  return !f.excluded;
+}
+
 function getAllFlights() {
   return [...state.sectors, ...state.manualFlights];
 }
@@ -3719,7 +3733,7 @@ function renderFlightTable() {
   // (the actual exclusion happens in calculateSalary()) so the crew can see
   // up front why a flight isn't counted in this month's totals.
   const _boundarySeqIndices = findMonthBoundarySeqIndices(flights);
-  const _targetFlightsPreview = flights.filter(f => !_boundarySeqIndices.has(f.seqIndex));
+  const _targetFlightsPreview = flights.filter(f => _countsTowardsPay(f, _boundarySeqIndices));
   const _incompleteDutyId = findIncompleteTrailingDutyId(_targetFlightsPreview);
 
   flights.forEach((f, idx) => {
@@ -3729,7 +3743,8 @@ function renderFlightTable() {
 
     const isBoundary = _boundarySeqIndices.has(f.seqIndex);
     const isIncomplete = _incompleteDutyId != null && f.dutyId === _incompleteDutyId;
-    if (isBoundary) tr.style.opacity = '0.55';
+    const counted = _countsTowardsPay(f, _boundarySeqIndices);
+    if (!counted) tr.style.opacity = '0.55';
 
     const badgeClass = f.dutyType === 'Layover' ? 'layover' : f.dutyType === 'Combined' ? 'combined' : 'turn';
     const passBadge = f.isPassengering ? ' <span class="badge pass">P</span>' : '';
@@ -3743,9 +3758,17 @@ function renderFlightTable() {
       <td>${f.orig || '???'}-${f.dest || '???'}</td>
       <td>${f.atd || '??:??'}</td>
       <td>${f.ata || '??:??'}</td>
-      <td>${minutesToHHMM(f.blockMinutes)}</td>
+      <td${counted ? '' : ' style="text-decoration:line-through;"'}>${minutesToHHMM(f.blockMinutes)}</td>
       <td><span class="badge ${badgeClass}">${f.dutyType || '-'}</span>${boundaryBadge}${incompleteBadge}</td>
       <td>${hasIssue ? '<span style="color:#c0392b;">&#9888;</span>' : '<span style="color:#0a6640;">&#10003;</span>'}</td>
+      <td style="text-align:center;">
+        <input type="checkbox" class="flight-count-toggle" data-idx="${idx}"
+               ${counted ? 'checked' : ''} ${isBoundary ? 'disabled' : ''}
+               title="${isBoundary
+                 ? 'This sector belongs to the other month\'s roster, so it is never counted here'
+                 : 'Untick to leave this flight out of this month\'s pay'}"
+               style="width:18px;height:18px;${isBoundary ? 'opacity:.4;' : 'cursor:pointer;'}">
+      </td>
       <td>
         <button class="detail-edit-btn" data-idx="${idx}">Edit</button>
         <button class="detail-del-btn" data-idx="${idx}">Del</button>
@@ -3754,12 +3777,30 @@ function renderFlightTable() {
     tbody.appendChild(tr);
   });
 
-  const totalBlock = flights.reduce((s,f) => s + (f.blockMinutes||0), 0);
-  const turnCount = flights.filter(f => f.dutyType === 'Turn').length;
-  const layoverCount = flights.filter(f => f.dutyType === 'Layover').length;
-  const passCount = flights.filter(f => f.isPassengering).length;
+  // Summarise what's actually being PAID, not what was parsed — a total that
+  // still counted unticked sectors would contradict the money below it.
+  const counted = flights.filter(f => _countsTowardsPay(f, _boundarySeqIndices));
+  const totalBlock = counted.reduce((s,f) => s + (f.blockMinutes||0), 0);
+  const turnCount = counted.filter(f => f.dutyType === 'Turn').length;
+  const layoverCount = counted.filter(f => f.dutyType === 'Layover').length;
+  const passCount = counted.filter(f => f.isPassengering).length;
+  const leftOut = flights.filter(f => f.excluded && !_boundarySeqIndices.has(f.seqIndex)).length;
   $('flightSummaryLine').textContent =
-    `Total sectors: ${flights.length} | Total block hours: ${minutesToHHMM(totalBlock)} | Turn legs: ${turnCount} | Layover legs: ${layoverCount} | Passengering: ${passCount}`;
+    `Counted sectors: ${counted.length} | Block hours counted: ${minutesToHHMM(totalBlock)} | Turn legs: ${turnCount} | Layover legs: ${layoverCount} | Passengering: ${passCount}`
+    + (leftOut ? ` | Left out by you: ${leftOut}` : '');
+
+  tbody.querySelectorAll('.flight-count-toggle').forEach(box => {
+    box.addEventListener('change', () => {
+      const f = getAllFlights()[parseInt(box.dataset.idx)];
+      if (!f) return;
+      f.excluded = !box.checked;
+      // Re-render rather than patch this one row: unticking can change the
+      // RETURN PENDING badge on a different row (the trailing open duty moves),
+      // and it always changes the summary totals.
+      renderFlightTable();
+      updateStatCards();
+    });
+  });
 
   tbody.querySelectorAll('.detail-edit-btn').forEach(btn => {
     btn.addEventListener('click', () => openEditFlight(parseInt(btn.dataset.idx)));
@@ -3880,8 +3921,12 @@ function calculateSalary() {
   // month's own calculation, not this one. The manual per-flight overrides
   // further below still operate on the FULL `flights` array, so the crew can
   // always manually re-include a specific flight if they know better.
+  // _countsTowardsPay also drops any sector the crew unticked in the Count
+  // column of the flight table. Everything below works off targetFlights, so
+  // that single filter is what keeps an unticked flight out of flying pay,
+  // turnaround pay, overnight, layover allowance and meal deductions alike.
   const _boundarySeqIndices = findMonthBoundarySeqIndices(flights);
-  const targetFlights = flights.filter(f => !_boundarySeqIndices.has(f.seqIndex));
+  const targetFlights = flights.filter(f => _countsTowardsPay(f, _boundarySeqIndices));
   // A duty still open at the trailing edge (return leg not yet visible in
   // this roster) still has its OUTBOUND leg's meal deduction calculated
   // normally (calculateMealDeductions works per-sector for layovers, and we
@@ -3948,7 +3993,9 @@ function calculateSalary() {
   let flyingPay;
   if (blockOverrideMin !== null) {
     // Use override total, preserving acting CM split from sectors
-    const actingCMMin = flights.reduce((s, f) => s + (f.actingCM ? (f.blockMinutes||0) : 0), 0);
+    // targetFlights, not flights: an unticked sector must not drag its acting
+    // CM minutes into the override split either.
+    const actingCMMin = targetFlights.reduce((s, f) => s + (f.actingCM ? (f.blockMinutes||0) : 0), 0);
     const standardMin = Math.max(0, blockOverrideMin - actingCMMin);
     const tier1Min = Math.min(standardMin, 75 * 60);
     const tier2Min = Math.max(0, standardMin - 75 * 60);
@@ -4873,7 +4920,11 @@ function setUploadStatus(text,cls,fileName){
 
 // Stat cards
 function updateStatCards(){
-  const flights=getAllFlights();
+  const all=getAllFlights();
+  // Same counted-only basis as the flight table's summary line, so the stat
+  // cards don't quietly report hours the salary below them never paid for.
+  const _boundary=findMonthBoundarySeqIndices(all);
+  const flights=all.filter(f=>_countsTowardsPay(f,_boundary));
   const totalBlock=flights.reduce((s,f)=>s+(f.blockMinutes||0),0);
   const turns=[...new Set(flights.filter(f=>f.dutyType==='Turn').map(f=>f.dutyId))].length;
   const layovers=[...new Set(flights.filter(f=>f.dutyType==='Layover').map(f=>f.dutyId))].length;
