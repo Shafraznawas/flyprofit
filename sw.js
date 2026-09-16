@@ -6,7 +6,7 @@
 // on the phone no matter how many times the app is closed and reopened. A new
 // CACHE name is what forces install to re-fetch the assets and activate to
 // delete the stale cache.
-const CACHE = 'sla-salary-v237';
+const CACHE = 'sla-salary-v238';
 
 // Inbox for PDFs handed over by the Android share sheet. Deliberately a
 // SEPARATE cache from CACHE: the activate handler below wipes old asset
@@ -15,6 +15,10 @@ const CACHE = 'sla-salary-v237';
 const SHARE_CACHE = 'sla-share-inbox';
 const SHARE_PATH = 'share-target';
 
+// Everything the app needs to work with no signal. pdf.min.js and jspdf.min.js
+// used to be pasted inside index.html, so they came along for free; now that
+// they are their own files they have to be listed here or the roster reader and
+// the PDF export would both die the moment the phone loses signal.
 const ASSETS = [
   './',
   './index.html',
@@ -23,6 +27,8 @@ const ASSETS = [
   './icon-192-v2.png',
   './icon-512-v2.png',
   './stations.json',
+  './pdf.min.js',
+  './jspdf.min.js',
   './pdf.worker.min.js',
 ];
 
