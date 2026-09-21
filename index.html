@@ -929,6 +929,14 @@ const NON_FLIGHT_DUTY_CODES = new Set([
   'SEP',
 ]);
 
+// The subset of the codes above that mean LEAVE rather than ground duty.
+// Leave cancels the 50-hour minimum guarantee, so unlike the rest of that
+// list these cannot just be dropped -- see the parser branch below.
+const LEAVE_DUTY_CODES = new Set([
+  'AWL','LWP','FEL','LMS','MTL','A/N','ACL','ALO','RLV',
+  'SAA','SAC','SAL','SAR','SAS','SBA','SBC','SBR','SOD','SSA','SSC',
+]);
+
 /**
  * POSITION-ANCHORED PARSER
  * ------------------------
@@ -1004,6 +1012,18 @@ function parseRosterText(lines) {
     // Silently ignored (not counted, no warning) rather than flagged as
     // unrecognized.
     if (NON_FLIGHT_DUTY_CODES.has(tokens[0])) {
+      // Ground duties are simply skipped. Leave has to leave a trace: it
+      // cancels the 50-hour minimum guarantee, and a line dropped here never
+      // reaches the guarantee check further down at all — which is why adding
+      // these codes to LEAVE_CODES alone would have done nothing.
+      //
+      // Matched on the exact activity code (tokens[0]), never by scanning the
+      // line text, because MTL, SAL, SAA and ALO are also real airport codes
+      // and a substring match would read a station as leave.
+      if (LEAVE_DUTY_CODES.has(tokens[0])) {
+        dutyLines.push({ date: t.date, kind: 'DayOff', raw: t.raw, isLeave: true, seqIndex: seqCounter++ });
+        continue;
+      }
       seqCounter++;
       continue;
     }
@@ -1174,8 +1194,12 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
   }
 
   // Detect leave codes that block minimum guarantee
+  // isLeave is set by the parser for a code it matched exactly. The four
+  // below stay a text match: they share a line start with the other DayOff
+  // codes (OFF, ROF, OTR, CDE, CFD, TOF) and have always been read this way.
   const LEAVE_CODES = ['S/L','CLV','ALV','ALP'];
-  const hasLeave = dutyLines.some(d => d.kind === 'DayOff' && LEAVE_CODES.some(lc => d.raw && d.raw.includes(lc)));
+  const hasLeave = dutyLines.some(d => d.kind === 'DayOff' &&
+    (d.isLeave || LEAVE_CODES.some(lc => d.raw && d.raw.includes(lc))));
   return { sectors, nonFlightMarkers, hasLeave };
 }
 
