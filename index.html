@@ -156,6 +156,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
 .badge.layover{background:rgba(248,113,113,.1);color:var(--red);}
 .badge.combined{background:rgba(251,191,36,.12);color:var(--amber);}
 .badge.pass{background:rgba(74,222,128,.1);color:var(--green);}
+.badge.mutual{background:rgba(168,85,247,.15);color:var(--purple3);white-space:nowrap;}
 .badge.standby,.badge.off{background:rgba(255,255,255,.05);color:var(--tx3);}
 .detail-edit-btn{background:none;border:none;color:var(--purple3);font-size:.7rem;cursor:pointer;padding:4px 8px;border-radius:4px;min-height:36px;}
 .detail-del-btn{background:none;border:none;color:var(--red);font-size:.7rem;cursor:pointer;padding:4px 8px;border-radius:4px;min-height:36px;}
@@ -632,7 +633,7 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
     <div id="ef-mutual-route-wrap" style="display:none;margin-bottom:10px;">
       <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;">EXTRA HOURS FROM THIS SWAP (OPTIONAL)</div>
       <input id="ef-mutual-hours" type="text" maxlength="6" placeholder="HH:MM  e.g. 02:00" inputmode="numeric" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:1rem;font-family:var(--mono);box-sizing:border-box;">
-      <div style="font-size:.68rem;margin-top:6px;line-height:1.4;font-weight:600;color:var(--green);">These hours are already in your total — they are not added again. They are paid at Tier 1 + $5, only when your month goes over 75:00.</div>
+      <div style="font-size:.68rem;margin-top:6px;line-height:1.4;font-weight:600;color:var(--green);">These hours are already in your total — they are not added again. When your month goes over 75:00, they are paid at Tier 1 + $5 instead of Tier 2.</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <button id="ef-cancel" style="padding:12px;border-radius:12px;border:1.5px solid var(--b2);background:transparent;color:var(--tx2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Cancel</button>
@@ -1522,14 +1523,10 @@ function calculateFlyingPay(sectors, hasLeave) {
     guaranteeApplied = true;
   }
 
-  // ── MUTUAL SWAP HOURS-DIFFERENCE BONUS ──────────────────────
-  // Optional, per-duty, and only ever matters once the month's real total
-  // (standardAccumMin, already including mutual hours as ordinary) passes
-  // 75h — a blank field, a minus number, or a month under 75h all mean:
-  // no bonus, pay stays exactly as computed above. A plus number re-prices
-  // that many minutes from ordinary rate up to Tier1+$5 — taken out of
-  // Tier 1 first (that's what "ordinary" means below 75h), spilling into
-  // Tier 2 only if the bonus is somehow larger than all of Tier 1.
+  // ── MUTUAL SWAP EXTRA HOURS ─────────────────────────────────
+  // Optional, per-duty, and only matters once the month's total passes 75h.
+  // Blank, or a month under 75h, leaves pay exactly as computed above. See
+  // applyMutualBonus: the swap's hours are paid at Tier1+$5 instead of Tier 2.
   const _mb = applyMutualBonus(ordered, standardAccumMin, tier1Min, tier2Min);
   tier1Min = _mb.tier1Min; tier2Min = _mb.tier2Min;
   const mutualBonusMin = _mb.bonusMin;
@@ -1551,11 +1548,13 @@ function calculateFlyingPay(sectors, hasLeave) {
 }
 
 // The mutual swap hours-difference rule, shared by the roster total and the
-// Block Override total so the two can never disagree. Only a PLUS difference
-// counts, and only once the month's ordinary total passes 75h: those minutes
-// are re-priced from ordinary rate up to Tier1+$5, taken out of Tier 1 first
-// (that is what 'ordinary' means below 75h). Counted once per duty — both
-// legs of the swap carry the same number.
+// Block Override total so the two can never disagree. The extra hours a swap
+// brought are already inside the month's total — never added on top — and
+// once the month passes 75h they do not earn overtime: they are paid at
+// Tier1+$5 INSTEAD of Tier 2. So they come out of Tier 2 first, which means a
+// swap lowers pay above 75h for every rank whose Tier 2 beats Tier1+$5. Only
+// if the swap hours exceed the month's Tier 2 hours does the rest come out of
+// Tier 1. Counted once per duty — both legs of the swap carry the same number.
 //
 // enteredMin is what the crew typed, whether or not it counted, so the salary
 // screen can say WHY a difference they entered didn't change anything instead
@@ -1570,9 +1569,9 @@ function applyMutualBonus(sectors, standardMin, tier1Min, tier2Min) {
   });
   let bonusMin = standardMin > TIER_THRESHOLD_MIN ? Math.min(enteredMin, tier1Min + tier2Min) : 0;
   if (bonusMin > 0) {
-    const fromTier1 = Math.min(bonusMin, tier1Min);
-    tier1Min -= fromTier1;
-    tier2Min -= (bonusMin - fromTier1);
+    const fromTier2 = Math.min(bonusMin, tier2Min);
+    tier2Min -= fromTier2;
+    tier1Min -= (bonusMin - fromTier2);
   }
   return { tier1Min, tier2Min, bonusMin, enteredMin };
 }
@@ -2140,12 +2139,17 @@ function renderFlightTable() {
     const badgeClass = f.dutyType === 'Layover' ? 'layover' : f.dutyType === 'Combined' ? 'combined' : 'turn';
     const passBadge = f.isPassengering ? ' <span class="badge pass">P</span>' : '';
     const cmBadge = f.actingCM ? ` <span class="badge verified">${getRates().actingLabel||'CM'}</span>` : '';
+    // Both legs of a swap carry the flag, so both show it — the swap can be
+    // spotted in the list without opening Edit.
+    const mutualBadge = f.isMutualSwap
+      ? ` <span class="badge mutual" title="Mutual swap${f._mutualHoursDiffMin > 0 ? ' — extra hours paid at Tier 1 + $5 instead of Tier 2 when the month is over 75:00' : ''}">🔄${f._mutualHoursDiffMin > 0 ? ' +' + minutesToHHMM(f._mutualHoursDiffMin) : ''}</span>`
+      : '';
     const boundaryBadge = isBoundary ? ' <span class="badge" title="Belongs to the adjacent month\'s roster — excluded from this month\'s pay">OTHER MONTH</span>' : '';
     const incompleteBadge = (!isBoundary && isIncomplete) ? ' <span class="badge" title="Return leg not shown in this roster — its meal deduction can\'t be calculated. This outbound leg\'s meal deduction IS included; add the return leg\'s manually via next month\'s edit">RETURN PENDING</span>' : '';
 
     tr.innerHTML = `
       <td>${f.date || '-'}</td>
-      <td>${f.flightNo}${passBadge}${cmBadge}</td>
+      <td>${f.flightNo}${passBadge}${cmBadge}${mutualBadge}</td>
       <td>${f.orig || '???'}-${f.dest || '???'}</td>
       <td>${f.atd || '??:??'}</td>
       <td>${f.ata || '??:??'}</td>
