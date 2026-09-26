@@ -630,13 +630,9 @@ table.flights tr.warn-row td{background:rgba(245,158,11,.06)!important;}
       </div>
     </div>
     <div id="ef-mutual-route-wrap" style="display:none;margin-bottom:10px;">
-      <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;">MUTUAL HOURS DIFFERENCE (OPTIONAL)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-        <button type="button" class="emsign-btn" data-sign="+" style="padding:12px;border-radius:10px;border:2px solid var(--b1);background:transparent;color:var(--tx2);font-size:1rem;font-weight:800;cursor:pointer;">＋ PLUS</button>
-        <button type="button" class="emsign-btn" data-sign="-" style="padding:12px;border-radius:10px;border:2px solid var(--b1);background:transparent;color:var(--tx2);font-size:1rem;font-weight:800;cursor:pointer;">－ MINUS</button>
-      </div>
+      <div style="font-size:.62rem;color:var(--tx3);font-family:var(--mono);letter-spacing:.06em;margin-bottom:6px;">EXTRA HOURS FROM THIS SWAP (OPTIONAL)</div>
       <input id="ef-mutual-hours" type="text" maxlength="6" placeholder="HH:MM  e.g. 02:00" inputmode="numeric" style="width:100%;background:var(--card2);border:1px solid var(--b1);border-radius:8px;padding:10px;color:var(--tx1);font-size:1rem;font-family:var(--mono);box-sizing:border-box;">
-      <div id="ef-mutual-hint" style="font-size:.68rem;margin-top:6px;line-height:1.4;font-weight:600;"></div>
+      <div style="font-size:.68rem;margin-top:6px;line-height:1.4;font-weight:600;color:var(--green);">These hours are already in your total — they are not added again. They are paid at Tier 1 + $5, only when your month goes over 75:00.</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <button id="ef-cancel" style="padding:12px;border-radius:12px;border:1.5px solid var(--b2);background:transparent;color:var(--tx2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:var(--sans);">Cancel</button>
@@ -2242,7 +2238,10 @@ async function openEditFlight(idx) {
   // A mutual swap is a full round-trip Turn duty, not a single leg — flagging
   // one sector applies it to every sector sharing the same dutyId too, so
   // the user only ever has to interact with one row.
-  flights.filter(x => x.dutyId === f.dutyId).forEach(x => {
+  // No dutyId yet (e.g. a manual flight edited before the first Calculate):
+  // undefined === undefined would match every ungrouped flight, so only this
+  // one is flagged.
+  flights.filter(x => f.dutyId == null ? x === f : x.dutyId === f.dutyId).forEach(x => {
     x.isMutualSwap = result.isMutualSwap;
     x._mutualHoursDiffMin = result.mutualHoursDiffMin;
   });
@@ -3696,29 +3695,10 @@ function showEditModal(f, title) {
     const mutualHoursInput = $('ef-mutual-hours');
     styleToggle('.emutual-btn', selectedMutual);
     mutualRouteWrap.style.display = selectedMutual ? 'block' : 'none';
-    // The sign is picked with the PLUS / MINUS buttons, never typed — the box
-    // holds hours only. Typing '+' was easy to miss and a phone's number pad
-    // has no plus or minus key anyway.
-    let mutualSign = (f._mutualHoursDiffMin != null && f._mutualHoursDiffMin < 0) ? '-' : '+';
-    mutualHoursInput.value = f._mutualHoursDiffMin != null ? minutesToHHMM(Math.abs(f._mutualHoursDiffMin)) : '';
-    const mutualHint = $('ef-mutual-hint');
-    const paintMutualSign = () => {
-      modal.querySelectorAll('.emsign-btn').forEach(b => {
-        const on = b.dataset.sign === mutualSign;
-        const col = b.dataset.sign === '+' ? 'var(--green)' : 'var(--red)';
-        b.style.background = on ? col : 'transparent';
-        b.style.borderColor = on ? col : 'var(--b1)';
-        b.style.color = on ? '#fff' : 'var(--tx2)';
-      });
-      mutualHint.style.color = mutualSign === '+' ? 'var(--green)' : 'var(--red)';
-      mutualHint.textContent = mutualSign === '+'
-        ? 'PLUS: these hours are paid at Tier 1 + $5 — only when your month goes over 75:00.'
-        : 'MINUS: saved for your record. It does not change your pay.';
-    };
-    paintMutualSign();
-    modal.querySelectorAll('.emsign-btn').forEach(b => {
-      b.onclick = () => { mutualSign = b.dataset.sign; paintMutualSign(); };
-    });
+    // Hours only, no sign: any number typed here is extra hours the swap
+    // brought, and only extra hours ever change pay. An old minus value from
+    // before this box lost its sign never paid anything, so it shows blank.
+    mutualHoursInput.value = f._mutualHoursDiffMin > 0 ? minutesToHHMM(f._mutualHoursDiffMin) : '';
     mutualHoursInput.oninput = () => {
       const d = mutualHoursInput.value.replace(/\D/g, '').slice(0, 4);
       mutualHoursInput.value = d.length >= 3 ? d.slice(0, -2) + ':' + d.slice(-2) : d;
@@ -3750,7 +3730,7 @@ function showEditModal(f, title) {
         manualMealDeductionAmount: mealAmountWrap.style.display === 'block' ? (parseFloat(mealAmountInput.value) || null) : null,
         manualTurnaroundPay: selectedTurn,
         isMutualSwap: selectedMutual,
-        mutualHoursDiffMin: selectedMutual ? parseSignedHHMM(mutualSign + (/^\d{1,2}$/.test(mutualHoursInput.value.trim()) ? mutualHoursInput.value.trim() + ':00' : mutualHoursInput.value.trim())) : null
+        mutualHoursDiffMin: selectedMutual ? parseSignedHHMM((/^\d{1,2}$/.test(mutualHoursInput.value.trim()) ? mutualHoursInput.value.trim() + ':00' : mutualHoursInput.value.trim())) : null
       });
     };
   });
