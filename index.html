@@ -1542,8 +1542,7 @@ function calculateFlyingPay(sectors, hasLeave) {
     tier1Min, tier2Min, actingCMMin, mutualSpecialMin: mutualBonusMin,
     tier1USD, tier2USD, actingCMUSD, mutualSpecialUSD, totalUSD,
     totalBlockMin: standardAccumMin + actingCMMin,
-    guaranteeApplied, guaranteeTopUpMin,
-    mutualEnteredMin: _mb.enteredMin
+    guaranteeApplied, guaranteeTopUpMin
   };
 }
 
@@ -1555,10 +1554,7 @@ function calculateFlyingPay(sectors, hasLeave) {
 // swap lowers pay above 75h for every rank whose Tier 2 beats Tier1+$5. Only
 // if the swap hours exceed the month's Tier 2 hours does the rest come out of
 // Tier 1. Counted once per duty — both legs of the swap carry the same number.
-//
-// enteredMin is what the crew typed, whether or not it counted, so the salary
-// screen can say WHY a difference they entered didn't change anything instead
-// of silently ignoring it.
+// Under 75h it changes nothing and the salary screen says nothing about it.
 function applyMutualBonus(sectors, standardMin, tier1Min, tier2Min) {
   let enteredMin = 0;
   const seen = new Set();
@@ -1573,7 +1569,7 @@ function applyMutualBonus(sectors, standardMin, tier1Min, tier2Min) {
     tier2Min -= fromTier2;
     tier1Min -= (bonusMin - fromTier2);
   }
-  return { tier1Min, tier2Min, bonusMin, enteredMin };
+  return { tier1Min, tier2Min, bonusMin };
 }
 
 // ============================================================
@@ -2409,7 +2405,7 @@ function calculateSalary() {
     flyingPay = {
       tier1Min, tier2Min, actingCMMin,
       tier1USD, tier2USD, actingCMUSD,
-      mutualSpecialMin: _mb.bonusMin, mutualSpecialUSD, mutualEnteredMin: _mb.enteredMin,
+      mutualSpecialMin: _mb.bonusMin, mutualSpecialUSD,
       totalUSD: tier1USD + tier2USD + actingCMUSD + mutualSpecialUSD,
       totalBlockMin: blockOverrideMin,
       overrideUsed: true
@@ -2665,9 +2661,7 @@ function renderResults(c) {
   const _payBreakdown = `$${_r.tier1.toFixed(2)} × ${t1hrs}${c.flyingPay.tier2Min>0?` + $${_r.tier2.toFixed(2)} × ${t2hrs}`:''}  = ${fmtUSD(c.flyingPay.tier1USD+c.flyingPay.tier2USD)} — meal deductions below`;
   html += row('Productive Pay', fmtLKR(productivePay), _payBreakdown);
   if (c.flyingPay.actingCMMin > 0) html += row(`Acting ${getRates().actingLabel||'CM'} Pay`, fmtLKR(c.flyingPay.actingCMUSD*c.dollarRate), fmtUSD(c.flyingPay.actingCMUSD));
-  if (c.flyingPay.mutualSpecialMin > 0) html += row('Mutual Swap Pay', fmtLKR(c.flyingPay.mutualSpecialUSD*c.dollarRate), `${minutesToHHMM(c.flyingPay.mutualSpecialMin)} at Tier1+$5 — ${fmtUSD(c.flyingPay.mutualSpecialUSD)}`);
-  else if (c.flyingPay.mutualEnteredMin > 0) html += `<div class="bk-row bk-sub-row" style="padding-left:20px;opacity:.9;"><span class="bk-lbl" style="font-size:.72rem;color:var(--amber);">🔄 Mutual +${minutesToHHMM(c.flyingPay.mutualEnteredMin)} not paid — month is under 75:00</span><span class="bk-val"></span></div>`;
-  html += row('Turnaround Pay', fmtLKR(c.turnaroundPayLKR), `${c.turnaroundPay.turnaroundCount} duties`);
+  if (c.flyingPay.mutualSpecialMin > 0) html += row('Mutual Swap Pay', fmtLKR(c.flyingPay.mutualSpecialUSD*c.dollarRate), `${minutesToHHMM(c.flyingPay.mutualSpecialMin)} at Tier1+$5 — ${fmtUSD(c.flyingPay.mutualSpecialUSD)}`);  html += row('Turnaround Pay', fmtLKR(c.turnaroundPayLKR), `${c.turnaroundPay.turnaroundCount} duties`);
   if (c.turnaroundPay && c.turnaroundPay.details && c.turnaroundPay.details.length > 0) {
     c.turnaroundPay.details.forEach((d) => {
       html += `<div class="bk-row bk-sub-row" style="padding-left:20px;opacity:.85;">
