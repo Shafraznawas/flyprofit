@@ -743,17 +743,21 @@ const OVERNIGHT_ALLOWANCE_RATE = 20.00; // USD per qualifying duty, fixed for CS
 const TIER_THRESHOLD_MIN = 75 * 60; // minutes
 
 // ---------- Category pay rates ----------
+// actingRate / actingRate2 are the HIGHER rank's Tier 1 / Tier 2: an acting
+// flight is paid at whichever one its place in the month's running total
+// falls in (see calculateFlyingPay). C4 acts as CM (20 / 38); C3 and below
+// act as CS, i.e. C4 rates (13.50 / 32).
 function getRates(catOverride) {
   switch(catOverride || (state && state.category) || 'CS') {
-    case 'CM':        return { tier1: 20.00, tier2: 38.00, overnight: 30.00, actingLabel: null,  actingRate: 0 };                                                     // C5
-    case 'FA_SENIOR': return { tier1:  8.50, tier2: 26.00, overnight: 18.00, actingLabel: 'CS',  actingRate: 13.50 };                                                 // C3
-    case 'FA_JUNIOR':     return { tier1:  6.50, tier2: 23.00, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, noMealDeductions: true };                     // C2 - New Contract
-    case 'FA_JUNIOR_OLD': return { tier1:  6.50, tier2: 23.00, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50 };                                             // C2 - Old Contract
-    case 'FA_C1':         return { tier1:  6.50, tier2: 11.50, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, noMealDeductions: true };                     // C1 - New Contract
-    case 'FA_C1_OLD':     return { tier1:  6.50, tier2: 11.50, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50 };                                             // C1 - Old Contract
-    case 'FA_C':          return { tier1:  6.50, tier2: 11.50, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, noTurnaround: true, noMealDeductions: true }; // C - New Contract
-    case 'FA_C_OLD':      return { tier1:  6.50, tier2: 11.50, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, noTurnaround: true };                         // C - Old Contract
-    default:              return { tier1: 13.50, tier2: 32.00, overnight: 20.00, actingLabel: 'CM',  actingRate: 20.00 };                                             // C4
+    case 'CM':        return { tier1: 20.00, tier2: 38.00, overnight: 30.00, actingLabel: null,  actingRate: 0, actingRate2: 0 };                                                     // C5
+    case 'FA_SENIOR': return { tier1:  8.50, tier2: 26.00, overnight: 18.00, actingLabel: 'CS',  actingRate: 13.50, actingRate2: 32.00 };                                                 // C3
+    case 'FA_JUNIOR':     return { tier1:  6.50, tier2: 23.00, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, actingRate2: 32.00, noMealDeductions: true };                     // C2 - New Contract
+    case 'FA_JUNIOR_OLD': return { tier1:  6.50, tier2: 23.00, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, actingRate2: 32.00 };                                             // C2 - Old Contract
+    case 'FA_C1':         return { tier1:  6.50, tier2: 11.50, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, actingRate2: 32.00, noMealDeductions: true };                     // C1 - New Contract
+    case 'FA_C1_OLD':     return { tier1:  6.50, tier2: 11.50, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, actingRate2: 32.00 };                                             // C1 - Old Contract
+    case 'FA_C':          return { tier1:  6.50, tier2: 11.50, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, actingRate2: 32.00, noTurnaround: true, noMealDeductions: true }; // C - New Contract
+    case 'FA_C_OLD':      return { tier1:  6.50, tier2: 11.50, overnight: 15.00, actingLabel: 'CS',  actingRate: 13.50, actingRate2: 32.00, noTurnaround: true };                         // C - Old Contract
+    default:              return { tier1: 13.50, tier2: 32.00, overnight: 20.00, actingLabel: 'CM',  actingRate: 20.00, actingRate2: 38.00 };                                             // C4
   }
 }
 
@@ -1483,30 +1487,34 @@ function calculateFlyingPay(sectors, hasLeave) {
   // Sort by seqIndex (parse order) — reliable, dates from PDF are not
   const ordered = [...sectors].sort((a,b) => (a.seqIndex ?? 0) - (b.seqIndex ?? 0));
 
+  // ONE running total from the 1st of the month, acting flights included.
+  // Whether a flight is paid below or above the 75h line depends only on
+  // where it falls in that total — an acting flight flown after the 75th hour
+  // is paid at the higher rank's Tier 2, one flown before it at the higher
+  // rank's Tier 1, exactly like an ordinary flight at the crew's own rates.
+  // (Acting hours used to sit outside the total at a flat rate: they never
+  // reached Tier 2, never pushed ordinary hours over 75h, and didn't count
+  // toward the 50h guarantee.)
   let standardAccumMin = 0;
-  let tier1Min = 0, tier2Min = 0, actingCMMin = 0;
+  let tier1Min = 0, tier2Min = 0, actingT1Min = 0, actingT2Min = 0;
 
   ordered.forEach(s => {
     const mins = s.blockMinutes || 0;
     if (s.isPassengering && s.dutyType === 'Layover') return; // no hourly pay for P on a layover; P on a Turn is still paid
-    if (s.actingCM) {
-      actingCMMin += mins;
-      return;
-    }
-    // Mutual-swap flights are counted as completely ordinary hours here —
-    // same Tier 1/Tier 2 fold as any other flight, whether the month ends
-    // up under or over 75h. The optional hours-difference bonus below is a
-    // separate top-up on top of this, never a replacement for it.
+    // Mutual-swap flights are counted as completely ordinary hours here;
+    // applyMutualBonus below re-prices the swap's extra hours afterwards.
     const remainingTier1 = Math.max(0, TIER_THRESHOLD_MIN - standardAccumMin);
     const intoTier1 = Math.min(mins, remainingTier1);
     const intoTier2 = mins - intoTier1;
-    tier1Min += intoTier1;
-    tier2Min += intoTier2;
+    if (s.actingCM) { actingT1Min += intoTier1; actingT2Min += intoTier2; }
+    else { tier1Min += intoTier1; tier2Min += intoTier2; }
     standardAccumMin += mins;
   });
+  const actingCMMin = actingT1Min + actingT2Min;
 
   // ── MINIMUM GUARANTEE: 50 hours ──────────────────────────
-  // Applied only when no leave (S/L, CLV, ALV, ALP) in the month
+  // Applied only when no leave in the month. Acting hours count toward the
+  // 50 like any others; the top-up itself is paid at the crew's own rate.
   const MIN_GUARANTEE_MIN = 50 * 60;
   let guaranteeApplied = false;
   let guaranteeTopUpMin = 0;
@@ -1534,14 +1542,15 @@ function calculateFlyingPay(sectors, hasLeave) {
   const rates = getRates();
   const tier1USD = minutesToDecimalHours(tier1Min) * rates.tier1;
   const tier2USD = minutesToDecimalHours(tier2Min) * rates.tier2;
-  const actingCMUSD = minutesToDecimalHours(actingCMMin) * rates.actingRate;
+  const actingCMUSD = minutesToDecimalHours(actingT1Min) * rates.actingRate
+                    + minutesToDecimalHours(actingT2Min) * rates.actingRate2;
   const mutualSpecialUSD = minutesToDecimalHours(mutualBonusMin) * (rates.tier1 + 5);
   const totalUSD = tier1USD + tier2USD + actingCMUSD + mutualSpecialUSD;
 
   return {
-    tier1Min, tier2Min, actingCMMin, mutualSpecialMin: mutualBonusMin,
+    tier1Min, tier2Min, actingCMMin, actingT1Min, actingT2Min, mutualSpecialMin: mutualBonusMin,
     tier1USD, tier2USD, actingCMUSD, mutualSpecialUSD, totalUSD,
-    totalBlockMin: standardAccumMin + actingCMMin,
+    totalBlockMin: standardAccumMin,
     guaranteeApplied, guaranteeTopUpMin
   };
 }
@@ -2390,20 +2399,28 @@ function calculateSalary() {
     // Use override total, preserving acting CM split from sectors
     // targetFlights, not flights: an unticked sector must not drag its acting
     // CM minutes into the override split either.
-    const actingCMMin = targetFlights.reduce((s, f) => s + (f.actingCM ? (f.blockMinutes||0) : 0), 0);
+    //
+    // The override is only a TOTAL — it says nothing about when each hour was
+    // flown — so where each acting flight falls against the 75h line is taken
+    // from the roster's own running order (the same pass the no-override path
+    // uses). The crew's ordinary hours then fill whatever is left below 75h.
+    const _rosterFP = calculateFlyingPay(targetFlights, true);
+    const actingT1Min = _rosterFP.actingT1Min, actingT2Min = _rosterFP.actingT2Min;
+    const actingCMMin = actingT1Min + actingT2Min;
     const standardMin = Math.max(0, blockOverrideMin - actingCMMin);
+    const ownT1Room = Math.max(0, TIER_THRESHOLD_MIN - actingT1Min);
     // The override replaces the roster's hour TOTAL, not the swaps inside it,
     // so the mutual difference still applies — previously this branch skipped
     // it entirely and a swap difference did nothing whenever an override was set.
-    const _mb = applyMutualBonus(targetFlights, standardMin,
-      Math.min(standardMin, 75 * 60), Math.max(0, standardMin - 75 * 60));
+    const _mb = applyMutualBonus(targetFlights, blockOverrideMin,
+      Math.min(standardMin, ownT1Room), Math.max(0, standardMin - ownT1Room));
     const tier1Min = _mb.tier1Min, tier2Min = _mb.tier2Min;
     const tier1USD = (tier1Min / 60) * _rates.tier1;
     const tier2USD = (tier2Min / 60) * _rates.tier2;
-    const actingCMUSD = (actingCMMin / 60) * _rates.actingRate;
+    const actingCMUSD = (actingT1Min / 60) * _rates.actingRate + (actingT2Min / 60) * _rates.actingRate2;
     const mutualSpecialUSD = (_mb.bonusMin / 60) * (_rates.tier1 + 5);
     flyingPay = {
-      tier1Min, tier2Min, actingCMMin,
+      tier1Min, tier2Min, actingCMMin, actingT1Min, actingT2Min,
       tier1USD, tier2USD, actingCMUSD,
       mutualSpecialMin: _mb.bonusMin, mutualSpecialUSD,
       totalUSD: tier1USD + tier2USD + actingCMUSD + mutualSpecialUSD,
@@ -2660,7 +2677,14 @@ function renderResults(c) {
   const _r = getRates();
   const _payBreakdown = `$${_r.tier1.toFixed(2)} × ${t1hrs}${c.flyingPay.tier2Min>0?` + $${_r.tier2.toFixed(2)} × ${t2hrs}`:''}  = ${fmtUSD(c.flyingPay.tier1USD+c.flyingPay.tier2USD)} — meal deductions below`;
   html += row('Productive Pay', fmtLKR(productivePay), _payBreakdown);
-  if (c.flyingPay.actingCMMin > 0) html += row(`Acting ${getRates().actingLabel||'CM'} Pay`, fmtLKR(c.flyingPay.actingCMUSD*c.dollarRate), fmtUSD(c.flyingPay.actingCMUSD));
+  if (c.flyingPay.actingCMMin > 0) {
+    // Say which rate each part got, the same way Tier 1 / Tier 2 are shown.
+    const _ar = getRates();
+    const _parts = [];
+    if (c.flyingPay.actingT1Min > 0) _parts.push(`${minutesToHHMM(c.flyingPay.actingT1Min)} @ $${_ar.actingRate.toFixed(2)}`);
+    if (c.flyingPay.actingT2Min > 0) _parts.push(`${minutesToHHMM(c.flyingPay.actingT2Min)} @ $${_ar.actingRate2.toFixed(2)}`);
+    html += row(`Acting ${_ar.actingLabel||'CM'} Pay`, fmtLKR(c.flyingPay.actingCMUSD*c.dollarRate), `${_parts.join(' + ')} — ${fmtUSD(c.flyingPay.actingCMUSD)}`);
+  }
   if (c.flyingPay.mutualSpecialMin > 0) html += row('Mutual Swap Pay', fmtLKR(c.flyingPay.mutualSpecialUSD*c.dollarRate), `${minutesToHHMM(c.flyingPay.mutualSpecialMin)} at Tier1+$5 — ${fmtUSD(c.flyingPay.mutualSpecialUSD)}`);  html += row('Turnaround Pay', fmtLKR(c.turnaroundPayLKR), `${c.turnaroundPay.turnaroundCount} duties`);
   if (c.turnaroundPay && c.turnaroundPay.details && c.turnaroundPay.details.length > 0) {
     c.turnaroundPay.details.forEach((d) => {
