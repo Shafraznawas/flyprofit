@@ -4,6 +4,7 @@
   "offsets": {
     "CMB": 5.5,
     "MLE": 5.0,
+    "GAN": 5.0,
     "DEL": 5.5,
     "BOM": 5.5,
     "MAA": 5.5,
@@ -81,6 +82,7 @@
   "names": {
     "CMB": "Colombo (Bandaranaike)",
     "MLE": "Male (Velana)",
+    "GAN": "Gan Island (Gan)",
     "DEL": "Delhi (Indira Gandhi)",
     "BOM": "Mumbai (Chhatrapati Shivaji)",
     "MAA": "Chennai",
