@@ -844,33 +844,28 @@ function minutesToDecimalHours(mins) {
 function calcBlockMinutes(orig, atd, dest, ata, ataNextDay) {
   if (!orig || !dest) return { minutes: null, error: 'Missing station code' };
 
-  // An airport missing from STATION_OFFSETS must never stop pay from being
-  // calculated — the crew flew the sector regardless of whether we know its
-  // time zone. Fall back to Colombo's own offset (correct for most of
-  // SriLankan's South Asian network, and exactly right for e.g. India) and
-  // still return real, payable minutes — just flag which station needs its
-  // real time zone added for full accuracy later.
-  const unknown = [orig, dest].filter(s => !(s in STATION_OFFSETS));
-  const origOffset = orig in STATION_OFFSETS ? STATION_OFFSETS[orig] : STATION_OFFSETS.CMB;
-  const destOffset = dest in STATION_OFFSETS ? STATION_OFFSETS[dest] : STATION_OFFSETS.CMB;
-
+  // The crew portal prints EVERY time in Sri Lanka time, at both ends of the
+  // leg — a Dubai arrival is printed as the Colombo clock reading at that
+  // moment, not Dubai's. Verified against a real roster: ATA − ATD equals the
+  // portal's own printed BLH on every leg (CMB-SIN 3:48, CMB-ICN 7:45,
+  // CMB-DXB 4:40 ...), and the month adds up to its printed 81:58.
+  //
+  // So block time is a plain clock difference, and no airport needs a time
+  // zone. This used to convert each end through its station's UTC offset,
+  // which was wrong on every foreign leg (CMB-SIN read 1:18, SIN-CMB 6:22).
+  // A round trip mostly cancelled out, which is why it went unnoticed — but a
+  // leg counted on its own (one side passengering, or the month edge) was
+  // paid wrong, and a long wrong outbound tripped the 6-hour layover rule.
   const atdMin = timeToMinutes(atd);
   const ataMin = timeToMinutes(ata);
   if (atdMin === null) return { minutes: null, error: 'Missing/invalid ATD' };
   if (ataMin === null) return { minutes: null, error: 'Missing/invalid ATA' };
 
-  const utcAtd = atdMin - origOffset * 60;
-  let utcAta = ataMin - destOffset * 60;
-  if (ataNextDay) utcAta += 1440;
-
-  let block = utcAta - utcAtd;
+  let block = ataMin - atdMin;
+  if (ataNextDay) block += 1440;
   while (block < 0) block += 1440;
 
-  const error = unknown.length
-    ? `${unknown.join(', ')} not in the airport list yet — hours estimated using Colombo's time zone. Add the real time zone to be exact.`
-    : null;
-
-  return { minutes: block, error };
+  return { minutes: block, error: null };
 }
 
 // ============================================================
@@ -976,6 +971,12 @@ function parseRosterText(lines) {
   for (let raw of lines) {
     const line = raw.trim();
     if (!line) continue;
+    // Everything after "Crew onboard" is the crew list, hotels and totals —
+    // never a duty. Its lines ("01OCT26 UL306 R. Guneratne (X) ...") start
+    // with a flight number, so they were read as duties and each raised an
+    // "Unrecognized line" warning. The section always comes after the last
+    // duty, so stop reading there.
+    if (/^Crew onboard\b/i.test(line)) break;
     if (skipPatterns.some(p => p.test(line))) continue;
     if (/;/.test(line) && /[A-Za-z][A-Za-z#'*$-]*\s[A-Za-z][A-Za-z#'*$-]*\s(?:[A-Za-z]{1,2}\d?)?\d{4,7}/.test(line)) continue; // crew name/duty-code header
 
@@ -1999,8 +2000,11 @@ function calculateLayoverAllowance(sectors, rateUSD) {
   // fact) combined with that station's own local clock, converted via its
   // UTC offset — the only way to safely compare two events at different
   // stations, since local clocks alone can't be combined across timezones.
+  // Every roster clock is Sri Lanka time (see calcBlockMinutes), whatever the
+  // station — so every event converts with CMB's offset. Using the foreign
+  // station's own offset here read Sri Lanka clocks as local ones.
   const utcAbs = (dayLabel, clockMin, stationCode) => {
-    const offset = STATION_OFFSETS[stationCode];
+    const offset = STATION_OFFSETS['CMB'];
     if (offset == null || dayLabel == null || clockMin == null) return null;
     return dayLabel * 1440 + clockMin - offset * 60;
   };
@@ -2209,7 +2213,10 @@ function renderFlightTable() {
   // Summarise what's actually being PAID, not what was parsed — a total that
   // still counted unticked sectors would contradict the money below it.
   const counted = flights.filter(f => _countsTowardsPay(f, _boundarySeqIndices));
-  const totalBlock = counted.reduce((s,f) => s + (f.blockMinutes||0), 0);
+  // Passengering on a layover earns no hourly pay (see calculateFlyingPay), so
+  // it is left out here too — this total should equal the roster's own BLH.
+  const totalBlock = counted.reduce((s,f) =>
+    s + ((f.isPassengering && f.dutyType === 'Layover') ? 0 : (f.blockMinutes||0)), 0);
   const turnCount = counted.filter(f => f.dutyType === 'Turn').length;
   const layoverCount = counted.filter(f => f.dutyType === 'Layover').length;
   const passCount = counted.filter(f => f.isPassengering).length;
