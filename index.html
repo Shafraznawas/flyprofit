@@ -838,34 +838,71 @@ function minutesToDecimalHours(mins) {
 }
 
 /**
- * Calculate block time using GMT/UTC conversion between two stations' local times.
- * Returns {minutes, error}
+ * Block time for one leg. Returns {minutes, error}.
+ *
+ * The crew portal prints rosters in ONE OF TWO clocks — and both are real:
+ *  - 'local'   : each time in that airport's own local time (e.g. UL315
+ *                "KUL 15:01 CMB 15:54" — 15:01 is Kuala Lumpur time).
+ *  - 'colombo' : every time in Sri Lanka time at both ends (e.g. UL306
+ *                "CMB 01:58 SIN 05:46" — 05:46 is the Colombo clock).
+ * Which one a roster uses is worked out per roster by detectRosterClock().
+ * Reading a roster in the wrong clock pays single legs wrong and can turn a
+ * turnaround into a "layover" through the 6-hour rule.
  */
-function calcBlockMinutes(orig, atd, dest, ata, ataNextDay) {
+function calcBlockMinutes(orig, atd, dest, ata, ataNextDay, clock = 'local') {
   if (!orig || !dest) return { minutes: null, error: 'Missing station code' };
 
-  // The crew portal prints EVERY time in Sri Lanka time, at both ends of the
-  // leg — a Dubai arrival is printed as the Colombo clock reading at that
-  // moment, not Dubai's. Verified against a real roster: ATA − ATD equals the
-  // portal's own printed BLH on every leg (CMB-SIN 3:48, CMB-ICN 7:45,
-  // CMB-DXB 4:40 ...), and the month adds up to its printed 81:58.
-  //
-  // So block time is a plain clock difference, and no airport needs a time
-  // zone. This used to convert each end through its station's UTC offset,
-  // which was wrong on every foreign leg (CMB-SIN read 1:18, SIN-CMB 6:22).
-  // A round trip mostly cancelled out, which is why it went unnoticed — but a
-  // leg counted on its own (one side passengering, or the month edge) was
-  // paid wrong, and a long wrong outbound tripped the 6-hour layover rule.
   const atdMin = timeToMinutes(atd);
   const ataMin = timeToMinutes(ata);
   if (atdMin === null) return { minutes: null, error: 'Missing/invalid ATD' };
   if (ataMin === null) return { minutes: null, error: 'Missing/invalid ATA' };
 
-  let block = ataMin - atdMin;
-  if (ataNextDay) block += 1440;
-  while (block < 0) block += 1440;
+  if (clock === 'colombo') {
+    let block = ataMin - atdMin;
+    if (ataNextDay) block += 1440;
+    while (block < 0) block += 1440;
+    return { minutes: block, error: null };
+  }
 
-  return { minutes: block, error: null };
+  // Local clock: convert each end through its airport's UTC offset. An airport
+  // missing from STATION_OFFSETS must never stop pay — fall back to Colombo's
+  // offset (right for India and close for most of the region) and flag it.
+  const unknown = [orig, dest].filter(x => !(x in STATION_OFFSETS));
+  const origOffset = orig in STATION_OFFSETS ? STATION_OFFSETS[orig] : STATION_OFFSETS.CMB;
+  const destOffset = dest in STATION_OFFSETS ? STATION_OFFSETS[dest] : STATION_OFFSETS.CMB;
+  const utcAtd = atdMin - origOffset * 60;
+  let utcAta = ataMin - destOffset * 60;
+  if (ataNextDay) utcAta += 1440;
+  let block = utcAta - utcAtd;
+  while (block < 0) block += 1440;
+  const error = unknown.length
+    ? `${unknown.join(', ')} not in the airport list yet — hours estimated using Colombo's time zone. Add the real time zone to be exact.`
+    : null;
+  return { minutes: block, error };
+}
+
+/**
+ * Which clock is this roster printed in? Looks at every out-and-back pair
+ * (CMB→X then X→CMB, X in a different time zone). Real out and back legs take
+ * about the same time; read in the wrong clock they differ by twice the time
+ * zone gap (KUL in the wrong clock: 6:02 out, 0:53 back). Whichever clock
+ * keeps the pairs closest wins. No such pair → 'local' (the app's long-time
+ * default; with no foreign time-zone gap both clocks give the same hours).
+ */
+function detectRosterClock(sectors) {
+  let gapLocal = 0, gapColombo = 0;
+  for (let i = 0; i + 1 < sectors.length; i++) {
+    const a = sectors[i], b = sectors[i + 1];
+    if (a.orig !== 'CMB' || b.dest !== 'CMB' || !a.dest || a.dest !== b.orig) continue;
+    if (!(a.dest in STATION_OFFSETS) || STATION_OFFSETS[a.dest] === STATION_OFFSETS.CMB) continue;
+    if (!a.atd || !a.ata || !b.atd || !b.ata) continue;
+    const leg = (s, c) => calcBlockMinutes(s.orig, s.atd, s.dest, s.ata, s.ataNextDay, c).minutes;
+    const lo = leg(a, 'local'), li = leg(b, 'local'), co = leg(a, 'colombo'), ci = leg(b, 'colombo');
+    if ([lo, li, co, ci].some(v => v == null)) continue;
+    gapLocal += Math.abs(lo - li);
+    gapColombo += Math.abs(co - ci);
+  }
+  return gapColombo < gapLocal ? 'colombo' : 'local';
 }
 
 // ============================================================
@@ -1235,9 +1272,11 @@ function buildSectorsFromDutyLines(dutyLines, warnings) {
 }
 
 function finalizeSectors(sectors) {
+  const clock = detectRosterClock(sectors);
   sectors.forEach(s => {
+    s.clock = clock; // kept on the sector so later edits and the layover allowance read it the same way
     if (s.orig && s.dest && s.atd && s.ata) {
-      const r = calcBlockMinutes(s.orig, s.atd, s.dest, s.ata, s.ataNextDay);
+      const r = calcBlockMinutes(s.orig, s.atd, s.dest, s.ata, s.ataNextDay, clock);
       s.blockMinutes = r.minutes;
       s.blockError = r.error;
     } else {
@@ -2000,11 +2039,12 @@ function calculateLayoverAllowance(sectors, rateUSD) {
   // fact) combined with that station's own local clock, converted via its
   // UTC offset — the only way to safely compare two events at different
   // stations, since local clocks alone can't be combined across timezones.
-  // Every roster clock is Sri Lanka time (see calcBlockMinutes), whatever the
-  // station — so every event converts with CMB's offset. Using the foreign
-  // station's own offset here read Sri Lanka clocks as local ones.
+  // A roster is printed either in each airport's local clock or all in Sri
+  // Lanka time (see calcBlockMinutes / detectRosterClock) — convert with the
+  // station's own offset only on a local-clock roster.
+  const _colombo = sectors.some(x => x.clock === 'colombo');
   const utcAbs = (dayLabel, clockMin, stationCode) => {
-    const offset = STATION_OFFSETS['CMB'];
+    const offset = _colombo ? STATION_OFFSETS['CMB'] : STATION_OFFSETS[stationCode];
     if (offset == null || dayLabel == null || clockMin == null) return null;
     return dayLabel * 1440 + clockMin - offset * 60;
   };
@@ -2276,7 +2316,7 @@ async function openEditFlight(idx) {
   f._manualMealDeductionAmount = result.manualMealDeductionAmount;
   f._manualTurnaroundPay = result.manualTurnaroundPay === 'auto' ? undefined : result.manualTurnaroundPay;
 
-  const r = calcBlockMinutes(f.orig, f.atd, f.dest, f.ata, false);
+  const r = calcBlockMinutes(f.orig, f.atd, f.dest, f.ata, false, f.clock || 'local');
   f.blockMinutes = r.minutes;
   f.blockError = r.error;
 
@@ -2312,7 +2352,8 @@ $('btnAddManualFlight').addEventListener('click', async () => {
   const _al2 = getRates().actingLabel;
   const actingCM = _al2 ? await showConfirm(`Was this flight Acting ${_al2}?`) : false;
 
-  const r = calcBlockMinutes(orig.toUpperCase().trim(), atd.trim(), dest.toUpperCase().trim(), ata.trim(), false);
+  const _clock = (state.sectors && state.sectors[0] && state.sectors[0].clock) || 'local';
+  const r = calcBlockMinutes(orig.toUpperCase().trim(), atd.trim(), dest.toUpperCase().trim(), ata.trim(), false, _clock);
   state.manualFlights.push({
     date: date.trim(), flightNo: flightNo.trim(), orig: orig.toUpperCase().trim(),
     atd: atd.trim(), dest: dest.toUpperCase().trim(), ata: ata.trim(),
