@@ -742,6 +742,7 @@ const RATE_TIER2 = 32.00;   // USD per hour, hours above 75
 const RATE_ACTING_CM = 20.00; // USD per hour, CS position with CM market
 const OVERNIGHT_ALLOWANCE_RATE = 20.00; // USD per qualifying duty, fixed for CS — does not change
 const TIER_THRESHOLD_MIN = 75 * 60; // minutes
+const LAYOVER_MIN_GROUND_MIN = 10 * 60; // a layover = at least 10 hours on the ground away from CMB
 
 // ---------- Category pay rates ----------
 // annualLeaveDayLKR is the flat rupee amount paid for each annual leave day
@@ -1380,6 +1381,18 @@ function groupIntoDuties(sectors, nonFlightMarkers) {
   //    at non-CMB destination = definitely a layover.
   //    No turnaround ever has 6+ hour outbound block time.
   //    MEL=10h, SYD=11h, LHR=10h, FRA=9h, CDG=9h etc.
+  function groundMinutesBetween(arr, dep) {
+    const d1 = _dayNum(arr.date), d2 = _dayNum(dep.date);
+    const t1 = timeToMinutes(arr.atd), t2 = timeToMinutes(dep.atd);
+    if (d1 == null || d2 == null || t1 == null || t2 == null || arr.blockMinutes == null) return null;
+    if (d2 < d1) return null; // crosses a month end — dates alone can't tell the gap
+    const off = (s, st) => (s.clock === 'colombo' ? STATION_OFFSETS.CMB : STATION_OFFSETS[st]);
+    const o1 = off(arr, arr.orig), o2 = off(dep, dep.orig);
+    if (o1 == null || o2 == null) return null;
+    const g = (d2 * 1440 + t2 - o2 * 60) - (d1 * 1440 + t1 - o1 * 60 + arr.blockMinutes);
+    return g >= 0 ? g : null;
+  }
+
   function hasLongGroundStop(group) {
     // Two signals — either triggers Layover:
     // 1. seqIndex gap > 1 between paired sectors = intervening roster lines = multi-day stay
@@ -1390,6 +1403,18 @@ function groupIntoDuties(sectors, nonFlightMarkers) {
 
       if (!curr.dest || curr.dest === 'CMB') continue;
       if (curr.dest !== next.orig) continue;
+
+      // The rule (owner, Nov 2026): a LAYOVER means at least 10 hours on the
+      // ground at another station. Ground time = next departure − this
+      // arrival, both taken to UTC (arrival = this departure + its block, so
+      // an after-midnight landing needs no date of its own). When both dates
+      // are readable this decides it outright; the old signals below are
+      // only a fallback (missing date, or the pair crosses a month end).
+      const ground = groundMinutesBetween(curr, next);
+      if (ground != null) {
+        if (ground >= LAYOVER_MIN_GROUND_MIN) return true;
+        continue;
+      }
 
       // Signal 1: seqIndex gap — use effectiveSeqIndex of curr
       // (handles split flights where curr spans 2 lines)
